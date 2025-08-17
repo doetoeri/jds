@@ -1,9 +1,12 @@
+'use client';
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword 
 } from 'firebase/auth';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -18,9 +21,19 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Firebase auth works with emails, so we'll convert the student ID to an email.
 const studentIdToEmail = (studentId: string) => `${studentId}@jongdalsem.com`;
+
+const generateJongdalCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 4; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 // Sign up function
 export const signUp = async (studentId: string, password: string, phone: string) => {
@@ -31,8 +44,18 @@ export const signUp = async (studentId: string, password: string, phone: string)
   
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    // You might want to store the phone number in your database (e.g., Firestore) here.
-    return userCredential.user;
+    const user = userCredential.user;
+
+    // Store user data in Firestore
+    await setDoc(doc(db, "users", user.uid), {
+      studentId: studentId,
+      phone: phone,
+      jongdalCode: generateJongdalCode(),
+      lak: 0,
+      createdAt: new Date(),
+    });
+
+    return user;
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {
       throw new Error('이미 등록된 학번입니다.');
@@ -46,6 +69,20 @@ export const signUp = async (studentId: string, password: string, phone: string)
 
 // Sign in function
 export const signIn = async (studentId: string, password: string) => {
+  // Allow admin login
+  if (studentId === 'admin') {
+     const email = studentIdToEmail(studentId);
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        return userCredential.user;
+      } catch (error: any) {
+         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            throw new Error('학번 또는 비밀번호가 올바르지 않습니다.');
+          }
+          throw new Error('로그인 중 오류가 발생했습니다.');
+      }
+  }
+
   if (!/^\d{5}$/.test(studentId)) {
     throw new Error('학번은 5자리 숫자여야 합니다.');
   }
@@ -62,4 +99,6 @@ export const signIn = async (studentId: string, password: string) => {
   }
 };
 
-export { auth };
+export { auth, db };
+
+    
