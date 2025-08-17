@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import {
   Avatar,
   AvatarFallback,
@@ -14,34 +17,59 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { auth } from '@/lib/firebase';
+import type { User } from 'firebase/auth';
 
 export function UserNav() {
+  const [user, setUser] = useState<User | null>(null);
+  const studentId = user?.email?.split('@')[0];
+  const isAdmin = studentId === 'admin';
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const getInitials = (studentId: string | undefined) => {
+    if (!studentId) return '학생';
+    if (isAdmin) return '관리';
+    return studentId.substring(studentId.length - 2);
+  }
+
+  if (!user) {
+    return null; // or a login button
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarImage src="https://placehold.co/100x100.png" alt="@student" data-ai-hint="person avatar" />
-            <AvatarFallback>학생</AvatarFallback>
+            <AvatarFallback>{getInitials(studentId)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">학생</p>
+            <p className="text-sm font-medium leading-none">{isAdmin ? '관리자' : '학생'}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              10203
+              {studentId}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/admin">관리자 페이지</Link>
-          </DropdownMenuItem>
+          {isAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href="/admin">관리자 페이지</Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
+        {isAdmin && <DropdownMenuSeparator />}
         <DropdownMenuItem asChild>
            <Link href="/">로그아웃</Link>
         </DropdownMenuItem>
