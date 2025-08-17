@@ -46,14 +46,15 @@ export default function SignupPage() {
         description: '로그인 페이지로 이동합니다.',
       });
       router.push('/login');
+      // On success, we navigate away, so the loading state will be reset on the new page.
+      // We stop the loading explicitly only on failure.
     } catch (error: any) {
        toast({
         title: '회원가입 실패',
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Stop loading on error
     }
   };
 

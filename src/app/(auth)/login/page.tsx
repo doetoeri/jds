@@ -30,6 +30,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signIn(email, password);
+      // Redirect will automatically handle the rest.
+      // No need to setIsLoading(false) here if the component unmounts.
       router.push('/dashboard');
     } catch (error: any) {
       toast({
@@ -37,9 +39,8 @@ export default function LoginPage() {
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
-    }
+      setIsLoading(false); // Stop loading only on error
+    } 
   };
 
   return (
