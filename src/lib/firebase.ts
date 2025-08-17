@@ -58,14 +58,16 @@ export const signUp = async (studentId: string, password: string, email: string)
     });
 
     // 2. Create the corresponding code in the 'codes' collection
+    // This assumes you want to add the user's own jongdal code to the general codes list
     const codeDocRef = doc(collection(db, "codes")); // Create a new doc with a random ID
     batch.set(codeDocRef, {
       code: newJongdalCode,
       type: '종달코드',
-      value: 2,
+      value: 2, // As requested, a user's own jongdal code is worth 2 Lak
       used: false,
       usedBy: null,
       createdAt: serverTimestamp(),
+      owner: user.uid // Optional: to track who this code belongs to
     });
 
     // Commit the batch
@@ -82,6 +84,7 @@ export const signUp = async (studentId: string, password: string, email: string)
     if (error.code === 'auth/invalid-email') {
       throw new Error('유효하지 않은 이메일 주소입니다.');
     }
+    console.error("Signup Error: ", error);
     throw new Error('회원가입 중 오류가 발생했습니다.');
   }
 };
@@ -163,6 +166,9 @@ export const useCode = async (userId: string, inputCode: string) => {
     }
 
     // 4. If not in 'codes', check if it's another user's 'jongdalCode'
+    // This logic might be redundant if all jongdal codes are now in the `codes` collection.
+    // However, keeping it provides backward compatibility and covers cases where a `jongdalCode` might be used by a friend.
+    // The typical flow for a friend's code is now handled by step 3.
     const usersQuery = query(collection(db, 'users'), where('jongdalCode', '==', upperCaseCode));
     const usersSnapshot = await getDocs(usersQuery);
 
@@ -176,9 +182,9 @@ export const useCode = async (userId: string, inputCode: string) => {
       const friendRef = friendDoc.ref;
       const friendData = friendDoc.data();
 
-      // Give points to the friend
+      // Give points to the friend (owner of the code)
       transaction.update(friendRef, { lak: friendData.lak + 1 });
-      // Give points to the current user
+      // Give points to the current user (who used the code)
       transaction.update(userRef, { lak: userData.lak + 1 });
       
       const descriptionForUser = `종달코드 사용 (친구: ${friendData.studentId})`;
