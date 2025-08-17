@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, History, QrCode } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Home, History, QrCode, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
+import { useLogout } from '@/hooks/use-logout';
 
 const links = [
   { name: '대시보드', href: '/dashboard', icon: Home },
@@ -14,6 +14,7 @@ const links = [
 
 export function DashboardNav() {
   const pathname = usePathname();
+  const { handleLogout } = useLogout();
 
   return (
     <nav className="flex flex-col gap-2">
@@ -33,6 +34,14 @@ export function DashboardNav() {
           </Button>
         );
       })}
+       <Button
+        variant="ghost"
+        className="justify-start mt-4"
+        onClick={handleLogout}
+      >
+        <LogOut className="mr-2 h-4 w-4" />
+        로그아웃
+      </Button>
     </nav>
   );
 }

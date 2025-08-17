@@ -17,10 +17,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { auth, db, handleSignOut } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
+import { useLogout } from '@/hooks/use-logout';
 
 interface UserData {
   studentId?: string;
@@ -30,7 +30,7 @@ interface UserData {
 export function UserNav() {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const router = useRouter();
+  const { handleLogout } = useLogout();
   
   const isAdmin = userData?.email === 'admin@jongdalsem.com';
 
@@ -43,7 +43,6 @@ export function UserNav() {
         if (userDoc.exists()) {
           setUserData(userDoc.data() as UserData);
         } else if (user.email === 'admin@jongdalsem.com') {
-          // Special case for admin user that may not be in firestore
           setUserData({ email: user.email });
         }
       } else {
@@ -53,18 +52,13 @@ export function UserNav() {
     return () => unsubscribe();
   }, []);
 
-  const onSignOut = async () => {
-    await handleSignOut();
-    router.push('/');
-  };
-
   const getInitials = (studentId: string | undefined) => {
     if (!studentId) return '학생';
     return studentId.substring(studentId.length - 2);
   }
 
   if (!user || !userData) {
-    return null; // or a login button
+    return null;
   }
 
   return (
@@ -95,7 +89,7 @@ export function UserNav() {
           )}
         </DropdownMenuGroup>
         {isAdmin && <DropdownMenuSeparator />}
-        <DropdownMenuItem onClick={onSignOut} className="cursor-pointer">
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
            로그아웃
         </DropdownMenuItem>
       </DropdownMenuContent>
