@@ -156,9 +156,10 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     // 3. Deduct Lak from user
     transaction.update(userRef, { lak: userData.lak - totalCost });
+    
+    const cartItemsDescription = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
 
     // 4. Create a single transaction history for the purchase
-    const cartItemsDescription = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
       date: serverTimestamp(),
@@ -166,6 +167,17 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
       amount: -totalCost,
       type: 'debit',
     });
+
+    // 5. Create a record in the global 'purchases' collection for admin viewing
+    const purchaseRef = doc(collection(db, 'purchases'));
+    transaction.set(purchaseRef, {
+        userId: userId,
+        studentId: userData.studentId,
+        items: cart, // Save the detailed cart
+        totalCost: totalCost,
+        createdAt: serverTimestamp(),
+    });
+
 
     return { success: true, message: `총 ${totalCost} Lak으로 상품을 구매했습니다!` };
   }).catch((error: any) => {
