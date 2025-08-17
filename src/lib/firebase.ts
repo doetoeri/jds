@@ -1,0 +1,65 @@
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword 
+} from 'firebase/auth';
+
+const firebaseConfig = {
+  projectId: 'jongdalsem-hub',
+  appId: '1:145118642611:web:3d29407e957e6ea4f18bc6',
+  storageBucket: 'jongdalsem-hub.firebasestorage.app',
+  apiKey: 'AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc',
+  authDomain: 'jongdalsem-hub.firebaseapp.com',
+  measurementId: '',
+  messagingSenderId: '145118642611',
+};
+
+// Initialize Firebase
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+
+// Firebase auth works with emails, so we'll convert the student ID to an email.
+const studentIdToEmail = (studentId: string) => `${studentId}@jongdalsem.com`;
+
+// Sign up function
+export const signUp = async (studentId: string, password: string, phone: string) => {
+  if (!/^\d{5}$/.test(studentId)) {
+    throw new Error('학번은 5자리 숫자여야 합니다.');
+  }
+  const email = studentIdToEmail(studentId);
+  
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // You might want to store the phone number in your database (e.g., Firestore) here.
+    return userCredential.user;
+  } catch (error: any) {
+    if (error.code === 'auth/email-already-in-use') {
+      throw new Error('이미 등록된 학번입니다.');
+    }
+    if (error.code === 'auth/weak-password') {
+      throw new Error('비밀번호는 6자리 이상이어야 합니다.');
+    }
+    throw new Error('회원가입 중 오류가 발생했습니다.');
+  }
+};
+
+// Sign in function
+export const signIn = async (studentId: string, password: string) => {
+  if (!/^\d{5}$/.test(studentId)) {
+    throw new Error('학번은 5자리 숫자여야 합니다.');
+  }
+  const email = studentIdToEmail(studentId);
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error: any) {
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+      throw new Error('학번 또는 비밀번호가 올바르지 않습니다.');
+    }
+    throw new Error('로그인 중 오류가 발생했습니다.');
+  }
+};
+
+export { auth };
