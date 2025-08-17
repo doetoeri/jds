@@ -4,7 +4,8 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword 
+  signInWithEmailAndPassword,
+  signOut,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 
@@ -76,6 +77,16 @@ export const signIn = async (email: string, password: string) => {
       throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
     throw new Error('로그인 중 오류가 발생했습니다.');
+  }
+};
+
+// Sign out function
+export const handleSignOut = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Error signing out: ", error);
+    throw new Error('로그아웃 중 오류가 발생했습니다.');
   }
 };
 

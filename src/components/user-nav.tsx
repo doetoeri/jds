@@ -17,7 +17,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { auth, db } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
+import { auth, db, handleSignOut } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
@@ -29,6 +30,7 @@ interface UserData {
 export function UserNav() {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const router = useRouter();
   
   const isAdmin = userData?.email === 'admin@jongdalsem.com';
 
@@ -50,6 +52,11 @@ export function UserNav() {
     });
     return () => unsubscribe();
   }, []);
+
+  const onSignOut = async () => {
+    await handleSignOut();
+    router.push('/');
+  };
 
   const getInitials = (studentId: string | undefined) => {
     if (!studentId) return '학생';
@@ -88,8 +95,8 @@ export function UserNav() {
           )}
         </DropdownMenuGroup>
         {isAdmin && <DropdownMenuSeparator />}
-        <DropdownMenuItem asChild>
-           <Link href="/">로그아웃</Link>
+        <DropdownMenuItem onClick={onSignOut} className="cursor-pointer">
+           로그아웃
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
