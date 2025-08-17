@@ -1,13 +1,13 @@
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getAuth, 
-  createUserWithEmailAndPassword, 
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, serverTimestamp, writeBatch, documentId, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, serverTimestamp, writeBatch, documentId, getDoc, updateDoc, increment } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -137,7 +137,42 @@ export const useCode = async (userId: string, inputCode: string) => {
       const errorMessage = typeof error === 'string' ? error : "코드 사용 중 오류가 발생했습니다.";
       return { success: false, message: errorMessage };
   });
-}
+};
+
+export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number }[], totalCost: number) => {
+  return await runTransaction(db, async (transaction) => {
+    // 1. Get user data
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) {
+      throw new Error("존재하지 않는 사용자입니다.");
+    }
+    const userData = userDoc.data();
+
+    // 2. Check if user has enough Lak
+    if (userData.lak < totalCost) {
+      throw new Error(`Lak이 부족합니다. 현재 보유 Lak: ${userData.lak}, 필요 Lak: ${totalCost}`);
+    }
+
+    // 3. Deduct Lak from user
+    transaction.update(userRef, { lak: userData.lak - totalCost });
+
+    // 4. Create a single transaction history for the purchase
+    const cartItemsDescription = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+      date: serverTimestamp(),
+      description: `상품 구매: ${cartItemsDescription}`,
+      amount: -totalCost,
+      type: 'debit',
+    });
+
+    return { success: true, message: `총 ${totalCost} Lak으로 상품을 구매했습니다!` };
+  }).catch((error: any) => {
+    console.error("Purchase error: ", error);
+    return { success: false, message: error.message || "구매 중 오류가 발생했습니다." };
+  });
+};
 
 
 export { auth, db };

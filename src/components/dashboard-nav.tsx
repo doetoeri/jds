@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, History, QrCode, LogOut, Loader2, Mail } from 'lucide-react';
+import { Home, History, QrCode, LogOut, Loader2, Mail, ShoppingCart } from 'lucide-react';
 import { Button } from './ui/button';
 import { useLogout } from '@/hooks/use-logout';
 
@@ -10,6 +10,7 @@ const links = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
+  { name: '쇼핑', href: '/dashboard/shop', icon: ShoppingCart },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
 ];
 
