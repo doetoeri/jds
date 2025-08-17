@@ -24,15 +24,6 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const generateJongdalCode = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 4; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
 // Sign up function
 export const signUp = async (studentId: string, password: string, email: string) => {
   if (!/^\d{5}$/.test(studentId)) {
@@ -42,36 +33,15 @@ export const signUp = async (studentId: string, password: string, email: string)
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    const newJongdalCode = generateJongdalCode();
-
-    // Create a batch to write to multiple documents atomically
-    const batch = writeBatch(db);
-
-    // 1. Create the user document
+    
+    // Create the user document
     const userDocRef = doc(db, "users", user.uid);
-    batch.set(userDocRef, {
+    await setDoc(userDocRef, {
       studentId: studentId,
       email: email,
-      jongdalCode: newJongdalCode,
       lak: 0,
       createdAt: serverTimestamp(),
     });
-
-    // 2. Create the corresponding code in the 'codes' collection
-    // This assumes you want to add the user's own jongdal code to the general codes list
-    const codeDocRef = doc(collection(db, "codes")); // Create a new doc with a random ID
-    batch.set(codeDocRef, {
-      code: newJongdalCode,
-      type: '종달코드',
-      value: 2, // As requested, a user's own jongdal code is worth 2 Lak
-      used: false,
-      usedBy: null,
-      createdAt: serverTimestamp(),
-      owner: user.uid // Optional: to track who this code belongs to
-    });
-
-    // Commit the batch
-    await batch.commit();
 
     return user;
   } catch (error: any) {
@@ -125,94 +95,43 @@ export const useCode = async (userId: string, inputCode: string) => {
     }
     const userData = userDoc.data();
 
-    // 2. Check if user is trying to use their own Jongdal code
-    if (userData.jongdalCode === upperCaseCode) {
-      throw "자신의 종달코드는 사용할 수 없습니다.";
-    }
-
-    // 3. Check for a code in the 'codes' collection first
+    // 2. Check for a code in the 'codes' collection
     const codesQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     const codesSnapshot = await getDocs(codesQuery);
 
-    if (!codesSnapshot.empty) {
-      const codeDoc = codesSnapshot.docs[0];
-      const codeRef = codeDoc.ref;
-      const codeData = codeDoc.data();
-
-      if (codeData.used) {
-        throw "이미 사용된 코드입니다.";
-      }
-
-      // Update user's Lak balance
-      transaction.update(userRef, { lak: userData.lak + codeData.value });
-
-      // Mark code as used
-      transaction.update(codeRef, {
-        used: true,
-        usedBy: userData.studentId,
-      });
-      
-      const description = `${codeData.type} "${codeData.code}" 사용`;
-      // Create transaction history
-      const historyRef = doc(collection(userRef, 'transactions'));
-      transaction.set(historyRef, {
-        date: serverTimestamp(),
-        description: description,
-        amount: codeData.value,
-        type: 'credit',
-      });
-      
-      return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!` };
-    }
-
-    // 4. If not in 'codes', check if it's another user's 'jongdalCode'
-    // This logic might be redundant if all jongdal codes are now in the `codes` collection.
-    // However, keeping it provides backward compatibility and covers cases where a `jongdalCode` might be used by a friend.
-    // The typical flow for a friend's code is now handled by step 3.
-    const usersQuery = query(collection(db, 'users'), where('jongdalCode', '==', upperCaseCode));
-    const usersSnapshot = await getDocs(usersQuery);
-
-    if (!usersSnapshot.empty) {
-      const friendDoc = usersSnapshot.docs[0];
-      // Ensure we're not rewarding the same user
-      if (friendDoc.id === userId) {
-          throw "자신의 종달코드는 사용할 수 없습니다.";
-      }
-      
-      const friendRef = friendDoc.ref;
-      const friendData = friendDoc.data();
-
-      // Give points to the friend (owner of the code)
-      transaction.update(friendRef, { lak: friendData.lak + 1 });
-      // Give points to the current user (who used the code)
-      transaction.update(userRef, { lak: userData.lak + 1 });
-      
-      const descriptionForUser = `종달코드 사용 (친구: ${friendData.studentId})`;
-      const descriptionForFriend = `친구가 종달코드를 사용했습니다 (${userData.studentId})`;
-
-      // Create transaction history for current user
-      const userHistoryRef = doc(collection(userRef, 'transactions'));
-      transaction.set(userHistoryRef, {
-          date: serverTimestamp(),
-          description: descriptionForUser,
-          amount: 1,
-          type: 'credit'
-      });
-      
-      // Create transaction history for the friend
-      const friendHistoryRef = doc(collection(friendRef, 'transactions'));
-      transaction.set(friendHistoryRef, {
-          date: serverTimestamp(),
-          description: descriptionForFriend,
-          amount: 1,
-          type: 'credit'
-      });
-
-      return { success: true, message: `친구의 종달코드를 사용하여 1 Lak을 적립했습니다! 친구에게도 1 Lak이 지급되었습니다.` };
+    if (codesSnapshot.empty) {
+       throw "유효하지 않은 코드입니다.";
     }
     
-    // 5. If no code is found anywhere
-    throw "유효하지 않은 코드입니다.";
+    const codeDoc = codesSnapshot.docs[0];
+    const codeRef = codeDoc.ref;
+    const codeData = codeDoc.data();
+
+    if (codeData.used) {
+      throw "이미 사용된 코드입니다.";
+    }
+
+    // Update user's Lak balance
+    transaction.update(userRef, { lak: userData.lak + codeData.value });
+
+    // Mark code as used
+    transaction.update(codeRef, {
+      used: true,
+      usedBy: userData.studentId,
+    });
+    
+    const description = `${codeData.type} "${codeData.code}" 사용`;
+    // Create transaction history
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+      date: serverTimestamp(),
+      description: description,
+      amount: codeData.value,
+      type: 'credit',
+    });
+    
+    return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!` };
+
   }).catch((error) => {
       console.error("Code redemption error: ", error);
       const errorMessage = typeof error === 'string' ? error : "코드 사용 중 오류가 발생했습니다.";

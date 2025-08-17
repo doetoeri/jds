@@ -24,7 +24,6 @@ interface User {
   id: string;
   studentId: string;
   email: string;
-  jongdalCode: string;
   lak: number;
 }
 
@@ -56,7 +55,6 @@ export default function AdminUsersPage() {
             <TableRow>
               <TableHead>학번</TableHead>
               <TableHead>이메일</TableHead>
-              <TableHead>종달 코드</TableHead>
               <TableHead className="text-right">보유 Lak</TableHead>
             </TableRow>
           </TableHeader>
@@ -66,7 +64,6 @@ export default function AdminUsersPage() {
                 <TableRow key={index}>
                   <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
                 </TableRow>
               ))
@@ -75,7 +72,6 @@ export default function AdminUsersPage() {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.studentId}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell className="font-mono">{user.jongdalCode}</TableCell>
                   <TableCell className="text-right">{user.lak.toLocaleString()} Lak</TableCell>
                 </TableRow>
               ))
