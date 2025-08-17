@@ -192,10 +192,10 @@ export default function ShopPage() {
                   <AlertDialogDescription>
                     정말로 구매하시겠습니까? 구매 후에는 취소할 수 없습니다.
                     <div className="mt-4 p-3 bg-muted rounded-md">
-                        <p className="font-bold">구매 목록:</p>
-                        <p className="text-sm">{getCartDescription()}</p>
-                        <p className="font-bold mt-2">총 사용 Lak:</p>
-                        <p className="text-sm text-primary font-bold">{totalCost.toLocaleString()} Lak</p>
+                        <div className="font-bold">구매 목록:</div>
+                        <div className="text-sm">{getCartDescription()}</div>
+                        <div className="font-bold mt-2">총 사용 Lak:</div>
+                        <div className="text-sm text-primary font-bold">{totalCost.toLocaleString()} Lak</div>
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
