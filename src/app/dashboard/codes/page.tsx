@@ -81,6 +81,7 @@ export default function CodesPage() {
                   placeholder="코드를 입력하세요" 
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
+                  disabled={isLoading}
                   />
               </div>
             </div>

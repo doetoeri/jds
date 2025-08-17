@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, History, QrCode, LogOut } from 'lucide-react';
+import { Home, History, QrCode, LogOut, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useLogout } from '@/hooks/use-logout';
 
@@ -14,7 +14,7 @@ const links = [
 
 export function DashboardNav() {
   const pathname = usePathname();
-  const { handleLogout } = useLogout();
+  const { handleLogout, isLoggingOut } = useLogout();
 
   return (
     <nav className="flex flex-col gap-2">
@@ -38,8 +38,9 @@ export function DashboardNav() {
         variant="ghost"
         className="justify-start mt-4"
         onClick={handleLogout}
+        disabled={isLoggingOut}
       >
-        <LogOut className="mr-2 h-4 w-4" />
+        {isLoggingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
         로그아웃
       </Button>
     </nav>

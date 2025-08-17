@@ -28,7 +28,8 @@ export default function LoginPage() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (user) {
-        router.push('/dashboard');
+        // Redirect is handled by the login function to ensure loading state is managed.
+        // router.push('/dashboard');
       }
     });
     return () => unsubscribe();
@@ -39,8 +40,9 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signIn(email, password);
-      // Redirect will automatically handle the rest via onAuthStateChanged.
-      // No need to setIsLoading(false) here if the component unmounts.
+      // The onAuthStateChanged listener will eventually redirect,
+      // but we push here to make sure the user is navigated away.
+      // The loading state will persist until the new page loads.
       router.push('/dashboard');
     } catch (error: any) {
       toast({
@@ -71,6 +73,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -81,6 +84,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
           </div>
         </CardContent>
@@ -91,7 +95,7 @@ export default function LoginPage() {
           </Button>
           <div className="text-center text-sm">
             계정이 없으신가요?{' '}
-            <Link href="/signup" className="font-semibold text-primary underline">
+            <Link href="/signup" className={`font-semibold text-primary underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
               회원가입
             </Link>
           </div>

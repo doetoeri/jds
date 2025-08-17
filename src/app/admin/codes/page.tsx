@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,6 +57,8 @@ export default function AdminCodesPage() {
   const [codes, setCodes] = useState<Code[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   const [newCode, setNewCode] = useState('');
   const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | ''>('');
@@ -89,6 +91,7 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "모든 필드를 채워주세요.", variant: "destructive" });
       return;
     }
+    setIsCreating(true);
     try {
       await addDoc(collection(db, 'codes'), {
         code: newCode.toUpperCase(),
@@ -106,17 +109,22 @@ export default function AdminCodesPage() {
       fetchCodes(); // Refresh the list
     } catch (error) {
       toast({ title: "오류", description: "코드 생성에 실패했습니다.", variant: "destructive" });
+    } finally {
+      setIsCreating(false);
     }
   };
   
   const handleDeleteCode = async (codeId: string) => {
     if (!confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    setIsDeleting(codeId);
     try {
       await deleteDoc(doc(db, 'codes', codeId));
       toast({ title: "성공", description: "코드를 삭제했습니다." });
       fetchCodes(); // Refresh the list
     } catch (error) {
        toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -149,13 +157,13 @@ export default function AdminCodesPage() {
                 <Label htmlFor="code-value" className="text-right">
                   코드
                 </Label>
-                <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} />
+                <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="code-type" className="text-right">
                   유형
                 </Label>
-                <Select onValueChange={(value) => setNewCodeType(value as any)}>
+                <Select onValueChange={(value) => setNewCodeType(value as any)} disabled={isCreating}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="코드 유형 선택" />
                   </SelectTrigger>
@@ -170,14 +178,17 @@ export default function AdminCodesPage() {
                 <Label htmlFor="lak-value" className="text-right">
                   Lak 값
                 </Label>
-                <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} />
+                <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} disabled={isCreating} />
               </div>
             </div>
             <DialogFooter>
                <DialogClose asChild>
-                <Button variant="outline">취소</Button>
+                <Button variant="outline" disabled={isCreating}>취소</Button>
               </DialogClose>
-              <Button type="submit" onClick={handleCreateCode}>생성하기</Button>
+              <Button type="submit" onClick={handleCreateCode} disabled={isCreating}>
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                생성하기
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -222,13 +233,13 @@ export default function AdminCodesPage() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
+                        <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isDeleting === c.id}>
+                          {isDeleting === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                           <span className="sr-only">Toggle menu</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)}>
+                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)} disabled={isDeleting !== null}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           삭제
                         </DropdownMenuItem>

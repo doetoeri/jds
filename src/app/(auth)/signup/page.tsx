@@ -46,8 +46,6 @@ export default function SignupPage() {
         description: '로그인 페이지로 이동합니다.',
       });
       router.push('/login');
-      // On success, we navigate away, so the loading state will be reset on the new page.
-      // We stop the loading explicitly only on failure.
     } catch (error: any) {
        toast({
         title: '회원가입 실패',
@@ -76,6 +74,7 @@ export default function SignupPage() {
               required
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -87,6 +86,7 @@ export default function SignupPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -97,6 +97,7 @@ export default function SignupPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -107,6 +108,7 @@ export default function SignupPage() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
             />
           </div>
         </CardContent>
@@ -117,7 +119,7 @@ export default function SignupPage() {
           </Button>
           <div className="text-center text-sm">
             이미 계정이 있으신가요?{' '}
-            <Link href="/login" className="font-semibold text-primary underline">
+            <Link href="/login" className={`font-semibold text-primary underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
               로그인
             </Link>
           </div>

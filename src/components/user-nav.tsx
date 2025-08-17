@@ -21,6 +21,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { useLogout } from '@/hooks/use-logout';
+import { Loader2 } from 'lucide-react';
 
 interface UserData {
   studentId?: string;
@@ -30,7 +31,7 @@ interface UserData {
 export function UserNav() {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const { handleLogout } = useLogout();
+  const { handleLogout, isLoggingOut } = useLogout();
   
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -47,15 +48,11 @@ export function UserNav() {
             if (userDoc.exists()) {
               setUserData(userDoc.data() as UserData);
             } else {
-              // This case might happen if user exists in Auth but not Firestore.
-              // Log out or handle as an error state.
               console.error("User document not found in Firestore for UID:", user.uid);
               setUserData(null);
             }
           } catch (error) {
             console.error("Error fetching user document:", error);
-            // The error from the prompt likely happens here.
-            // We set userData to null to prevent render errors.
             setUserData(null);
           }
         }
@@ -105,7 +102,8 @@ export function UserNav() {
           )}
         </DropdownMenuGroup>
         {isAdmin && <DropdownMenuSeparator />}
-        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" disabled={isLoggingOut}>
+           {isLoggingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
            로그아웃
         </DropdownMenuItem>
       </DropdownMenuContent>

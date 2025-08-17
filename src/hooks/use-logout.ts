@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { handleSignOut } from '@/lib/firebase';
 import { useToast } from './use-toast';
@@ -7,8 +8,10 @@ import { useToast } from './use-toast';
 export function useLogout() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await handleSignOut();
       toast({ title: '로그아웃 되었습니다.' });
@@ -19,8 +22,9 @@ export function useLogout() {
         description: error.message,
         variant: 'destructive',
       });
+      setIsLoggingOut(false);
     }
   };
 
-  return { handleLogout };
+  return { handleLogout, isLoggingOut };
 }
