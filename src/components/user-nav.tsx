@@ -32,18 +32,32 @@ export function UserNav() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const { handleLogout } = useLogout();
   
-  const isAdmin = userData?.email === 'admin@jongdalsem.com';
-
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user);
       if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUserData(userDoc.data() as UserData);
-        } else if (user.email === 'admin@jongdalsem.com') {
+        // Handle admin user separately without a Firestore doc
+        if (user.email === 'admin@jongdalsem.com') {
           setUserData({ email: user.email });
+        } else {
+          // For regular users, fetch data from Firestore
+          const userDocRef = doc(db, 'users', user.uid);
+          try {
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              setUserData(userDoc.data() as UserData);
+            } else {
+              // This case might happen if user exists in Auth but not Firestore.
+              // Log out or handle as an error state.
+              console.error("User document not found in Firestore for UID:", user.uid);
+              setUserData(null);
+            }
+          } catch (error) {
+            console.error("Error fetching user document:", error);
+            // The error from the prompt likely happens here.
+            // We set userData to null to prevent render errors.
+            setUserData(null);
+          }
         }
       } else {
         setUserData(null);
@@ -56,6 +70,8 @@ export function UserNav() {
     if (!studentId) return '학생';
     return studentId.substring(studentId.length - 2);
   }
+
+  const isAdmin = userData?.email === 'admin@jongdalsem.com';
 
   if (!user || !userData) {
     return null;
