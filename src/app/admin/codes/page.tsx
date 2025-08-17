@@ -115,7 +115,7 @@ export default function AdminCodesPage() {
   };
   
   const handleDeleteCode = async (codeId: string) => {
-    if (!confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    if (!window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
     setIsDeleting(codeId);
     try {
       await deleteDoc(doc(db, 'codes', codeId));
