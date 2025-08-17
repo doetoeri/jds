@@ -42,15 +42,34 @@ export const signUp = async (studentId: string, password: string, email: string)
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+    const newJongdalCode = generateJongdalCode();
 
-    // Store user data in Firestore
-    await setDoc(doc(db, "users", user.uid), {
+    // Create a batch to write to multiple documents atomically
+    const batch = writeBatch(db);
+
+    // 1. Create the user document
+    const userDocRef = doc(db, "users", user.uid);
+    batch.set(userDocRef, {
       studentId: studentId,
-      email: email, // The user's actual email
-      jongdalCode: generateJongdalCode(),
+      email: email,
+      jongdalCode: newJongdalCode,
       lak: 0,
       createdAt: serverTimestamp(),
     });
+
+    // 2. Create the corresponding code in the 'codes' collection
+    const codeDocRef = doc(collection(db, "codes")); // Create a new doc with a random ID
+    batch.set(codeDocRef, {
+      code: newJongdalCode,
+      type: '종달코드',
+      value: 2,
+      used: false,
+      usedBy: null,
+      createdAt: serverTimestamp(),
+    });
+
+    // Commit the batch
+    await batch.commit();
 
     return user;
   } catch (error: any) {
