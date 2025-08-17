@@ -36,20 +36,20 @@ const generateJongdalCode = () => {
 }
 
 // Sign up function
-export const signUp = async (studentId: string, password: string, phone: string) => {
+export const signUp = async (studentId: string, password: string, email: string) => {
   if (!/^\d{5}$/.test(studentId)) {
     throw new Error('학번은 5자리 숫자여야 합니다.');
   }
-  const email = studentIdToEmail(studentId);
+  const authEmail = studentIdToEmail(studentId);
   
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, authEmail, password);
     const user = userCredential.user;
 
     // Store user data in Firestore
     await setDoc(doc(db, "users", user.uid), {
       studentId: studentId,
-      phone: phone,
+      email: email,
       jongdalCode: generateJongdalCode(),
       lak: 0,
       createdAt: new Date(),
@@ -100,5 +100,3 @@ export const signIn = async (studentId: string, password: string) => {
 };
 
 export { auth, db };
-
-    

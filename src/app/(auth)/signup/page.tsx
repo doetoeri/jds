@@ -21,7 +21,7 @@ import { signUp } from '@/lib/firebase';
 
 export default function SignupPage() {
   const [studentId, setStudentId] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +40,7 @@ export default function SignupPage() {
     }
     setIsLoading(true);
     try {
-      await signUp(studentId, password, phone);
+      await signUp(studentId, password, email);
       toast({
         title: '회원가입 성공',
         description: '로그인 페이지로 이동합니다.',
@@ -78,14 +78,14 @@ export default function SignupPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone">전화번호</Label>
+            <Label htmlFor="email">이메일</Label>
             <Input
-              id="phone"
-              type="tel"
-              placeholder="010-1234-5678"
+              id="email"
+              type="email"
+              placeholder="hello@example.com"
               required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="space-y-2">
