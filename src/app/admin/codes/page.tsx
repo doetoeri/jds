@@ -38,7 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -66,11 +66,18 @@ export default function AdminCodesPage() {
 
   const fetchCodes = async () => {
     setIsLoading(true);
-    const codesCollection = collection(db, 'codes');
-    const codeSnapshot = await getDocs(codesCollection);
-    const codeList = codeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Code)).sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-    setCodes(codeList);
-    setIsLoading(false);
+    try {
+      const codesCollection = collection(db, 'codes');
+      const q = query(codesCollection, orderBy('createdAt', 'desc'));
+      const codeSnapshot = await getDocs(q);
+      const codeList = codeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Code));
+      setCodes(codeList);
+    } catch (error) {
+      console.error("Error fetching codes: ", error);
+      toast({ title: "오류", description: "코드를 불러오는 데 실패했습니다.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -84,7 +91,7 @@ export default function AdminCodesPage() {
     }
     try {
       await addDoc(collection(db, 'codes'), {
-        code: newCode,
+        code: newCode.toUpperCase(),
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
@@ -96,7 +103,7 @@ export default function AdminCodesPage() {
       setNewCodeType('');
       setNewCodeValue('');
       setIsDialogOpen(false);
-      fetchCodes();
+      fetchCodes(); // Refresh the list
     } catch (error) {
       toast({ title: "오류", description: "코드 생성에 실패했습니다.", variant: "destructive" });
     }
@@ -107,7 +114,7 @@ export default function AdminCodesPage() {
     try {
       await deleteDoc(doc(db, 'codes', codeId));
       toast({ title: "성공", description: "코드를 삭제했습니다." });
-      fetchCodes();
+      fetchCodes(); // Refresh the list
     } catch (error) {
        toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
     }
@@ -184,6 +191,7 @@ export default function AdminCodesPage() {
               <TableHead>Lak 값</TableHead>
               <TableHead>상태</TableHead>
               <TableHead>사용한 학생</TableHead>
+              <TableHead>생성일</TableHead>
               <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
@@ -191,9 +199,13 @@ export default function AdminCodesPage() {
              {isLoading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+                  <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
                 </TableRow>
               ))
+            ) : codes.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center">생성된 코드가 없습니다.</TableCell>
+              </TableRow>
             ) : (
               codes.map((c) => (
                 <TableRow key={c.id}>
@@ -206,6 +218,7 @@ export default function AdminCodesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{c.usedBy || 'N/A'}</TableCell>
+                   <TableCell>{c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -215,7 +228,7 @@ export default function AdminCodesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDeleteCode(c.id)}>
+                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           삭제
                         </DropdownMenuItem>
