@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -14,41 +17,52 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { auth, db } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
-const transactions = [
-  {
-    date: '2024-05-20',
-    description: '4자리 종달코드 사용 (친구: B7C1)',
-    amount: 1,
-    type: 'credit',
-  },
-  {
-    date: '2024-05-18',
-    description: '5자리 메이트 코드 사용',
-    amount: 3,
-    type: 'credit',
-  },
-  {
-    date: '2024-05-15',
-    description: '온라인 특수 코드 "JONGDAL-SPECIAL" 사용',
-    amount: 5,
-    type: 'credit',
-  },
-  {
-    date: '2024-05-12',
-    description: '상품 구매: 떡볶이',
-    amount: -4,
-    type: 'debit',
-  },
-  {
-    date: '2024-05-10',
-    description: '4자리 종달코드 사용 (친구: D9E3)',
-    amount: 1,
-    type: 'credit',
-  },
-];
+interface Transaction {
+  id: string;
+  date: any;
+  description: string;
+  amount: number;
+  type: 'credit' | 'debit';
+}
 
 export default function HistoryPage() {
+  const [user] = useAuthState(auth);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const transactionsRef = collection(db, `users/${user.uid}/transactions`);
+        const q = query(transactionsRef, orderBy('date', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const userTransactions = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Transaction));
+        setTransactions(userTransactions);
+      } catch (error) {
+        console.error("Error fetching transactions: ", error);
+        toast({ title: "오류", description: "거래 내역을 불러오는 데 실패했습니다.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTransactions();
+  }, [user, toast]);
+
   return (
     <Card>
       <CardHeader>
@@ -65,21 +79,38 @@ export default function HistoryPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((transaction, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium">{transaction.date}</TableCell>
-                <TableCell>{transaction.description}</TableCell>
-                <TableCell className="text-right">
-                  <Badge
-                    variant={transaction.type === 'credit' ? 'default' : 'destructive'}
-                    className={transaction.type === 'credit' ? 'bg-blue-500' : 'bg-red-500'}
-                  >
-                    {transaction.type === 'credit' ? '+' : ''}
-                    {transaction.amount} Lak
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
+                </TableRow>
+              ))
+            ) : transactions.length === 0 ? (
+               <TableRow>
+                  <TableCell colSpan={3} className="text-center h-24">
+                    거래 내역이 없습니다.
+                  </TableCell>
+                </TableRow>
+            ) : (
+              transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell className="font-medium">
+                     {transaction.date ? new Date(transaction.date.seconds * 1000).toLocaleDateString() : '날짜 없음'}
+                  </TableCell>
+                  <TableCell>{transaction.description}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge
+                      variant={transaction.type === 'credit' ? 'default' : 'destructive'}
+                    >
+                      {transaction.type === 'credit' ? '+' : ''}
+                      {transaction.amount} Lak
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

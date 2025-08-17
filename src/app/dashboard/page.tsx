@@ -1,13 +1,33 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coins } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
-  const lakBalance = 15;
+  const [user] = useAuthState(auth);
+  const [lakBalance, setLakBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      const userDocRef = doc(db, 'users', user.uid);
+      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+          setLakBalance(doc.data().lak);
+        } else {
+          // This case should ideally not happen for a logged-in user
+          console.error("User document not found!");
+          setLakBalance(0);
+        }
+      });
+      // Cleanup subscription on unmount
+      return () => unsubscribe();
+    }
+  }, [user]);
 
   return (
     <div>
@@ -19,7 +39,11 @@ export default function DashboardPage() {
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{lakBalance.toLocaleString()} Lak</div>
+            {lakBalance === null ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <div className="text-2xl font-bold">{lakBalance.toLocaleString()} Lak</div>
+            )}
             <p className="text-xs text-muted-foreground">
               (1 라크 = 500원)
             </p>

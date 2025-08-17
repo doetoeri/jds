@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { signIn, auth } from '@/lib/firebase';
+import { signIn } from '@/lib/firebase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -25,25 +25,17 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      if (user) {
-        // Redirect is handled by the login function to ensure loading state is managed.
-        // router.push('/dashboard');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       await signIn(email, password);
-      // The onAuthStateChanged listener will eventually redirect,
-      // but we push here to make sure the user is navigated away.
-      // The loading state will persist until the new page loads.
-      router.push('/dashboard');
+      // Redirect based on user type after successful login
+      if (email === 'admin@jongdalsem.com') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       toast({
         title: '로그인 실패',

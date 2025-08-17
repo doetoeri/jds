@@ -1,15 +1,46 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu } from 'lucide-react';
+import { Menu, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/logo';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, loading] = useAuthState(auth);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (loading) return; // Wait until auth state is loaded
+    if (!user) {
+      toast({
+        title: '로그인 필요',
+        description: '대시보드에 접근하려면 로그인이 필요합니다.',
+        variant: 'destructive',
+      });
+      router.push('/login');
+    } else if (user.email === 'admin@jongdalsem.com') {
+      // If admin tries to access user dashboard, redirect them to admin page
+      router.push('/admin');
+    }
+  }, [user, loading, router, toast]);
+
+  // Show a loader while auth state is resolving or if user is not a regular user
+  if (loading || !user || user.email === 'admin@jongdalsem.com') {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">

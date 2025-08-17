@@ -10,54 +10,50 @@ import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const [authStatus, setAuthStatus] = useState<'loading' | 'admin' | 'non-admin' | 'no-user'>('loading');
+  const [user, loading] = useAuthState(auth);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      if (user) {
-        if (user.email === 'admin@jongdalsem.com') {
-          setAuthStatus('admin');
-        } else {
-          toast({
-            title: '접근 권한 없음',
-            description: '관리자만 접근할 수 있는 페이지입니다.',
-            variant: 'destructive',
-          });
-          router.push('/dashboard');
-          setAuthStatus('non-admin');
-        }
-      } else {
-        toast({
-          title: '로그인 필요',
-          description: '로그인이 필요한 페이지입니다.',
-          variant: 'destructive',
-        });
-        router.push('/login');
-        setAuthStatus('no-user');
-      }
-    });
+    // Wait until loading is finished
+    if (loading) {
+      return;
+    }
+    
+    // If no user, redirect to login
+    if (!user) {
+      toast({
+        title: '로그인 필요',
+        description: '로그인이 필요한 페이지입니다.',
+        variant: 'destructive',
+      });
+      router.push('/login');
+      return;
+    }
 
-    return () => unsubscribe();
-  }, [router, toast]);
+    // If user is not admin, redirect to dashboard
+    if (user.email !== 'admin@jongdalsem.com') {
+      toast({
+        title: '접근 권한 없음',
+        description: '관리자만 접근할 수 있는 페이지입니다.',
+        variant: 'destructive',
+      });
+      router.push('/dashboard');
+      return;
+    }
+  }, [user, loading, router, toast]);
 
-  if (authStatus === 'loading') {
+  if (loading || !user || user.email !== 'admin@jongdalsem.com') {
     return (
        <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     )
-  }
-
-  if (authStatus !== 'admin') {
-    // We are redirecting, so we can return null or a minimal loader.
-    // The redirect will happen in the useEffect hook.
-    return null; 
   }
 
   return (

@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -14,17 +17,62 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { db } from '@/lib/firebase';
+import { collectionGroup, getDocs, orderBy, query } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const allTransactions = [
-  { user: '10101', date: '2024-05-20', description: '4자리 종달코드 사용 (친구: B7C1)', amount: 1, type: 'credit' },
-  { user: '20305', date: '2024-05-19', description: '상품 구매: 콜라', amount: -2, type: 'debit' },
-  { user: '10203', date: '2024-05-18', description: '5자리 메이트 코드 사용', amount: 3, type: 'credit' },
-  { user: '30408', date: '2024-05-17', description: '온라인 특수 코드 "JONGDAL-SPECIAL" 사용', amount: 5, type: 'credit' },
-  { user: '10512', date: '2024-05-16', description: '상품 구매: 떡볶이', amount: -4, type: 'debit' },
-  { user: '10101', date: '2024-05-15', description: '4자리 종달코드 사용 (친구: D9E3)', amount: 1, type: 'credit' },
-];
+interface Transaction {
+  id: string;
+  studentId: string;
+  date: any;
+  description: string;
+  amount: number;
+  type: 'credit' | 'debit';
+}
 
 export default function AdminHistoryPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchAllTransactions = async () => {
+      setIsLoading(true);
+      try {
+        const transactionsGroupRef = collectionGroup(db, 'transactions');
+        const q = query(transactionsGroupRef, orderBy('date', 'desc'));
+        const querySnapshot = await getDocs(q);
+        
+        const allTransactions = await Promise.all(querySnapshot.docs.map(async (doc) => {
+          const data = doc.data();
+          const userRef = doc.ref.parent.parent; // gives reference to the user document
+          let studentId = 'N/A';
+          if (userRef) {
+            const userSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', userRef.id)));
+            if (!userSnap.empty) {
+               studentId = userSnap.docs[0].data().studentId;
+            }
+          }
+           return {
+            id: doc.id,
+            studentId,
+            ...data
+          } as Transaction;
+        }));
+        
+        setTransactions(allTransactions);
+
+      } catch (error) {
+        console.error("Error fetching all transactions: ", error);
+        toast({ title: "오류", description: "전체 거래 내역을 불러오는 데 실패했습니다.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAllTransactions();
+  }, [toast]);
+
   return (
     <Card>
       <CardHeader>
@@ -42,22 +90,38 @@ export default function AdminHistoryPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allTransactions.map((transaction, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium">{transaction.user}</TableCell>
-                <TableCell>{transaction.date}</TableCell>
-                <TableCell>{transaction.description}</TableCell>
-                <TableCell className="text-right">
-                  <Badge
-                    variant={transaction.type === 'credit' ? 'default' : 'destructive'}
-                     className={transaction.type === 'credit' ? 'bg-blue-500' : 'bg-red-500'}
-                  >
-                    {transaction.type === 'credit' ? '+' : ''}
-                    {transaction.amount} Lak
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+            {isLoading ? (
+                Array.from({ length: 10 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
+                  </TableRow>
+                ))
+            ) : transactions.length === 0 ? (
+                 <TableRow>
+                  <TableCell colSpan={4} className="text-center h-24">
+                    거래 내역이 없습니다.
+                  </TableCell>
+                </TableRow>
+            ) : (
+              transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell className="font-medium">{transaction.studentId}</TableCell>
+                  <TableCell>{transaction.date ? new Date(transaction.date.seconds * 1000).toLocaleDateString() : '날짜 없음'}</TableCell>
+                  <TableCell>{transaction.description}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge
+                      variant={transaction.type === 'credit' ? 'default' : 'destructive'}
+                    >
+                      {transaction.type === 'credit' ? '+' : ''}
+                      {transaction.amount} Lak
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>
