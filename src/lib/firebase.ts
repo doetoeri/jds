@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -49,7 +49,7 @@ export const signUp = async (studentId: string, password: string, email: string)
       email: email, // The user's actual email
       jongdalCode: generateJongdalCode(),
       lak: 0,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
     });
 
     return user;
@@ -89,5 +89,107 @@ export const handleSignOut = async () => {
     throw new Error('로그아웃 중 오류가 발생했습니다.');
   }
 };
+
+// Use Code function
+export const useCode = async (userId: string, inputCode: string) => {
+  const upperCaseCode = inputCode.toUpperCase();
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      // 1. Get user data
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) {
+        throw "존재하지 않는 사용자입니다.";
+      }
+      const userData = userDoc.data();
+
+      // 2. Check if user is trying to use their own Jongdal code
+      if (userData.jongdalCode === upperCaseCode) {
+        throw "자신의 종달코드는 사용할 수 없습니다.";
+      }
+      
+      // 3. Find the code in the 'codes' collection
+      const codesRef = collection(db, 'codes');
+      const q = query(codesRef, where('code', '==', upperCaseCode));
+      const codeQuerySnapshot = await getDocs(q);
+
+      if (codeQuerySnapshot.empty) {
+        // If not in 'codes', check if it's another user's 'jongdalCode'
+        const usersRef = collection(db, 'users');
+        const userCodeQuery = query(usersRef, where('jongdalCode', '==', upperCaseCode));
+        const userCodeSnapshot = await getDocs(userCodeQuery);
+        
+        if (userCodeSnapshot.empty) {
+           throw "유효하지 않은 코드입니다.";
+        }
+
+        const friendDoc = userCodeSnapshot.docs[0];
+        const friendRef = friendDoc.ref;
+        const friendData = friendDoc.data();
+
+        // Give points to the friend
+        transaction.update(friendRef, { lak: friendData.lak + 1 });
+        // Give points to the current user
+        transaction.update(userRef, { lak: userData.lak + 1 });
+
+        const description = `종달코드 사용 (친구: ${friendData.studentId})`;
+        // Create transaction history for current user
+        const userHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(userHistoryRef, {
+          date: serverTimestamp(),
+          description,
+          amount: 1,
+          type: 'credit'
+        });
+
+        // Create transaction history for the friend
+        const friendHistoryRef = doc(collection(friendRef, 'transactions'));
+        transaction.set(friendHistoryRef, {
+          date: serverTimestamp(),
+          description: `친구가 종달코드를 사용했습니다 (${userData.studentId})`,
+          amount: 1,
+          type: 'credit'
+        });
+
+        return `친구의 종달코드를 사용하여 1 Lak을 적립했습니다! 친구에게도 1 Lak이 지급되었습니다.`;
+
+      } else {
+        // It's a code from the 'codes' collection
+        const codeDoc = codeQuerySnapshot.docs[0];
+        const codeRef = codeDoc.ref;
+        const codeData = codeDoc.data();
+
+        if (codeData.used) {
+          throw "이미 사용된 코드입니다.";
+        }
+        
+        // Update user's Lak balance
+        transaction.update(userRef, { lak: userData.lak + codeData.value });
+        
+        // Mark code as used
+        transaction.update(codeRef, { 
+          used: true,
+          usedBy: userData.studentId,
+        });
+
+        // Create transaction history for the user
+        const userHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(userHistoryRef, {
+            date: serverTimestamp(),
+            description: `${codeData.type} "${codeData.code}" 사용`,
+            amount: codeData.value,
+            type: 'credit'
+        });
+        
+        return `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!`;
+      }
+    });
+    return { success: true, message: result };
+  } catch (error: any) {
+    console.error("Code redemption error: ", error);
+    return { success: false, message: typeof error === 'string' ? error : "코드 사용 중 오류가 발생했습니다." };
+  }
+}
+
 
 export { auth, db };
