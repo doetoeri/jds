@@ -10,20 +10,19 @@ import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<'loading' | 'admin' | 'non-admin' | 'no-user'>('loading');
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (user) {
         if (user.email === 'admin@jongdalsem.com') {
-          setIsAdmin(true);
+          setAuthStatus('admin');
         } else {
           toast({
             title: '접근 권한 없음',
@@ -31,6 +30,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             variant: 'destructive',
           });
           router.push('/dashboard');
+          setAuthStatus('non-admin');
         }
       } else {
         toast({
@@ -39,22 +39,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           variant: 'destructive',
         });
         router.push('/login');
+        setAuthStatus('no-user');
       }
-      setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, [router, toast]);
 
-  if (isLoading) {
+  if (authStatus === 'loading') {
     return (
        <div className="flex items-center justify-center min-h-screen">
-          <Skeleton className="h-screen w-full" />
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     )
   }
 
-  if (!isAdmin) {
+  if (authStatus !== 'admin') {
+    // We are redirecting, so we can return null or a minimal loader.
+    // The redirect will happen in the useEffect hook.
     return null; 
   }
 

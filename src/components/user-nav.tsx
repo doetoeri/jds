@@ -39,7 +39,7 @@ export function UserNav() {
       if (user) {
         // Handle admin user separately without a Firestore doc
         if (user.email === 'admin@jongdalsem.com') {
-          setUserData({ email: user.email });
+          setUserData({ email: user.email, studentId: 'Admin' });
         } else {
           // For regular users, fetch data from Firestore
           const userDocRef = doc(db, 'users', user.uid);
@@ -49,7 +49,7 @@ export function UserNav() {
               setUserData(userDoc.data() as UserData);
             } else {
               console.error("User document not found in Firestore for UID:", user.uid);
-              setUserData(null);
+              setUserData(null); // Set to null if doc doesn't exist
             }
           } catch (error) {
             console.error("Error fetching user document:", error);
@@ -64,13 +64,14 @@ export function UserNav() {
   }, []);
 
   const getInitials = (studentId: string | undefined) => {
-    if (!studentId) return '학생';
+    if (!studentId || studentId === 'Admin') return '관리';
     return studentId.substring(studentId.length - 2);
   }
 
-  const isAdmin = userData?.email === 'admin@jongdalsem.com';
+  const isAdmin = user?.email === 'admin@jongdalsem.com';
 
   if (!user || !userData) {
+    // Don't render anything until user and userData is loaded, to prevent flashes of incorrect state.
     return null;
   }
 
@@ -80,7 +81,7 @@ export function UserNav() {
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarImage src="https://placehold.co/100x100.png" alt="@student" data-ai-hint="person avatar" />
-            <AvatarFallback>{isAdmin ? '관리' : getInitials(userData?.studentId)}</AvatarFallback>
+            <AvatarFallback>{getInitials(userData?.studentId)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -95,13 +96,17 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {isAdmin && (
+          {isAdmin ? (
             <DropdownMenuItem asChild>
               <Link href="/admin">관리자 페이지</Link>
             </DropdownMenuItem>
+          ) : (
+             <DropdownMenuItem asChild>
+              <Link href="/dashboard">대시보드</Link>
+            </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {isAdmin && <DropdownMenuSeparator />}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" disabled={isLoggingOut}>
            {isLoggingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
            로그아웃
