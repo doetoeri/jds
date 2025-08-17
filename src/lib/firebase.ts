@@ -23,9 +23,6 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Firebase auth works with emails, so we'll convert the student ID to an email.
-const studentIdToEmail = (studentId: string) => `${studentId}@jongdalsem.com`;
-
 const generateJongdalCode = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
@@ -40,16 +37,15 @@ export const signUp = async (studentId: string, password: string, email: string)
   if (!/^\d{5}$/.test(studentId)) {
     throw new Error('학번은 5자리 숫자여야 합니다.');
   }
-  const authEmail = studentIdToEmail(studentId);
   
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, authEmail, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     // Store user data in Firestore
     await setDoc(doc(db, "users", user.uid), {
       studentId: studentId,
-      email: email,
+      email: email, // The user's actual email
       jongdalCode: generateJongdalCode(),
       lak: 0,
       createdAt: new Date(),
@@ -58,42 +54,26 @@ export const signUp = async (studentId: string, password: string, email: string)
     return user;
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {
-      throw new Error('이미 등록된 학번입니다.');
+      throw new Error('이미 사용 중인 이메일입니다.');
     }
     if (error.code === 'auth/weak-password') {
       throw new Error('비밀번호는 6자리 이상이어야 합니다.');
+    }
+    if (error.code === 'auth/invalid-email') {
+      throw new Error('유효하지 않은 이메일 주소입니다.');
     }
     throw new Error('회원가입 중 오류가 발생했습니다.');
   }
 };
 
 // Sign in function
-export const signIn = async (studentId: string, password: string) => {
-  // Allow admin login
-  if (studentId === 'admin') {
-     const email = studentIdToEmail(studentId);
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        return userCredential.user;
-      } catch (error: any) {
-         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            throw new Error('학번 또는 비밀번호가 올바르지 않습니다.');
-          }
-          throw new Error('로그인 중 오류가 발생했습니다.');
-      }
-  }
-
-  if (!/^\d{5}$/.test(studentId)) {
-    throw new Error('학번은 5자리 숫자여야 합니다.');
-  }
-  const email = studentIdToEmail(studentId);
-
+export const signIn = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error: any) {
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-      throw new Error('학번 또는 비밀번호가 올바르지 않습니다.');
+      throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
     throw new Error('로그인 중 오류가 발생했습니다.');
   }

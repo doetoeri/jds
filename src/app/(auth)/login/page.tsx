@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { signIn } from '@/lib/firebase';
 
 export default function LoginPage() {
-  const [studentId, setStudentId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signIn(studentId, password);
+      await signIn(email, password);
       router.push('/dashboard');
     } catch (error: any) {
       toast({
@@ -53,13 +53,14 @@ export default function LoginPage() {
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="studentId">학번 (5자리)</Label>
+            <Label htmlFor="email">이메일</Label>
             <Input
-              id="studentId"
-              placeholder="예: 10203"
+              id="email"
+              type="email"
+              placeholder="hello@example.com"
               required
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="space-y-2">
