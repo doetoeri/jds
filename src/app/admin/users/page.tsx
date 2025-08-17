@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -13,16 +15,35 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const users = [
-  { studentId: '10101', email: 'user1@example.com', jongdalCode: 'A4B8', lak: 15 },
-  { studentId: '10203', email: 'user2@example.com', jongdalCode: 'C7D1', lak: 5 },
-  { studentId: '20305', email: 'user3@example.com', jongdalCode: 'E9F2', lak: 32 },
-  { studentId: '30408', email: 'user4@example.com', jongdalCode: 'G3H5', lak: 0 },
-  { studentId: '10512', email: 'user5@example.com', jongdalCode: 'I7J9', lak: 100 },
-];
+interface User {
+  id: string;
+  studentId: string;
+  email: string;
+  jongdalCode: string;
+  lak: number;
+}
 
 export default function AdminUsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      const usersCollection = collection(db, 'users');
+      const userSnapshot = await getDocs(usersCollection);
+      const userList = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      setUsers(userList);
+      setIsLoading(false);
+    };
+    fetchUsers();
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -40,14 +61,25 @@ export default function AdminUsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.studentId}>
-                <TableCell className="font-medium">{user.studentId}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell className="font-mono">{user.jongdalCode}</TableCell>
-                <TableCell className="text-right">{user.lak.toLocaleString()} Lak</TableCell>
-              </TableRow>
-            ))}
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.studentId}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell className="font-mono">{user.jongdalCode}</TableCell>
+                  <TableCell className="text-right">{user.lak.toLocaleString()} Lak</TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>
