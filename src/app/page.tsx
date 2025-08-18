@@ -5,44 +5,143 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Bird } from 'lucide-react';
 
-const ParticleWaveCanvas = () => {
+// A single ripple wave
+class Ripple {
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  speed: number;
+  life: number;
+
+  constructor(x: number, y: number, maxRadius: number, speed: number) {
+    this.x = x;
+    this.y = y;
+    this.radius = 0;
+    this.maxRadius = maxRadius;
+    this.speed = speed;
+    this.life = 1; // Represents opacity
+  }
+
+  update() {
+    this.radius += this.speed;
+    // Fade out as it expands
+    if (this.radius > this.maxRadius * 0.3) {
+       this.life -= 0.015;
+    }
+    if (this.life < 0) {
+      this.life = 0;
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    if (this.life <= 0) return;
+
+    // Draw the main ripple point (Glassmorphism feel)
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(19, 100%, 70%, ${this.life * 0.8})`;
+    ctx.shadowColor = `hsl(19, 100%, 60%)`;
+    ctx.shadowBlur = 15;
+    ctx.fill();
+    ctx.shadowBlur = 0; // Reset shadow for particles
+  }
+}
+
+// A single particle in the grid
+class Particle {
+  x: number;
+  y: number;
+  size: number;
+  baseAlpha: number;
+  alpha: number;
+
+  constructor(x: number, y: number, size: number) {
+    this.x = x;
+    this.y = y;
+    this.size = size;
+    this.baseAlpha = 0;
+    this.alpha = this.baseAlpha;
+  }
+
+  update(ripples: Ripple[]) {
+    let touched = false;
+    for (let i = 0; i < ripples.length; i++) {
+      const dx = this.x - ripples[i].x;
+      const dy = this.y - ripples[i].y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const rippleRadius = ripples[i].radius;
+      const waveWidth = 50; // How wide the visible wave is
+
+      // Check if the particle is within the wave band
+      if (distance < rippleRadius && distance > rippleRadius - waveWidth) {
+        touched = true;
+        // The closer to the wave front, the brighter
+        const intensity = 1 - (rippleRadius - distance) / waveWidth;
+        this.alpha = intensity * 0.8;
+      }
+    }
+
+    // If not touched by any ripple, fade back to base alpha
+    if (!touched) {
+      if (this.alpha > this.baseAlpha) {
+        this.alpha -= 0.02; // Fade out speed
+      } else {
+        this.alpha = this.baseAlpha;
+      }
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    if (this.alpha <= 0) return; // Don't draw if invisible
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(19, 100%, 70%, ${this.alpha})`;
+    ctx.fill();
+  }
+}
+
+const ParticleCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameId = useRef<number>();
-  const particles = useRef<any[]>([]);
-  const mouse = useRef({ x: -1000, y: -1000, radius: 60 });
-
+  const particles = useRef<Particle[]>([]);
+  const ripples = useRef<Ripple[]>([]);
+  const dpr = useRef(1);
+  
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
+    
+    dpr.current = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
+    canvas.width = rect.width * dpr.current;
+    canvas.height = rect.height * dpr.current;
+    ctx.scale(dpr.current, dpr.current);
     
     particles.current = [];
-    const gap = 25;
+    ripples.current = [];
+
+    const gap = 20; // How dense the particles are
     for (let x = 0; x < rect.width; x += gap) {
       for (let y = 0; y < rect.height; y += gap) {
-        particles.current.push({
-          x: x,
-          y: y,
-          ox: x, // original x
-          oy: y, // original y
-          vx: 0,
-          vy: 0,
-        });
+        particles.current.push(new Particle(x, y, 1.5));
       }
     }
   }, []);
 
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+     const rect = e.currentTarget.getBoundingClientRect();
+     const x = e.clientX - rect.left;
+     const y = e.clientY - rect.top;
+     ripples.current.push(new Ripple(x, y, Math.max(rect.width, rect.height), 2));
+  };
+  
   useEffect(() => {
     initCanvas();
     window.addEventListener('resize', initCanvas);
-
+    
     const animate = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -52,37 +151,20 @@ const ParticleWaveCanvas = () => {
       const { width, height } = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, width, height);
 
-      particles.current.forEach(p => {
-        const dx = p.x - mouse.current.x;
-        const dy = p.y - mouse.current.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const forceDirectionX = dx / dist;
-        const forceDirectionY = dy / dist;
-        
-        const maxDistance = mouse.current.radius;
-        const force = (maxDistance - dist) / maxDistance;
-        
-        // Spring force to return to original position
-        const springForceX = (p.ox - p.x) * 0.08;
-        const springForceY = (p.oy - p.y) * 0.08;
-
-        if (dist < maxDistance) {
-            p.vx += forceDirectionX * force * 2.5 + springForceX;
-            p.vy += forceDirectionY * force * 2.5 + springForceY;
-        } else {
-            p.vx += springForceX;
-            p.vy += springForceY;
+      // Update and draw ripples
+      for (let i = ripples.current.length - 1; i >= 0; i--) {
+        const r = ripples.current[i];
+        r.update();
+        r.draw(ctx);
+        if (r.life <= 0) {
+          ripples.current.splice(i, 1);
         }
+      }
 
-        p.vx *= 0.92;
-        p.vy *= 0.92;
-        p.x += p.vx;
-        p.y += p.vy;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'hsl(19, 100%, 70%)';
-        ctx.fill();
+      // Update and draw particles
+      particles.current.forEach(p => {
+        p.update(ripples.current);
+        p.draw(ctx);
       });
 
       animationFrameId.current = requestAnimationFrame(animate);
@@ -98,31 +180,11 @@ const ParticleWaveCanvas = () => {
     };
   }, [initCanvas]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    mouse.current.x = e.clientX;
-    mouse.current.y = e.clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (e.touches.length > 0) {
-      mouse.current.x = e.touches[0].clientX;
-      mouse.current.y = e.touches[0].clientY;
-    }
-  };
-
-   const handleMouseLeave = () => {
-    mouse.current.x = -1000;
-    mouse.current.y = -1000;
-  };
-
   return (
     <canvas
       ref={canvasRef}
       className="absolute inset-0 z-0"
-      onMouseMove={handleMouseMove}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleMouseLeave}
-      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
     />
   );
 };
@@ -132,7 +194,7 @@ export default function LandingPage() {
   return (
     <main className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4 bg-transparent isolate">
       
-      <ParticleWaveCanvas />
+      <ParticleCanvas />
       
       <div className="relative z-10 flex flex-col items-center text-center">
          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 backdrop-blur-sm">
