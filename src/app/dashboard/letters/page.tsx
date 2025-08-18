@@ -214,7 +214,7 @@ export default function LettersPage() {
                     disabled={isLoading}
                     />
                   <Label htmlFor="offline" className="cursor-pointer">
-                    오프라인으로 편지 보내기 (포인트 지급 없음)
+                    오프라인으로 편지 전달하기
                   </Label>
               </div>
               {isOffline && (
@@ -222,7 +222,7 @@ export default function LettersPage() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>오프라인 편지 안내</AlertTitle>
                   <AlertDescription>
-                    체크 시 편지 내용은 관리자만 확인하며, 승인 후 직접 인쇄하여 전달해주세요.
+                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 Lak 포인트 또한 오프라인으로 지급됩니다.
                   </AlertDescription>
                 </Alert>
               )}
@@ -267,7 +267,7 @@ export default function LettersPage() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                    {letter.isOffline ? '관리자를 통해 오프라인으로 편지가 전달되었습니다.' : letter.content}
+                    {letter.isOffline ? '학생회를 통해 오프라인으로 편지가 전달되었습니다.' : letter.content}
                   </p>
                 </div>
               ))

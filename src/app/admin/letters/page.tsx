@@ -97,7 +97,7 @@ export default function AdminLettersPage() {
         await updateDoc(letterRef, {
             status: 'approved',
             approvedAt: new Date(),
-            content: '관리자를 통해 오프라인으로 편지가 전달되었습니다.' // Hide content
+            content: '학생회를 통해 오프라인으로 편지가 전달되었습니다.' // Hide content
         });
         toast({
             title: '성공',
