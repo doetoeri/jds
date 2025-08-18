@@ -5,94 +5,125 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Bird } from 'lucide-react';
 
-// A component to create a realistic, interactive liquid effect
-const LiquidCanvas = () => {
-  const [blobs, setBlobs] = useState<any[]>([]);
+const ParticleWaveCanvas = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameId = useRef<number>();
-  const lastAddTime = useRef(0);
-  const pointer = useRef({ x: 0, y: 0 });
+  const particles = useRef<any[]>([]);
+  const mouse = useRef({ x: -1000, y: -1000, radius: 60 });
 
-  const updatePointer = useCallback((x: number, y: number) => {
-    pointer.current = { x, y };
+  const initCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    
+    particles.current = [];
+    const gap = 25;
+    for (let x = 0; x < rect.width; x += gap) {
+      for (let y = 0; y < rect.height; y += gap) {
+        particles.current.push({
+          x: x,
+          y: y,
+          ox: x, // original x
+          oy: y, // original y
+          vx: 0,
+          vy: 0,
+        });
+      }
+    }
   }, []);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    updatePointer(e.clientX, e.clientY);
-  }, [updatePointer]);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0];
-    updatePointer(touch.clientX, touch.clientY);
-  }, [updatePointer]);
-
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchmove', handleTouchMove);
+    initCanvas();
+    window.addEventListener('resize', initCanvas);
 
-    const animate = (time: number) => {
-      // Add a new blob periodically based on pointer movement
-      if (time - lastAddTime.current > 50) {
-        lastAddTime.current = time;
-        if (pointer.current.x !== 0 || pointer.current.y !== 0) { // Only add if pointer has moved
-            setBlobs(prevBlobs => {
-                const newBlob = {
-                    id: time,
-                    x: pointer.current.x,
-                    y: pointer.current.y,
-                    size: 40 + Math.random() * 40, // Random size for more organic look
-                    opacity: 1,
-                    createdAt: time,
-                };
-                return [...prevBlobs, newBlob];
-            });
-        }
-      }
+    const animate = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      const { width, height } = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, width, height);
 
-      // Update size and opacity of existing blobs
-      setBlobs(currentBlobs => {
-        const updatedBlobs = currentBlobs.map(blob => {
-            const age = (time - blob.createdAt) / 1000; // age in seconds
-            const opacity = Math.max(0, 1 - age * 0.8); // Fades out over ~1.25 seconds
-            const size = Math.max(0, blob.size * (1 - age * 0.5));
-            return {...blob, opacity, size};
-        });
+      particles.current.forEach(p => {
+        const dx = p.x - mouse.current.x;
+        const dy = p.y - mouse.current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const forceDirectionX = dx / dist;
+        const forceDirectionY = dy / dist;
         
-        // Filter out blobs that have faded away
-        return updatedBlobs.filter(blob => blob.opacity > 0 && blob.size > 0);
+        const maxDistance = mouse.current.radius;
+        const force = (maxDistance - dist) / maxDistance;
+        
+        // Spring force to return to original position
+        const springForceX = (p.ox - p.x) * 0.08;
+        const springForceY = (p.oy - p.y) * 0.08;
+
+        if (dist < maxDistance) {
+            p.vx += forceDirectionX * force * 2.5 + springForceX;
+            p.vy += forceDirectionY * force * 2.5 + springForceY;
+        } else {
+            p.vx += springForceX;
+            p.vy += springForceY;
+        }
+
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.x += p.vx;
+        p.y += p.vy;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'hsl(19, 100%, 70%)';
+        ctx.fill();
       });
 
       animationFrameId.current = requestAnimationFrame(animate);
     };
 
-    animationFrameId.current = requestAnimationFrame(animate);
+    animate();
 
     return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('resize', initCanvas);
     };
-  }, [handleMouseMove, handleTouchMove]);
+  }, [initCanvas]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    mouse.current.x = e.clientX;
+    mouse.current.y = e.clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length > 0) {
+      mouse.current.x = e.touches[0].clientX;
+      mouse.current.y = e.touches[0].clientY;
+    }
+  };
+
+   const handleMouseLeave = () => {
+    mouse.current.x = -1000;
+    mouse.current.y = -1000;
+  };
 
   return (
-    <div className="absolute inset-0 z-0 overflow-hidden" style={{ filter: 'url(#goo)' }}>
-      {blobs.map(({ id, x, y, size, opacity }) => (
-        <div
-          key={id}
-          className="absolute rounded-full bg-primary/50"
-          style={{
-            left: x,
-            top: y,
-            width: size,
-            height: size,
-            transform: 'translate(-50%, -50%)',
-            opacity,
-            willChange: 'transform, opacity, width, height',
-          }}
-        />
-      ))}
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 z-0"
+      onMouseMove={handleMouseMove}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleMouseLeave}
+      onMouseLeave={handleMouseLeave}
+    />
   );
 };
 
@@ -101,21 +132,10 @@ export default function LandingPage() {
   return (
     <main className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4 bg-transparent isolate">
       
-      <LiquidCanvas />
-
-      {/* SVG filter for the "gooey" effect */}
-      <svg className="absolute w-0 h-0">
-        <defs>
-          <filter id="goo">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
-            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
-            <feBlend in="SourceGraphic" in2="goo" />
-          </filter>
-        </defs>
-      </svg>
+      <ParticleWaveCanvas />
       
       <div className="relative z-10 flex flex-col items-center text-center">
-         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-orange-400/20 bg-orange-400/10 backdrop-blur-sm">
+         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 backdrop-blur-sm">
           <Bird className="h-8 w-8 text-primary" />
         </div>
         <h1 className="font-headline text-5xl md:text-6xl font-bold text-gray-800">
@@ -133,7 +153,7 @@ export default function LandingPage() {
             asChild
             variant="outline"
             size="lg"
-            className="font-bold w-full sm:w-auto"
+            className="font-bold w-full sm:w-auto bg-white/50"
           >
             <Link href="/signup">회원가입</Link>
           </Button>
