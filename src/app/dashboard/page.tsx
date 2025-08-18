@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coins, Mail } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -33,12 +33,15 @@ export default function DashboardPage() {
          try {
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
-                const currentUserStudentId = userDocSnap.data().studentId;
+                const userData = userDocSnap.data();
+                const currentUserStudentId = userData.studentId;
+                const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
+
                 const q = query(
                     collection(db, 'letters'),
                     where('receiverStudentId', '==', currentUserStudentId),
                     where('status', '==', 'approved'),
-                    where('isRead', '==', false) // Check for unread letters
+                    where('approvedAt', '>', lastCheckTimestamp)
                 );
                 const querySnapshot = await getDocs(q);
                 setHasNewLetters(!querySnapshot.empty);

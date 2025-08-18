@@ -25,7 +25,7 @@ import {
   orderBy,
   doc,
   getDoc,
-  writeBatch,
+  updateDoc,
 } from 'firebase/firestore';
 import { Loader2, Mail, Send, Inbox, Info } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -60,27 +60,24 @@ export default function LettersPage() {
 
   useEffect(() => {
     if (user) {
-      const markLettersAsRead = async (currentUserStudentId: string) => {
-        const unreadLettersQuery = query(
-          collection(db, 'letters'),
-          where('receiverStudentId', '==', currentUserStudentId),
-          where('status', '==', 'approved'),
-          where('isRead', '==', false)
-        );
-
-        const unreadSnapshot = await getDocs(unreadLettersQuery);
-        if (!unreadSnapshot.empty) {
-          const batch = writeBatch(db);
-          unreadSnapshot.docs.forEach(doc => {
-            batch.update(doc.ref, { isRead: true });
-          });
-          await batch.commit();
+      const markLettersAsRead = async () => {
+        try {
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, {
+                lastLetterCheckTimestamp: serverTimestamp()
+            });
+        } catch (e) {
+            console.error("Error updating last letter check timestamp: ", e);
+            // Non-critical error, so we don't need to show a toast.
         }
       };
 
       const fetchReceivedLetters = async (currentUserStudentId: string) => {
         setIsInboxLoading(true);
         try {
+          // Mark letters as read before fetching
+          await markLettersAsRead();
+
           const q = query(
             collection(db, 'letters'),
             where('receiverStudentId', '==', currentUserStudentId),
@@ -94,9 +91,6 @@ export default function LettersPage() {
           })) as ReceivedLetter[];
           setReceivedLetters(letters);
           
-          // Mark letters as read after fetching
-          markLettersAsRead(currentUserStudentId);
-
         } catch (error) {
           console.error('Error fetching received letters:', error);
           toast({
@@ -165,7 +159,7 @@ export default function LettersPage() {
         status: 'pending',
         createdAt: serverTimestamp(),
         isOffline: isOffline,
-        isRead: false, // Add isRead field
+        // The isRead field is no longer needed on the letter itself
       });
 
       toast({
