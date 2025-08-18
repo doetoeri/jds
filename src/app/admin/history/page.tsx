@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
-import { collectionGroup, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -31,6 +31,11 @@ interface Transaction {
   type: 'credit' | 'debit';
 }
 
+interface User {
+    id: string;
+    studentId: string;
+}
+
 export default function AdminHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,27 +45,35 @@ export default function AdminHistoryPage() {
     const fetchAllTransactions = async () => {
       setIsLoading(true);
       try {
-        const transactionsGroupRef = collectionGroup(db, 'transactions');
-        const q = query(transactionsGroupRef, orderBy('date', 'desc'));
-        const querySnapshot = await getDocs(q);
-        
-        const allTransactions = await Promise.all(querySnapshot.docs.map(async (doc) => {
-          const data = doc.data();
-          const userRef = doc.ref.parent.parent; // gives reference to the user document
-          let studentId = 'N/A';
-          if (userRef) {
-            const userSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', userRef.id)));
-            if (!userSnap.empty) {
-               studentId = userSnap.docs[0].data().studentId;
-            }
-          }
-           return {
-            id: doc.id,
-            studentId,
-            ...data
-          } as Transaction;
-        }));
-        
+        // 1. Fetch all users to get their IDs and studentIds
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        const studentIdMap = new Map(users.map(user => [user.id, user.studentId]));
+
+        // 2. Fetch transactions for each user
+        let allTransactions: Transaction[] = [];
+        for (const user of users) {
+          const transactionsRef = collection(db, `users/${user.id}/transactions`);
+          const q = query(transactionsRef, orderBy('date', 'desc'));
+          const querySnapshot = await getDocs(q);
+          const userTransactions = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              studentId: studentIdMap.get(user.id) || 'N/A', // Get studentId from the map
+              ...data
+            } as Transaction;
+          });
+          allTransactions.push(...userTransactions);
+        }
+
+        // 3. Sort all transactions by date
+        allTransactions.sort((a, b) => {
+            const dateA = a.date?.seconds || 0;
+            const dateB = b.date?.seconds || 0;
+            return dateB - dateA;
+        });
+
         setTransactions(allTransactions);
 
       } catch (error) {
@@ -115,8 +128,8 @@ export default function AdminHistoryPage() {
                     <Badge
                       variant={transaction.type === 'credit' ? 'default' : 'destructive'}
                     >
-                      {transaction.type === 'credit' ? '+' : ''}
-                      {transaction.amount} Lak
+                      {transaction.type === 'credit' ? '+' : '-'}
+                      {Math.abs(transaction.amount)} Lak
                     </Badge>
                   </TableCell>
                 </TableRow>
