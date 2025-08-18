@@ -5,141 +5,93 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Bird } from 'lucide-react';
 
-const Orb = () => {
-  const orbRef = useRef<HTMLDivElement>(null);
+interface Ripple {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
+}
+
+const RippleEffect = () => {
+  const [ripples, setRipples] = useState<Ripple[]>([]);
   const animationFrameId = useRef<number>();
-  const [isMobile, setIsMobile] = useState(false);
+  const nextId = useRef(0);
 
-  // Position and velocity for physics simulation
-  const pos = useRef({ x: 0, y: 0 });
-  const vel = useRef({ x: 0, y: 0 });
-  const acc = useRef({ x: 0, y: 0 });
-
-  // Handle device orientation for mobile
-  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-    // Android and iOS handle gamma/beta differently
-    const isIOS = typeof (window as any).DeviceOrientationEvent.requestPermission === 'function';
-    const gamma = event.gamma || 0; // -90 to 90 (left-right)
-    const beta = event.beta || 0;   // -180 to 180 (front-back)
-
-    // Normalize acceleration values
-    let ax = gamma / 45;
-    let ay = (beta - 45) / 45; // Start with a baseline for Android
-
-    if (isIOS) {
-      ay = beta / 90; // Different scaling for iOS
-    }
-    
-    acc.current = { x: ax, y: ay };
+  const createRipple = useCallback((x: number, y: number) => {
+    const newRipple: Ripple = {
+      id: nextId.current++,
+      x,
+      y,
+      size: 0,
+      opacity: 0.7,
+    };
+    setRipples(prev => [...prev, newRipple]);
   }, []);
-  
-  // Handle mouse movement for desktop
-  const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!orbRef.current || isMobile) return;
-    const { clientX, clientY } = event;
-    const { left, top, width, height } = orbRef.current.getBoundingClientRect();
-    const x = ((clientX - left) / width) * 100;
-    const y = ((clientY - top) / height) * 100;
-    orbRef.current.style.setProperty('--highlight-x', `${x}%`);
-    orbRef.current.style.setProperty('--highlight-y', `${y}%`);
-  }, [isMobile]);
 
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    createRipple(e.clientX, e.clientY);
+  };
+  
+  const handleTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    createRipple(touch.clientX, touch.clientY);
+  };
 
   useEffect(() => {
-    const checkIsMobile = () => window.matchMedia("(max-width: 768px)").matches;
-    const mobileCheck = checkIsMobile();
-    setIsMobile(mobileCheck);
-
-    const orb = orbRef.current;
-    if (orb) {
-      // Initialize position
-      pos.current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      // Set initial transform to avoid flicker
-      orb.style.transform = `translate(${pos.current.x - orb.offsetWidth / 2}px, ${pos.current.y - orb.offsetHeight / 2}px)`;
-    }
-    
-    // Permission request for iOS 13+
-    const requestOrientationPermission = async () => {
-      if (typeof (window as any).DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const permission = await (window as any).DeviceOrientationEvent.requestPermission();
-          if (permission === 'granted') {
-            window.addEventListener('deviceorientation', handleOrientation);
-          }
-        } catch (error) {
-          console.error("Device orientation permission request failed:", error);
-        }
-      } else {
-         window.addEventListener('deviceorientation', handleOrientation);
-      }
-    };
-    
-    if (mobileCheck) {
-        requestOrientationPermission();
-    } else {
-        window.addEventListener('mousemove', handleMouseMove);
-    }
-
-    // Physics loop
     const animate = () => {
-      if (orb && mobileCheck) {
-        const friction = 0.98;
-        vel.current.x += acc.current.x;
-        vel.current.y += acc.current.y;
-        vel.current.x *= friction;
-        vel.current.y *= friction;
-        pos.current.x += vel.current.x;
-        pos.current.y += vel.current.y;
+      setRipples(currentRipples => {
+        const updatedRipples = currentRipples.map(ripple => ({
+          ...ripple,
+          size: ripple.size + 2,
+          opacity: ripple.opacity * 0.98,
+        }));
 
-        // Collision detection with viewport edges
-        const orbRadius = orb.offsetWidth / 2;
-        if (pos.current.x < orbRadius) {
-            pos.current.x = orbRadius;
-            vel.current.x *= -0.7;
-        }
-        if (pos.current.x > window.innerWidth - orbRadius) {
-            pos.current.x = window.innerWidth - orbRadius;
-            vel.current.x *= -0.7;
-        }
-        if (pos.current.y < orbRadius) {
-            pos.current.y = orbRadius;
-            vel.current.y *= -0.7;
-        }
-        if (pos.current.y > window.innerHeight - orbRadius) {
-            pos.current.y = window.innerHeight - orbRadius;
-            vel.current.y *= -0.7;
-        }
-        
-        orb.style.transform = `translate(${pos.current.x - orbRadius}px, ${pos.current.y - orbRadius}px)`;
-      }
+        return updatedRipples.filter(ripple => ripple.opacity > 0.01);
+      });
       animationFrameId.current = requestAnimationFrame(animate);
     };
-    
-    // Start the animation loop regardless
+
     animationFrameId.current = requestAnimationFrame(animate);
 
     return () => {
-      window.removeEventListener('deviceorientation', handleOrientation);
-      window.removeEventListener('mousemove', handleMouseMove);
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [handleOrientation, handleMouseMove]);
+  }, []);
 
   return (
-    <div ref={orbRef} className="orb-container">
-      <div className="orb"></div>
+    <div 
+      className="absolute inset-0 z-0 overflow-hidden" 
+      onClick={handleClick}
+      onTouchStart={handleTouch}
+    >
+      {ripples.map(({ id, x, y, size, opacity }) => (
+        <div
+          key={id}
+          className="absolute rounded-full"
+          style={{
+            left: x,
+            top: y,
+            width: size,
+            height: size,
+            transform: 'translate(-50%, -50%)',
+            opacity,
+            backgroundColor: 'hsla(19, 100%, 50%, 0.3)',
+            border: '2px solid hsl(19, 100%, 50%)',
+          }}
+        />
+      ))}
     </div>
   );
 };
 
-
 export default function LandingPage() {
   return (
     <main className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4 bg-transparent">
-
-      <Orb />
+      
+      <RippleEffect />
 
       <div className="relative z-10 flex flex-col items-center text-center">
          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-orange-400/20 bg-orange-400/10 backdrop-blur-sm">
@@ -166,55 +118,6 @@ export default function LandingPage() {
           </Button>
         </div>
       </div>
-
-       <style jsx global>{`
-        .orb-container {
-          --highlight-x: 50%;
-          --highlight-y: 50%;
-          position: absolute;
-          top: 0;
-          left: 0;
-          transform-style: preserve-3d;
-          pointer-events: none;
-          z-index: 0;
-        }
-
-        .orb {
-            width: 300px;
-            height: 300px;
-            border-radius: 50%;
-            background: radial-gradient(
-                circle at var(--highlight-x) var(--highlight-y),
-                hsla(25, 100%, 80%, 0.9),
-                hsl(19, 100%, 50%) 60%
-            );
-            box-shadow:
-                inset 0 -20px 40px hsla(19, 100%, 30%, 0.5), /* Inner shadow for depth */
-                inset 0 20px 30px hsla(25, 100%, 80%, 0.8), /* Inner highlight */
-                0 10px 50px hsla(0, 0%, 0%, 0.2);     /* Outer shadow */
-            transition: transform 0.1s ease-out;
-        }
-
-        @media (max-width: 768px) {
-            .orb {
-                width: 200px;
-                height: 200px;
-            }
-            .orb-container {
-                /* On mobile, the container takes the whole screen for physics */
-                width: 100vw;
-                height: 100vh;
-            }
-        }
-
-        @media (min-width: 769px) {
-            .orb-container {
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-            }
-        }
-      `}</style>
     </main>
   );
 }
