@@ -31,6 +31,19 @@ export default function CodesPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const animationFrameId = useRef<number>();
+
+  const closeScanner = useCallback(() => {
+    setIsScannerOpen(false);
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+    }
+  }, []);
 
   const handleUseCode = useCallback(async (scannedCode: string) => {
     if (!scannedCode) {
@@ -51,7 +64,7 @@ export default function CodesPage() {
           description: result.message,
         });
         setCode('');
-        setIsScannerOpen(false); // Close scanner on success
+        closeScanner(); // Close scanner on success
         if (audioRef.current) {
           audioRef.current.play();
         }
@@ -71,7 +84,7 @@ export default function CodesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, closeScanner]);
 
   const tick = useCallback(() => {
     if (isLoading) return;
@@ -92,22 +105,28 @@ export default function CodesPage() {
           if (qrCode) {
             setCode(qrCode.data);
             handleUseCode(qrCode.data);
+            return; // Stop scanning after finding a code
           }
         }
       }
     }
-    requestAnimationFrame(tick);
+    animationFrameId.current = requestAnimationFrame(tick);
   }, [isLoading, handleUseCode]);
 
   useEffect(() => {
     if (isScannerOpen && hasCameraPermission) {
-      const animationFrameId = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(animationFrameId);
+      animationFrameId.current = requestAnimationFrame(tick);
+      return () => {
+        if(animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current)
+        }
+      };
     }
   }, [isScannerOpen, hasCameraPermission, tick]);
 
   const openScanner = async () => {
     setIsScannerOpen(true);
+    // Only ask for permission if it hasn't been determined yet
     if (hasCameraPermission === null) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -122,15 +141,6 @@ export default function CodesPage() {
       }
     }
   };
-
-  const closeScanner = () => {
-    setIsScannerOpen(false);
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-  }
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
