@@ -126,19 +126,16 @@ export default function CodesPage() {
 
   const openScanner = async () => {
     setIsScannerOpen(true);
-    // Only ask for permission if it hasn't been determined yet
-    if (hasCameraPermission === null) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-        setHasCameraPermission(true);
-      } catch (err) {
-        console.error("Camera Error:", err);
-        setHasCameraPermission(false);
-        toast({ title: "카메라 오류", description: "카메라를 사용할 수 없습니다. 권한을 확인해주세요.", variant: "destructive" });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
       }
+      setHasCameraPermission(true);
+    } catch (err) {
+      console.error("Camera Error:", err);
+      setHasCameraPermission(false);
+      toast({ title: "카메라 오류", description: "카메라를 사용할 수 없습니다. 권한을 확인해주세요.", variant: "destructive" });
     }
   };
 
