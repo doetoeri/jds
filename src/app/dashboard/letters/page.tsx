@@ -25,6 +25,7 @@ import {
   orderBy,
   doc,
   getDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { Loader2, Mail, Send, Inbox, Info } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -33,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useSearchParams } from 'next/navigation';
 
 
 interface ReceivedLetter {
@@ -52,36 +54,61 @@ export default function LettersPage() {
   const [receivedLetters, setReceivedLetters] = useState<ReceivedLetter[]>([]);
   const { toast } = useToast();
   const [user] = useAuthState(auth);
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'send';
 
-  const fetchReceivedLetters = async (currentUserStudentId: string) => {
-    setIsInboxLoading(true);
-    try {
-      const q = query(
-        collection(db, 'letters'),
-        where('receiverStudentId', '==', currentUserStudentId),
-        where('status', '==', 'approved'),
-        orderBy('approvedAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const letters = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ReceivedLetter[];
-      setReceivedLetters(letters);
-    } catch (error) {
-      console.error('Error fetching received letters:', error);
-      toast({
-        title: '오류',
-        description: '받은 편지를 불러오는 데 실패했습니다.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsInboxLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (user) {
+      const markLettersAsRead = async (currentUserStudentId: string) => {
+        const unreadLettersQuery = query(
+          collection(db, 'letters'),
+          where('receiverStudentId', '==', currentUserStudentId),
+          where('status', '==', 'approved'),
+          where('isRead', '==', false)
+        );
+
+        const unreadSnapshot = await getDocs(unreadLettersQuery);
+        if (!unreadSnapshot.empty) {
+          const batch = writeBatch(db);
+          unreadSnapshot.docs.forEach(doc => {
+            batch.update(doc.ref, { isRead: true });
+          });
+          await batch.commit();
+        }
+      };
+
+      const fetchReceivedLetters = async (currentUserStudentId: string) => {
+        setIsInboxLoading(true);
+        try {
+          const q = query(
+            collection(db, 'letters'),
+            where('receiverStudentId', '==', currentUserStudentId),
+            where('status', '==', 'approved'),
+            orderBy('approvedAt', 'desc')
+          );
+          const querySnapshot = await getDocs(q);
+          const letters = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as ReceivedLetter[];
+          setReceivedLetters(letters);
+          
+          // Mark letters as read after fetching
+          markLettersAsRead(currentUserStudentId);
+
+        } catch (error) {
+          console.error('Error fetching received letters:', error);
+          toast({
+            title: '오류',
+            description: '받은 편지를 불러오는 데 실패했습니다.',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsInboxLoading(false);
+        }
+      };
+
       const userDocRef = doc(db, 'users', user.uid);
       getDoc(userDocRef).then(docSnap => {
         if (docSnap.exists()) {
@@ -138,6 +165,7 @@ export default function LettersPage() {
         status: 'pending',
         createdAt: serverTimestamp(),
         isOffline: isOffline,
+        isRead: false, // Add isRead field
       });
 
       toast({
@@ -159,7 +187,7 @@ export default function LettersPage() {
   };
 
   return (
-    <Tabs defaultValue="send" className="w-full max-w-2xl mx-auto">
+    <Tabs defaultValue={initialTab} className="w-full max-w-2xl mx-auto">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="send">
           <Send className="mr-2 h-4 w-4" />

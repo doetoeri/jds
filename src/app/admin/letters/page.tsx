@@ -91,9 +91,10 @@ export default function AdminLettersPage() {
   const handleApproveLetter = async (letter: Letter) => {
     setIsProcessing(letter.id);
     try {
+      const letterRef = doc(db, 'letters', letter.id);
+      
       // Offline letter logic
       if (letter.isOffline) {
-        const letterRef = doc(db, 'letters', letter.id);
         await updateDoc(letterRef, {
             status: 'approved',
             approvedAt: new Date(),
@@ -131,7 +132,6 @@ export default function AdminLettersPage() {
       }
       const senderData = senderDoc.data();
 
-      const letterRef = doc(db, 'letters', letter.id);
       batch.update(letterRef, { status: 'approved', approvedAt: new Date() });
 
       batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
