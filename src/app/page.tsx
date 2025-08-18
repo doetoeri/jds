@@ -7,137 +7,149 @@ import { useState, useEffect, useRef } from 'react';
 
 // 감성 인터랙티브 컴포넌트
 const InteractiveOrbs = () => {
-  const [orbs, setOrbs] = useState<any[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const pointerPos = useRef({ x: -1000, y: -1000, isTouching: false });
+  const orbsRef = useRef<any[]>([]);
+  const animationFrameId = useRef<number>();
 
   const keywords = ['우정', '꿈', '추억', '도전', '열정', '성장', '미래', '희망', '행복', '웃음'];
 
   useEffect(() => {
+    const pointerPos = { x: -1000, y: -1000, isTouching: false };
+
     const handlePointerMove = (x: number, y: number) => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        pointerPos.current = { 
-          x: x - rect.left, 
-          y: y - rect.top,
-          isTouching: true
-        };
+        pointerPos.x = x - rect.left;
+        pointerPos.y = y - rect.top;
+        pointerPos.isTouching = true;
       }
     };
     
-    const handleMouseMove = (event: MouseEvent) => {
-      handlePointerMove(event.clientX, event.clientY);
-    };
-    
+    const handleMouseMove = (event: MouseEvent) => handlePointerMove(event.clientX, event.clientY);
     const handleTouchMove = (event: TouchEvent) => {
       if (event.touches[0]) {
         handlePointerMove(event.touches[0].clientX, event.touches[0].clientY);
       }
     };
-
-    const handleTouchEnd = () => {
-      pointerPos.current.isTouching = false;
-    }
+    const handleMouseLeave = () => { pointerPos.isTouching = false; };
+    const handleTouchEnd = () => { pointerPos.isTouching = false; };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchstart', handleTouchMove);
+    window.addEventListener('mouseleave', handleMouseLeave);
     window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchstart', handleTouchMove);
     window.addEventListener('touchend', handleTouchEnd);
+    
+    // Orb 초기화
+    if (containerRef.current && orbsRef.current.length === 0) {
+      orbsRef.current = Array.from({ length: 15 }, (_, i) => {
+        const orbDiv = document.createElement('div');
+        const keywordDiv = document.createElement('div');
+        
+        const size = 40 + Math.random() * 40;
+        const targetOpacity = 0.2 + Math.random() * 0.4;
 
+        orbDiv.className = "group absolute rounded-full transition-opacity duration-500 ease-out";
+        orbDiv.style.width = `${size}px`;
+        orbDiv.style.height = `${size}px`;
+        orbDiv.style.background = `radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.5), hsl(var(--primary) / 0.1) 80%)`;
+        orbDiv.style.boxShadow = 'inset 0 0 10px hsl(var(--primary-foreground) / 0.3), 0 0 20px hsl(var(--primary) / 0.2)';
+        orbDiv.style.border = '1px solid hsl(var(--primary) / 0.3)';
+        orbDiv.style.backdropFilter = 'blur(4px)';
+        orbDiv.style.opacity = '0';
+        orbDiv.style.willChange = 'transform, opacity';
 
-    const initialOrbs = Array.from({ length: 15 }, (_, i) => ({
-      id: i,
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      size: 40 + Math.random() * 40,
-      keyword: keywords[i % keywords.length],
-      opacity: 0,
-      targetOpacity: 0.2 + Math.random() * 0.4
-    }));
-    setOrbs(initialOrbs);
+        keywordDiv.className = "absolute inset-0 flex items-center justify-center text-white text-xs sm:text-sm font-bold opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 pointer-events-none";
+        keywordDiv.textContent = keywords[i % keywords.length];
+        
+        orbDiv.appendChild(keywordDiv);
+        containerRef.current?.appendChild(orbDiv);
 
-    let animationFrameId: number;
+        return {
+          id: i,
+          el: orbDiv,
+          x: Math.random() * (containerRef.current?.clientWidth || 0),
+          y: Math.random() * (containerRef.current?.clientHeight || 0),
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          opacity: 0,
+          targetOpacity: targetOpacity,
+        };
+      });
+    }
+
     const animate = () => {
-      setOrbs(currentOrbs =>
-        currentOrbs.map(orb => {
-          if (!containerRef.current) return orb;
-          
-          let newVx = orb.vx;
-          let newVy = orb.vy;
-          let newX = orb.x + newVx;
-          let newY = orb.y + newVy;
+      const container = containerRef.current;
+      if (!container) {
+          animationFrameId.current = requestAnimationFrame(animate);
+          return;
+      };
 
-          // Wall bouncing
-          if (newX < 0 || newX > containerRef.current.clientWidth) newVx *= -1;
-          if (newY < 0 || newY > containerRef.current.clientHeight) newVy *= -1;
-          
-          // Pointer interaction
-          if (pointerPos.current.isTouching) {
-            const dx = pointerPos.current.x - newX;
-            const dy = pointerPos.current.y - newY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 150) {
-              const force = (1 - dist / 150) * 0.3;
-              newVx -= dx * force * 0.05;
-              newVy -= dy * force * 0.05;
-            }
+      orbsRef.current.forEach(orb => {
+        let newVx = orb.vx;
+        let newVy = orb.vy;
+
+        // Pointer interaction
+        if (pointerPos.isTouching) {
+          const dx = pointerPos.x - orb.x;
+          const dy = pointerPos.y - orb.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 150) {
+            const force = (1 - dist / 150) * 0.3;
+            newVx -= dx * force * 0.05;
+            newVy -= dy * force * 0.05;
           }
+        }
+        
+        orb.x += newVx;
+        orb.y += newVy;
+        
+        // Wall bouncing
+        if (orb.x < 0 || orb.x > container.clientWidth) newVx *= -1;
+        if (orb.y < 0 || orb.y > container.clientHeight) newVy *= -1;
 
-          // Damping
-          newVx *= 0.99;
-          newVy *= 0.99;
+        // Damping
+        newVx *= 0.99;
+        newVy *= 0.99;
+        
+        orb.vx = newVx;
+        orb.vy = newVy;
+        
+        // Update opacity
+        if (Math.abs(orb.opacity - orb.targetOpacity) > 0.01) {
+            orb.opacity += (orb.targetOpacity - orb.opacity) * 0.05;
+            orb.el.style.opacity = `${orb.opacity}`;
+        }
 
-          return {
-            ...orb,
-            x: newX,
-            y: newY,
-            vx: newVx,
-            vy: newVy,
-            opacity: orb.opacity + (orb.targetOpacity - orb.opacity) * 0.1
-          };
-        })
-      );
-      animationFrameId = requestAnimationFrame(animate);
+        // Apply transform
+        orb.el.style.transform = `translate(${orb.x}px, ${orb.y}px) translate(-50%, -50%)`;
+      });
+      animationFrameId.current = requestAnimationFrame(animate);
     };
 
     animate();
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchstart', handleTouchMove);
+      window.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchstart', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+      // Cleanup DOM elements
+      orbsRef.current.forEach(orb => {
+        if(orb.el.parentNode) {
+            orb.el.parentNode.removeChild(orb.el);
+        }
+      });
+      orbsRef.current = [];
     };
-  }, []);
+  }, [keywords]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 -z-10 overflow-hidden">
-      {orbs.map(orb => (
-        <div
-          key={orb.id}
-          className="group absolute rounded-full transition-all duration-300 ease-out"
-          style={{
-            left: orb.x,
-            top: orb.y,
-            width: orb.size,
-            height: orb.size,
-            opacity: orb.opacity,
-            transform: 'translate(-50%, -50%)',
-            background: `radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.5), hsl(var(--primary) / 0.1) 80%)`,
-            boxShadow: 'inset 0 0 10px hsl(var(--primary-foreground) / 0.3), 0 0 20px hsl(var(--primary) / 0.2)',
-            border: '1px solid hsl(var(--primary) / 0.3)',
-            backdropFilter: 'blur(4px)',
-          }}
-        >
-           <div className="absolute inset-0 flex items-center justify-center text-white text-xs sm:text-sm font-bold opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 pointer-events-none">
-             {orb.keyword}
-           </div>
-        </div>
-      ))}
-    </div>
+    <div ref={containerRef} className="absolute inset-0 -z-10 overflow-hidden" />
   );
 };
 
