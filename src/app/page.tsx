@@ -9,21 +9,41 @@ import { useState, useEffect, useRef } from 'react';
 const InteractiveOrbs = () => {
   const [orbs, setOrbs] = useState<any[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const mousePos = useRef({ x: 0, y: 0 });
+  const pointerPos = useRef({ x: -1000, y: -1000, isTouching: false });
 
   const keywords = ['우정', '꿈', '추억', '도전', '열정', '성장', '미래', '희망', '행복', '웃음'];
 
   useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
+    const handlePointerMove = (x: number, y: number) => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        mousePos.current = { 
-          x: event.clientX - rect.left, 
-          y: event.clientY - rect.top 
+        pointerPos.current = { 
+          x: x - rect.left, 
+          y: y - rect.top,
+          isTouching: true
         };
       }
     };
+    
+    const handleMouseMove = (event: MouseEvent) => {
+      handlePointerMove(event.clientX, event.clientY);
+    };
+    
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches[0]) {
+        handlePointerMove(event.touches[0].clientX, event.touches[0].clientY);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      pointerPos.current.isTouching = false;
+    }
+
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchstart', handleTouchMove);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
+
 
     const initialOrbs = Array.from({ length: 15 }, (_, i) => ({
       id: i,
@@ -31,7 +51,7 @@ const InteractiveOrbs = () => {
       y: Math.random() * window.innerHeight,
       vx: (Math.random() - 0.5) * 0.5,
       vy: (Math.random() - 0.5) * 0.5,
-      size: 10 + Math.random() * 15,
+      size: 40 + Math.random() * 40,
       keyword: keywords[i % keywords.length],
       opacity: 0,
       targetOpacity: 0.2 + Math.random() * 0.4
@@ -53,14 +73,16 @@ const InteractiveOrbs = () => {
           if (newX < 0 || newX > containerRef.current.clientWidth) newVx *= -1;
           if (newY < 0 || newY > containerRef.current.clientHeight) newVy *= -1;
           
-          // Mouse interaction
-          const dx = mousePos.current.x - newX;
-          const dy = mousePos.current.y - newY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 150) {
-            const force = (1 - dist / 150) * 0.2;
-            newVx -= dx * force * 0.05;
-            newVy -= dy * force * 0.05;
+          // Pointer interaction
+          if (pointerPos.current.isTouching) {
+            const dx = pointerPos.current.x - newX;
+            const dy = pointerPos.current.y - newY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 150) {
+              const force = (1 - dist / 150) * 0.3;
+              newVx -= dx * force * 0.05;
+              newVy -= dy * force * 0.05;
+            }
           }
 
           // Damping
@@ -84,6 +106,9 @@ const InteractiveOrbs = () => {
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouchMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
@@ -93,7 +118,7 @@ const InteractiveOrbs = () => {
       {orbs.map(orb => (
         <div
           key={orb.id}
-          className="absolute rounded-full bg-primary/50 transition-all duration-300 ease-out group"
+          className="group absolute rounded-full transition-all duration-300 ease-out"
           style={{
             left: orb.x,
             top: orb.y,
@@ -101,9 +126,13 @@ const InteractiveOrbs = () => {
             height: orb.size,
             opacity: orb.opacity,
             transform: 'translate(-50%, -50%)',
+            background: `radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.5), hsl(var(--primary) / 0.1) 80%)`,
+            boxShadow: 'inset 0 0 10px hsl(var(--primary-foreground) / 0.3), 0 0 20px hsl(var(--primary) / 0.2)',
+            border: '1px solid hsl(var(--primary) / 0.3)',
+            backdropFilter: 'blur(4px)',
           }}
         >
-           <div className="absolute inset-0 flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-opacity duration-300">
+           <div className="absolute inset-0 flex items-center justify-center text-white text-xs sm:text-sm font-bold opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 pointer-events-none">
              {orb.keyword}
            </div>
         </div>
@@ -115,7 +144,7 @@ const InteractiveOrbs = () => {
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-transparent p-8 relative">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-transparent p-8 relative overflow-hidden">
        <InteractiveOrbs />
       <div className="text-center relative z-10">
         <div className="mb-8 inline-flex items-center justify-center rounded-full bg-primary/10 p-4 backdrop-blur-sm">
