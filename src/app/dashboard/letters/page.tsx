@@ -18,7 +18,6 @@ import { auth, db } from '@/lib/firebase';
 import {
   collection,
   addDoc,
-  serverTimestamp,
   query,
   where,
   getDocs,
@@ -64,7 +63,7 @@ export default function LettersPage() {
         try {
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, {
-                lastLetterCheckTimestamp: serverTimestamp()
+                lastLetterCheckTimestamp: new Date()
             });
         } catch (e) {
             console.error("Error updating last letter check timestamp: ", e);
@@ -157,7 +156,7 @@ export default function LettersPage() {
         receiverStudentId: receiverStudentId,
         content: content,
         status: 'pending',
-        createdAt: serverTimestamp(),
+        createdAt: new Date(),
         isOffline: isOffline,
         // The isRead field is no longer needed on the letter itself
       });

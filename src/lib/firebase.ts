@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, serverTimestamp, writeBatch, documentId, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -40,7 +40,7 @@ export const signUp = async (studentId: string, password: string, email: string)
       studentId: studentId,
       email: email,
       lak: 0,
-      createdAt: serverTimestamp(),
+      createdAt: new Date(),
     });
 
     return user;
@@ -124,7 +124,7 @@ export const useCode = async (userId: string, inputCode: string) => {
     // Create transaction history
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
-      date: serverTimestamp(),
+      date: new Date(),
       description: description,
       amount: codeData.value,
       type: 'credit',
@@ -162,7 +162,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     // 4. Create a single transaction history for the purchase
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
-      date: serverTimestamp(),
+      date: new Date(),
       description: `상품 구매: ${cartItemsDescription}`,
       amount: -totalCost,
       type: 'debit',
@@ -175,7 +175,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
         studentId: userData.studentId,
         items: cart, // Save the detailed cart
         totalCost: totalCost,
-        createdAt: serverTimestamp(),
+        createdAt: new Date(),
     });
 
 
