@@ -18,48 +18,71 @@ const Orb = () => {
   // Handle device orientation for mobile
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
     // Android and iOS handle gamma/beta differently
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isIOS = typeof (window as any).DeviceOrientationEvent.requestPermission === 'function';
     const gamma = event.gamma || 0; // -90 to 90 (left-right)
     const beta = event.beta || 0;   // -180 to 180 (front-back)
 
-    if(isIOS) {
-        acc.current = { x: gamma / 45, y: beta / 90 };
-    } else {
-        acc.current = { x: gamma / 45, y: (beta - 45) / 45 };
+    // Normalize acceleration values
+    let ax = gamma / 45;
+    let ay = (beta - 45) / 45; // Start with a baseline for Android
+
+    if (isIOS) {
+      ay = beta / 90; // Different scaling for iOS
     }
+    
+    acc.current = { x: ax, y: ay };
   }, []);
   
   // Handle mouse movement for desktop
   const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!orbRef.current) return;
+    if (!orbRef.current || isMobile) return;
     const { clientX, clientY } = event;
     const { left, top, width, height } = orbRef.current.getBoundingClientRect();
     const x = ((clientX - left) / width) * 100;
     const y = ((clientY - top) / height) * 100;
     orbRef.current.style.setProperty('--highlight-x', `${x}%`);
     orbRef.current.style.setProperty('--highlight-y', `${y}%`);
-  }, []);
+  }, [isMobile]);
 
 
   useEffect(() => {
     const checkIsMobile = () => window.matchMedia("(max-width: 768px)").matches;
-    setIsMobile(checkIsMobile());
+    const mobileCheck = checkIsMobile();
+    setIsMobile(mobileCheck);
 
     const orb = orbRef.current;
     if (orb) {
+      // Initialize position
       pos.current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      // Set initial transform to avoid flicker
+      orb.style.transform = `translate(${pos.current.x - orb.offsetWidth / 2}px, ${pos.current.y - orb.offsetHeight / 2}px)`;
     }
     
-    // Attach appropriate listeners
-    if (window.DeviceOrientationEvent && checkIsMobile()) {
-        window.addEventListener('deviceorientation', handleOrientation);
+    // Permission request for iOS 13+
+    const requestOrientationPermission = async () => {
+      if (typeof (window as any).DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const permission = await (window as any).DeviceOrientationEvent.requestPermission();
+          if (permission === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation);
+          }
+        } catch (error) {
+          console.error("Device orientation permission request failed:", error);
+        }
+      } else {
+         window.addEventListener('deviceorientation', handleOrientation);
+      }
+    };
+    
+    if (mobileCheck) {
+        requestOrientationPermission();
     } else {
         window.addEventListener('mousemove', handleMouseMove);
     }
 
     // Physics loop
     const animate = () => {
-      if (orb) {
+      if (orb && mobileCheck) {
         const friction = 0.98;
         vel.current.x += acc.current.x;
         vel.current.y += acc.current.y;
@@ -91,10 +114,9 @@ const Orb = () => {
       }
       animationFrameId.current = requestAnimationFrame(animate);
     };
-
-    if (checkIsMobile()) {
-      animationFrameId.current = requestAnimationFrame(animate);
-    }
+    
+    // Start the animation loop regardless
+    animationFrameId.current = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation);
@@ -103,7 +125,7 @@ const Orb = () => {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [isMobile, handleOrientation, handleMouseMove]);
+  }, [handleOrientation, handleMouseMove]);
 
   return (
     <div ref={orbRef} className="orb-container">
