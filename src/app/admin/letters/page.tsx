@@ -10,6 +10,7 @@ import {
   writeBatch,
   getDoc,
   where,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -52,6 +53,7 @@ interface Letter {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
   senderUid: string;
+  isOffline?: boolean;
 }
 
 export default function AdminLettersPage() {
@@ -89,10 +91,26 @@ export default function AdminLettersPage() {
   const handleApproveLetter = async (letter: Letter) => {
     setIsProcessing(letter.id);
     try {
-      const batch = writeBatch(db);
+      // Offline letter logic
+      if (letter.isOffline) {
+        const letterRef = doc(db, 'letters', letter.id);
+        await updateDoc(letterRef, {
+            status: 'approved',
+            approvedAt: new Date(),
+            content: '관리자를 통해 오프라인으로 편지가 전달되었습니다.' // Hide content
+        });
+        toast({
+            title: '성공',
+            description: '오프라인 편지를 승인 처리했습니다. 이제 직접 전달해주세요.',
+        });
+        fetchLetters();
+        return;
+      }
 
-      // 1. Find receiver user
+      // Online letter logic (with Lak points)
+      const batch = writeBatch(db);
       const usersRef = collection(db, 'users');
+      
       const receiverQuery = query(
         usersRef,
         where('studentId', '==', letter.receiverStudentId)
@@ -106,7 +124,6 @@ export default function AdminLettersPage() {
       const receiverRef = receiverDoc.ref;
       const receiverData = receiverDoc.data();
 
-      // 2. Find sender user
       const senderRef = doc(db, 'users', letter.senderUid);
       const senderDoc = await getDoc(senderRef);
        if (!senderDoc.exists()) {
@@ -114,15 +131,12 @@ export default function AdminLettersPage() {
       }
       const senderData = senderDoc.data();
 
-      // 3. Update letter status
       const letterRef = doc(db, 'letters', letter.id);
       batch.update(letterRef, { status: 'approved', approvedAt: new Date() });
 
-      // 4. Update Lak for both users
       batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
       batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
 
-      // 5. Create transactions for both
       const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
       batch.set(receiverTransactionRef, {
         amount: 2,
@@ -145,7 +159,7 @@ export default function AdminLettersPage() {
         title: '성공',
         description: '편지를 승인하고 Lak을 지급했습니다.',
       });
-      fetchLetters(); // Refresh list
+      fetchLetters();
     } catch (error: any) {
       toast({
         title: '오류',
@@ -161,9 +175,7 @@ export default function AdminLettersPage() {
      setIsProcessing(letterId);
      try {
         const letterRef = doc(db, 'letters', letterId);
-        const batch = writeBatch(db);
-        batch.update(letterRef, { status: 'rejected' });
-        await batch.commit();
+        await updateDoc(letterRef, { status: 'rejected' });
         toast({
             title: '성공',
             description: '편지를 거절 처리했습니다.',
@@ -196,6 +208,7 @@ export default function AdminLettersPage() {
               <TableHead>보낸 학생</TableHead>
               <TableHead>받는 학생</TableHead>
               <TableHead>내용</TableHead>
+              <TableHead>유형</TableHead>
               <TableHead>상태</TableHead>
               <TableHead>요청일</TableHead>
               <TableHead className="text-right">작업</TableHead>
@@ -205,14 +218,14 @@ export default function AdminLettersPage() {
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Skeleton className="h-8 w-full" />
                   </TableCell>
                 </TableRow>
               ))
             ) : letters.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={7} className="text-center h-24">
                   도착한 편지가 없습니다.
                 </TableCell>
               </TableRow>
@@ -224,7 +237,7 @@ export default function AdminLettersPage() {
                   <TableCell className="max-w-[200px] truncate">
                      <AlertDialog>
                         <AlertDialogTrigger asChild>
-                           <Button variant="link" className="p-0 h-auto">내용 보기</Button>
+                           <Button variant="link" className="p-0 h-auto" disabled={letter.status === 'approved' && letter.isOffline}>내용 보기</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                            <AlertDialogHeader>
@@ -238,6 +251,13 @@ export default function AdminLettersPage() {
                            </AlertDialogFooter>
                         </AlertDialogContent>
                      </AlertDialog>
+                  </TableCell>
+                  <TableCell>
+                    {letter.isOffline ? (
+                        <Badge variant="secondary"><Printer className="h-3 w-3 mr-1"/>오프라인</Badge>
+                    ) : (
+                        <Badge variant="outline">온라인</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge

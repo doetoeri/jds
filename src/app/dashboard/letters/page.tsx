@@ -26,22 +26,27 @@ import {
   doc,
   getDoc,
 } from 'firebase/firestore';
-import { Loader2, Mail, Send, Inbox } from 'lucide-react';
+import { Loader2, Mail, Send, Inbox, Info } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 interface ReceivedLetter {
   id: string;
   senderStudentId: string;
   content: string;
   approvedAt: any;
+  isOffline: boolean;
 }
 
 export default function LettersPage() {
   const [receiverStudentId, setReceiverStudentId] = useState('');
   const [content, setContent] = useState('');
+  const [isOffline, setIsOffline] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInboxLoading, setIsInboxLoading] = useState(true);
   const [receivedLetters, setReceivedLetters] = useState<ReceivedLetter[]>([]);
@@ -108,7 +113,6 @@ export default function LettersPage() {
 
     setIsLoading(true);
     try {
-      // Get sender's studentId
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
       if (!userDoc.exists()) {
@@ -116,11 +120,10 @@ export default function LettersPage() {
       }
       const senderStudentId = userDoc.data().studentId;
 
-       if (senderStudentId === receiverStudentId) {
+      if (senderStudentId === receiverStudentId) {
         throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
       }
-      
-      // Check if receiver exists
+
       const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
       const receiverSnapshot = await getDocs(receiverQuery);
       if (receiverSnapshot.empty) {
@@ -134,15 +137,16 @@ export default function LettersPage() {
         content: content,
         status: 'pending',
         createdAt: serverTimestamp(),
+        isOffline: isOffline,
       });
 
       toast({
         title: '전송 완료!',
-        description:
-          '편지가 성공적으로 전달되었습니다. 관리자 승인 후 발송 처리됩니다.',
+        description: '편지가 성공적으로 전달되었습니다. 관리자 승인 후 처리됩니다.',
       });
       setReceiverStudentId('');
       setContent('');
+      setIsOffline(false);
     } catch (error: any) {
       toast({
         title: '전송 실패',
@@ -202,6 +206,26 @@ export default function LettersPage() {
                   rows={6}
                 />
               </div>
+              <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="offline" 
+                    checked={isOffline}
+                    onCheckedChange={(checked) => setIsOffline(checked as boolean)}
+                    disabled={isLoading}
+                    />
+                  <Label htmlFor="offline" className="cursor-pointer">
+                    오프라인으로 편지 보내기 (포인트 지급 없음)
+                  </Label>
+              </div>
+              {isOffline && (
+                 <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>오프라인 편지 안내</AlertTitle>
+                  <AlertDescription>
+                    체크 시 편지 내용은 관리자만 확인하며, 승인 후 직접 인쇄하여 전달해주세요.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button type="submit" className="font-bold" disabled={isLoading}>
@@ -243,7 +267,7 @@ export default function LettersPage() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                    {letter.content}
+                    {letter.isOffline ? '관리자를 통해 오프라인으로 편지가 전달되었습니다.' : letter.content}
                   </p>
                 </div>
               ))
