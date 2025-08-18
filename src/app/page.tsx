@@ -2,143 +2,74 @@
 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Bird } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
-import { cn } from '@/lib/utils';
+import { Bird, Coins, Gift, MessageSquare } from 'lucide-react';
 
-// 감성 인터랙티브 아쿠아 오브 컴포넌트
-const InteractiveAquaOrbs = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handlePointerMove = (e: PointerEvent) => {
-      const { clientX, clientY } = e;
-      const rect = container.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-      container.style.setProperty('--pointer-x', `${x}px`);
-      container.style.setProperty('--pointer-y', `${y}px`);
-    };
-
-    container.addEventListener('pointermove', handlePointerMove);
-
-    return () => {
-      container.removeEventListener('pointermove', handlePointerMove);
-    };
-  }, []);
-
-  const orbs = [
-    // [top, left, size, text]
-    ['5%', '15%', 80, '우정'],
-    ['10%', '80%', 120, '꿈'],
-    ['25%', '5%', 60, '추억'],
-    ['30%', '90%', 90, '도전'],
-    ['50%', '55%', 150, '열정'],
-    ['60%', '10%', 100, '성장'],
-    ['75%', '85%', 70, '미래'],
-    ['85%', '20%', 110, '희망'],
+const GlassmorphismLanding = () => {
+  const floatingIcons = [
+    { icon: Coins, className: 'top-[10%] left-[15%] w-10 h-10 text-yellow-300', delay: 0 },
+    { icon: Gift, className: 'top-[20%] right-[10%] w-14 h-14 text-pink-300', delay: 1 },
+    { icon: MessageSquare, className: 'bottom-[15%] left-[20%] w-12 h-12 text-blue-300', delay: 2 },
+    { icon: Bird, className: 'bottom-[25%] right-[25%] w-16 h-16 text-orange-300', delay: 0.5 },
   ];
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 -z-10 overflow-hidden"
-      style={
-        {
-          '--pointer-x': '50%',
-          '--pointer-y': '50%',
-        } as React.CSSProperties
-      }
-    >
-      {/* 스포트라이트 효과 */}
-      <div className="pointer-events-none fixed inset-0 z-20 bg-[radial-gradient(400px_at_var(--pointer-x)_var(--pointer-y),rgba(255,85,0,0.15),transparent_80%)]" />
+    <main className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4 bg-[#1a1a2e]">
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute bottom-0 left-[-20%] right-0 top-[-10%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_farthest-side,rgba(255,0,182,0.15),rgba(255,255,255,0))]"></div>
+        <div className="absolute bottom-[-40%] right-[-10%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_farthest-side,rgba(0,102,255,0.15),rgba(255,255,255,0))]"></div>
+      </div>
+      
+       {/* Floating Icons */}
+       <div className="absolute inset-0 z-10 overflow-hidden">
+          {floatingIcons.map((item, index) => (
+            <div key={index} className={`floating-icon absolute ${item.className}`} style={{ animationDelay: `${item.delay}s` }}>
+              <item.icon className="w-full h-full drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
+            </div>
+          ))}
+      </div>
 
-      {orbs.map(([top, left, size, text], i) => (
-        <div
-          key={i}
-          className="aqua-orb-container group"
-          style={{ top, left, width: `${size}px`, height: `${size}px` }}
-        >
-          <div className="aqua-orb-glow" />
-          <div className="aqua-orb" />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-white opacity-0 shadow-black/50 drop-shadow-lg transition-opacity duration-300 group-hover:opacity-100 sm:text-base">
-            {text}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-transparent p-8 relative overflow-hidden">
-      <style jsx global>{`
-        .aqua-orb-container {
-          position: absolute;
-          transform: translate(-50%, -50%);
-          filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.3));
-          transition: transform 0.3s ease-out;
-        }
-        .aqua-orb,
-        .aqua-orb-glow {
-          position: absolute;
-          inset: 0;
-          border-radius: 9999px;
-          transition: all 0.3s ease-out;
-        }
-        .aqua-orb-glow {
-          background: hsl(var(--primary) / 0.4);
-          filter: blur(20px);
-          transform: scale(0.9);
-        }
-        .aqua-orb {
-          background: radial-gradient(
-            circle at 30% 30%,
-            hsl(var(--background) / 0.8),
-            hsl(var(--primary) / 0.5) 80%
-          );
-          border: 1px solid hsl(var(--background) / 0.5);
-          backdrop-filter: blur(4px);
-        }
-        .group:hover .aqua-orb {
-          transform: scale(1.1);
-          box-shadow: inset 0 0 20px hsl(var(--background) / 0.7),
-            0 0 30px hsl(var(--primary) / 0.5);
-        }
-        .group:hover .aqua-orb-glow {
-          transform: scale(1.1);
-        }
-      `}</style>
-      <InteractiveAquaOrbs />
-      <div className="text-center relative z-10">
-        <div className="mb-8 inline-flex items-center justify-center rounded-full bg-primary/10 p-4 backdrop-blur-sm">
-          <Bird className="h-12 w-12 text-primary" />
+      {/* Glassmorphism Card */}
+      <div className="relative z-20 flex flex-col items-center justify-center text-center w-full max-w-lg rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-orange-400/20 bg-orange-400/10">
+          <Bird className="h-8 w-8 text-primary" />
         </div>
-        <h1 className="font-headline text-5xl font-bold text-primary drop-shadow-lg">
+        <h1 className="font-headline text-5xl font-bold text-white drop-shadow-lg">
           종달샘 허브
         </h1>
-        <p className="mt-4 max-w-md text-lg text-muted-foreground drop-shadow">
+        <p className="mt-4 max-w-md text-lg text-white/70 drop-shadow">
           고촌중학교 학생자치회 종달샘에 오신 것을 환영합니다. 포인트를
           관리하고 다양한 활동에 참여해보세요.
         </p>
-        <div className="mt-8 flex justify-center gap-4">
-          <Button asChild size="lg" className="font-bold">
+        <div className="mt-8 flex w-full flex-col gap-4 sm:flex-row sm:justify-center">
+          <Button asChild size="lg" className="font-bold w-full sm:w-auto">
             <Link href="/login">로그인</Link>
           </Button>
           <Button
             asChild
             variant="outline"
             size="lg"
-            className="font-bold bg-background/50 backdrop-blur-sm"
+            className="font-bold w-full sm:w-auto border-primary/50 bg-primary/10 text-white hover:bg-primary/20 hover:text-white"
           >
             <Link href="/signup">회원가입</Link>
           </Button>
         </div>
       </div>
+      
+       <style jsx global>{`
+        @keyframes float {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(10deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .floating-icon {
+          animation: float 6s ease-in-out infinite;
+        }
+      `}</style>
+
     </main>
   );
-}
+};
+
+export default GlassmorphismLanding;
