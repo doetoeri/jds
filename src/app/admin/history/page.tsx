@@ -18,14 +18,14 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, collectionGroup } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Transaction {
   id: string;
   studentId: string;
-  date: any;
+  date: Timestamp;
   description: string;
   amount: number;
   type: 'credit' | 'debit';
@@ -69,8 +69,8 @@ export default function AdminHistoryPage() {
 
         // 3. Sort all transactions by date
         allTransactions.sort((a, b) => {
-            const dateA = a.date?.seconds || 0;
-            const dateB = b.date?.seconds || 0;
+            const dateA = a.date?.toMillis() || 0;
+            const dateB = b.date?.toMillis() || 0;
             return dateB - dateA;
         });
 
@@ -122,7 +122,7 @@ export default function AdminHistoryPage() {
               transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell className="font-medium">{transaction.studentId}</TableCell>
-                  <TableCell>{transaction.date ? new Date(transaction.date.seconds * 1000).toLocaleDateString() : '날짜 없음'}</TableCell>
+                  <TableCell>{transaction.date ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}</TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell className="text-right">
                     <Badge

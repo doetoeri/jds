@@ -11,6 +11,7 @@ import {
   getDoc,
   where,
   updateDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -51,7 +52,7 @@ interface Letter {
   receiverStudentId: string;
   content: string;
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: any;
+  createdAt: Timestamp;
   senderUid: string;
   isOffline?: boolean;
 }
@@ -97,7 +98,7 @@ export default function AdminLettersPage() {
       if (letter.isOffline) {
         await updateDoc(letterRef, {
             status: 'approved',
-            approvedAt: new Date(),
+            approvedAt: Timestamp.now(),
             content: '학생회를 통해 오프라인으로 편지가 전달되었습니다.' // Hide content
         });
         toast({
@@ -132,7 +133,7 @@ export default function AdminLettersPage() {
       }
       const senderData = senderDoc.data();
 
-      batch.update(letterRef, { status: 'approved', approvedAt: new Date() });
+      batch.update(letterRef, { status: 'approved', approvedAt: Timestamp.now() });
 
       batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
       batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
@@ -140,7 +141,7 @@ export default function AdminLettersPage() {
       const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
       batch.set(receiverTransactionRef, {
         amount: 2,
-        date: new Date(),
+        date: Timestamp.now(),
         description: `편지 수신 (보낸 사람: ${letter.senderStudentId})`,
         type: 'credit',
       });
@@ -148,7 +149,7 @@ export default function AdminLettersPage() {
       const senderTransactionRef = doc(collection(senderRef, 'transactions'));
       batch.set(senderTransactionRef, {
         amount: 2,
-        date: new Date(),
+        date: Timestamp.now(),
         description: `편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
         type: 'credit',
       });
@@ -276,9 +277,7 @@ export default function AdminLettersPage() {
                   </TableCell>
                   <TableCell>
                     {letter.createdAt
-                      ? new Date(
-                          letter.createdAt.seconds * 1000
-                        ).toLocaleDateString()
+                      ? letter.createdAt.toDate().toLocaleDateString()
                       : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">

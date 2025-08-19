@@ -38,7 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,7 +52,7 @@ interface Code {
   value: number;
   used?: boolean;
   usedBy: string | string[] | null;
-  createdAt: any;
+  createdAt: Timestamp;
   ownerStudentId?: string;
 }
 
@@ -123,17 +123,17 @@ export default function AdminCodesPage() {
         value: Number(newCodeValue),
         used: false,
         usedBy: null,
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
       });
       
       const createdCode: Code = {
         id: docRef.id,
         code: newCode.toUpperCase(),
-        type: newCodeType,
+        type: newCodeType as any,
         value: Number(newCodeValue),
         used: false,
         usedBy: null,
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
       };
       
       toast({ title: "성공", description: "새 코드를 생성했습니다." });
@@ -294,7 +294,7 @@ export default function AdminCodesPage() {
                     <TableCell>{c.value} Lak</TableCell>
                     <TableCell>{renderStatus(c)}</TableCell>
                     <TableCell>{renderUsedBy(c)}</TableCell>
-                     <TableCell>{c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</TableCell>
+                     <TableCell>{c.createdAt ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

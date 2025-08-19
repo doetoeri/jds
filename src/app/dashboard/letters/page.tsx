@@ -25,6 +25,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { Loader2, Mail, Send, Inbox, Info } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -40,7 +41,7 @@ interface ReceivedLetter {
   id: string;
   senderStudentId: string;
   content: string;
-  approvedAt: any;
+  approvedAt: Timestamp;
   isOffline: boolean;
 }
 
@@ -62,8 +63,9 @@ export default function LettersPage() {
       const markLettersAsRead = async () => {
         try {
             const userDocRef = doc(db, 'users', user.uid);
+            // Use serverTimestamp for accuracy across clients
             await updateDoc(userDocRef, {
-                lastLetterCheckTimestamp: new Date()
+                lastLetterCheckTimestamp: Timestamp.now()
             });
         } catch (e) {
             console.error("Error updating last letter check timestamp: ", e);
@@ -90,8 +92,8 @@ export default function LettersPage() {
           
           // Sort letters by approvedAt descending on the client-side
           letters.sort((a, b) => {
-            const dateA = a.approvedAt?.seconds || 0;
-            const dateB = b.approvedAt?.seconds || 0;
+            const dateA = a.approvedAt?.toMillis() || 0;
+            const dateB = b.approvedAt?.toMillis() || 0;
             return dateB - dateA;
           });
 
@@ -163,7 +165,7 @@ export default function LettersPage() {
         receiverStudentId: receiverStudentId,
         content: content,
         status: 'pending',
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
         isOffline: isOffline,
         // The isRead field is no longer needed on the letter itself
       });
@@ -288,9 +290,7 @@ export default function LettersPage() {
                     </h4>
                     <Badge variant="secondary">
                       {letter.approvedAt
-                        ? new Date(
-                            letter.approvedAt.seconds * 1000
-                          ).toLocaleDateString()
+                        ? letter.approvedAt.toDate().toLocaleDateString()
                         : ''}
                     </Badge>
                   </div>

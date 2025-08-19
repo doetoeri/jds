@@ -16,14 +16,16 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeLak = () => {};
+
     if (user) {
       // Subscribe to Lak balance changes
       const userDocRef = doc(db, 'users', user.uid);
-      const unsubscribeLak = onSnapshot(userDocRef, (doc) => {
+      unsubscribeLak = onSnapshot(userDocRef, (doc) => {
         if (doc.exists()) {
           setLakBalance(doc.data().lak);
         } else {
-          console.error("User document not found!");
+          // This can happen briefly during logout, so we avoid logging an error.
           setLakBalance(0);
         }
       });
@@ -48,7 +50,11 @@ export default function DashboardPage() {
                 const newLetters = querySnapshot.docs.filter(doc => {
                   const letterData = doc.data();
                   const approvedAt = letterData.approvedAt;
-                  return approvedAt && approvedAt > lastCheckTimestamp;
+                  // Ensure approvedAt is a Firestore Timestamp before comparing
+                  if (approvedAt && approvedAt.toMillis) {
+                    return approvedAt.toMillis() > lastCheckTimestamp.toMillis();
+                  }
+                  return false;
                 });
 
                 setHasNewLetters(newLetters.length > 0);

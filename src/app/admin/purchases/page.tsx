@@ -18,14 +18,14 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Purchase {
   id: string;
   studentId: string;
-  createdAt: any;
+  createdAt: Timestamp;
   items: { name: string; quantity: number; price: number }[];
   totalCost: number;
 }
@@ -100,7 +100,7 @@ export default function AdminPurchasesPage() {
               purchases.map((purchase) => (
                 <TableRow key={purchase.id}>
                   <TableCell className="font-medium">{purchase.studentId}</TableCell>
-                  <TableCell>{purchase.createdAt ? new Date(purchase.createdAt.seconds * 1000).toLocaleString() : '날짜 없음'}</TableCell>
+                  <TableCell>{purchase.createdAt ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
                   <TableCell className="max-w-[300px] truncate">{formatItems(purchase.items)}</TableCell>
                   <TableCell className="text-right">
                     <Badge variant="destructive">

@@ -19,13 +19,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
 interface Transaction {
   id: string;
-  date: any;
+  date: Timestamp;
   description: string;
   amount: number;
   type: 'credit' | 'debit';
@@ -97,7 +97,7 @@ export default function HistoryPage() {
               transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell className="font-medium">
-                     {transaction.date ? new Date(transaction.date.seconds * 1000).toLocaleDateString() : '날짜 없음'}
+                     {transaction.date ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}
                   </TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell className="text-right">

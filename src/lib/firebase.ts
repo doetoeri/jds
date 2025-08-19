@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -42,7 +42,7 @@ export const signUp = async (studentId: string, password: string, email: string)
         studentId: studentId,
         email: email,
         lak: 0,
-        createdAt: serverTimestamp(),
+        createdAt: Timestamp.now(),
       });
 
       // Create a unique mate code for the new user
@@ -55,7 +55,7 @@ export const signUp = async (studentId: string, password: string, email: string)
           ownerUid: user.uid,
           ownerStudentId: studentId,
           usedBy: [], // Array of student IDs who have used this code
-          createdAt: serverTimestamp()
+          createdAt: Timestamp.now()
       });
     });
 
@@ -142,7 +142,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       transaction.update(userRef, { lak: increment(codeData.value) });
       const userHistoryRef = doc(collection(userRef, 'transactions'));
       transaction.set(userHistoryRef, {
-        date: serverTimestamp(),
+        date: Timestamp.now(),
         description: `'${codeData.ownerStudentId}'님의 메이트코드 사용`,
         amount: codeData.value,
         type: 'credit',
@@ -153,7 +153,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       transaction.update(ownerRef, { lak: increment(codeData.value) });
       const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
       transaction.set(ownerHistoryRef, {
-        date: serverTimestamp(),
+        date: Timestamp.now(),
         description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
         amount: codeData.value,
         type: 'credit',
@@ -183,7 +183,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       const description = `${codeData.type} "${codeData.code}" 사용`;
       const historyRef = doc(collection(userRef, 'transactions'));
       transaction.set(historyRef, {
-        date: serverTimestamp(),
+        date: Timestamp.now(),
         description: description,
         amount: codeData.value,
         type: 'credit',
@@ -222,7 +222,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     // 4. Create a single transaction history for the purchase
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
-      date: serverTimestamp(),
+      date: Timestamp.now(),
       description: `상품 구매: ${cartItemsDescription}`,
       amount: -totalCost,
       type: 'debit',
@@ -235,7 +235,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
         studentId: userData.studentId,
         items: cart, // Save the detailed cart
         totalCost: totalCost,
-        createdAt: serverTimestamp(),
+        createdAt: Timestamp.now(),
     });
 
 
