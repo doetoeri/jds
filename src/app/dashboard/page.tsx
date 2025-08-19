@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Coins, Mail, QrCode } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, getDocs, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -14,15 +14,16 @@ import QRCode from 'qrcode';
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
   const [lakBalance, setLakBalance] = useState<number | null>(null);
-  const [hasNewLetters, setHasNewLetters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [mateCode, setMateCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isCodeLoading, setIsCodeLoading] = useState(true);
 
+  // New state to always show the "new letter" card as a static prompt
+  const [hasNewLetters, setHasNewLetters] = useState(true);
+
   useEffect(() => {
     let unsubscribeUser = () => {};
-    let unsubscribeLetters: (() => void) | null = null;
 
     if (user) {
       setIsLoading(true);
@@ -35,7 +36,6 @@ export default function DashboardPage() {
             const userData = userDocSnap.data();
             setLakBalance(userData.lak);
             
-            // Fetch mate code and generate QR from user data
             if (userData.mateCode) {
                 const code = userData.mateCode;
                 setMateCode(code);
@@ -50,31 +50,12 @@ export default function DashboardPage() {
                  setMateCode(null);
                  setQrCodeUrl(null);
             }
-            setIsCodeLoading(false);
-
-
-            // Setup listener for new letters
-            const currentUserStudentId = userData.studentId;
-            const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
-
-            const lettersQuery = query(
-                collection(db, 'letters'),
-                where('receiverStudentId', '==', currentUserStudentId),
-                where('status', '==', 'approved'),
-                where('approvedAt', '>', lastCheckTimestamp)
-            );
-            
-            // Real-time listener for letters
-            if (unsubscribeLetters) unsubscribeLetters(); // Unsubscribe from previous listener if it exists
-            unsubscribeLetters = onSnapshot(lettersQuery, (letterSnapshot) => {
-                 setHasNewLetters(!letterSnapshot.empty);
-            });
-
         } else {
           setLakBalance(0);
           setMateCode(null);
         }
         setIsLoading(false);
+        setIsCodeLoading(false);
       }, (error) => {
         console.error("Error fetching user data:", error);
         setIsLoading(false);
@@ -83,9 +64,6 @@ export default function DashboardPage() {
 
       return () => {
         unsubscribeUser();
-        if (unsubscribeLetters) {
-          unsubscribeLetters();
-        }
       };
     } else {
         setIsLoading(false);
@@ -114,17 +92,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
         
-        {isLoading ? (
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                     <Skeleton className="h-5 w-32" />
-                     <Skeleton className="h-4 w-4" />
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-8 w-48" />
-                </CardContent>
-            </Card>
-        ) : hasNewLetters ? (
+        {hasNewLetters && (
             <Link href="/dashboard/letters?tab=inbox" className="block animate-in fade-in slide-in-from-bottom-5 duration-500">
                 <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -132,14 +100,14 @@ export default function DashboardPage() {
                     <Mail className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-xl font-bold text-primary">새로운 편지가 도착했어요!</div>
+                    <div className="text-xl font-bold text-primary">도착한 편지가 있을 수 있어요!</div>
                     <p className="text-xs text-primary/80">
-                    지금 바로 받은 편지함을 확인해보세요.
+                      지금 바로 받은 편지함을 확인해보세요.
                     </p>
                 </CardContent>
                 </Card>
             </Link>
-        ) : null}
+        )}
 
         <Card className="md:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

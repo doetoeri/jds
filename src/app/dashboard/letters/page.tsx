@@ -21,7 +21,6 @@ import {
   query,
   where,
   getDocs,
-  orderBy,
   doc,
   getDoc,
   updateDoc,
@@ -59,26 +58,20 @@ export default function LettersPage() {
 
 
   useEffect(() => {
-    if (user) {
-      const markLettersAsRead = async () => {
-        try {
-            const userDocRef = doc(db, 'users', user.uid);
-            // Use serverTimestamp for accuracy across clients
-            await updateDoc(userDocRef, {
-                lastLetterCheckTimestamp: Timestamp.now()
-            });
-        } catch (e) {
-            console.error("Error updating last letter check timestamp: ", e);
-            // Non-critical error, so we don't need to show a toast.
-        }
-      };
-
-      const fetchReceivedLetters = async (currentUserStudentId: string) => {
+    if (user && initialTab === 'inbox') {
+      const fetchAndProcessLetters = async () => {
         setIsInboxLoading(true);
         try {
-          // Mark letters as read before fetching
-          await markLettersAsRead();
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
 
+          if (!userDocSnap.exists()) {
+              throw new Error("User data not found.");
+          }
+          const userData = userDocSnap.data();
+          const currentUserStudentId = userData.studentId;
+
+          // 1. Fetch letters without complex ordering
           const q = query(
             collection(db, 'letters'),
             where('receiverStudentId', '==', currentUserStudentId),
@@ -90,7 +83,7 @@ export default function LettersPage() {
             ...doc.data(),
           })) as ReceivedLetter[];
           
-          // Sort letters by approvedAt descending on the client-side
+          // 2. Sort letters by approvedAt descending on the client-side
           letters.sort((a, b) => {
             const dateA = a.approvedAt?.toMillis() || 0;
             const dateB = b.approvedAt?.toMillis() || 0;
@@ -98,9 +91,14 @@ export default function LettersPage() {
           });
 
           setReceivedLetters(letters);
+
+          // 3. Update last check timestamp after fetching
+          await updateDoc(userDocRef, {
+            lastLetterCheckTimestamp: Timestamp.now()
+          });
           
         } catch (error) {
-          console.error('Error fetching received letters:', error);
+          console.error('Error fetching/processing received letters:', error);
           toast({
             title: '오류',
             description: '받은 편지를 불러오는 데 실패했습니다.',
@@ -110,16 +108,12 @@ export default function LettersPage() {
           setIsInboxLoading(false);
         }
       };
-
-      const userDocRef = doc(db, 'users', user.uid);
-      getDoc(userDocRef).then(docSnap => {
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          fetchReceivedLetters(userData.studentId);
-        }
-      });
+      
+      fetchAndProcessLetters();
+    } else if (user && initialTab !== 'inbox') {
+       setIsInboxLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, initialTab]);
 
   const handleSendLetter = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +161,6 @@ export default function LettersPage() {
         status: 'pending',
         createdAt: Timestamp.now(),
         isOffline: isOffline,
-        // The isRead field is no longer needed on the letter itself
       });
 
       toast({
