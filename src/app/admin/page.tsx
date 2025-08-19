@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Users, QrCode, Coins, AlertTriangle, Loader2 } from 'lucide-react';
+import { Users, QrCode, Coins, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
