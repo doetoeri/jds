@@ -409,7 +409,7 @@ export default function AdminCodesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {c.type !== '메이트코드' && (
-                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)} disabled={isDeleting !== null}>
+                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               삭제
                             </DropdownMenuItem>
