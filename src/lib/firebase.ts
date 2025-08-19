@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -34,14 +34,31 @@ export const signUp = async (studentId: string, password: string, email: string)
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
+    const batch = writeBatch(db);
+
     // Create the user document
     const userDocRef = doc(db, "users", user.uid);
-    await setDoc(userDocRef, {
+    batch.set(userDocRef, {
       studentId: studentId,
       email: email,
       lak: 0,
       createdAt: new Date(),
     });
+
+    // Create a unique mate code for the new user
+    const mateCode = user.uid.substring(0, 4).toUpperCase();
+    const mateCodeRef = doc(collection(db, 'codes'));
+    batch.set(mateCodeRef, {
+        code: mateCode,
+        type: '메이트코드',
+        value: 5, // Reward for both users
+        ownerUid: user.uid,
+        ownerStudentId: studentId,
+        usedBy: [], // Array of student IDs who have used this code
+        createdAt: new Date()
+    });
+
+    await batch.commit();
 
     return user;
   } catch (error: any) {
@@ -94,8 +111,9 @@ export const useCode = async (userId: string, inputCode: string) => {
       throw "존재하지 않는 사용자입니다.";
     }
     const userData = userDoc.data();
+    const userStudentId = userData.studentId;
 
-    // 2. Check for a code in the 'codes' collection
+    // 2. Find the code
     const codesQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     const codesSnapshot = await getDocs(codesQuery);
 
@@ -107,30 +125,68 @@ export const useCode = async (userId: string, inputCode: string) => {
     const codeRef = codeDoc.ref;
     const codeData = codeDoc.data();
 
-    if (codeData.used) {
-      throw "이미 사용된 코드입니다.";
+    // 3. Handle '메이트코드' logic
+    if (codeData.type === '메이트코드') {
+      if (codeData.ownerUid === userId) {
+        throw "자신의 메이트 코드는 사용할 수 없습니다.";
+      }
+      if (codeData.usedBy && codeData.usedBy.includes(userStudentId)) {
+        throw "이미 사용한 메이트 코드입니다.";
+      }
+
+      // Give points to the code user
+      transaction.update(userRef, { lak: increment(codeData.value) });
+      const userHistoryRef = doc(collection(userRef, 'transactions'));
+      transaction.set(userHistoryRef, {
+        date: new Date(),
+        description: `'${codeData.ownerStudentId}'님의 메이트코드 사용`,
+        amount: codeData.value,
+        type: 'credit',
+      });
+
+      // Give points to the code owner
+      const ownerRef = doc(db, 'users', codeData.ownerUid);
+      transaction.update(ownerRef, { lak: increment(codeData.value) });
+      const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
+      transaction.set(ownerHistoryRef, {
+        date: new Date(),
+        description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
+        amount: codeData.value,
+        type: 'credit',
+      });
+
+      // Add user to the usedBy list
+      transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
+      
+      return { success: true, message: `메이트코드를 사용하여 ${codeData.value} Lak을, 코드 주인도 ${codeData.value} Lak을 받았습니다!` };
+
+    } else {
+      // 4. Handle regular codes
+      if (codeData.used) {
+        throw "이미 사용된 코드입니다.";
+      }
+
+      // Update user's Lak balance
+      transaction.update(userRef, { lak: increment(codeData.value) });
+
+      // Mark code as used
+      transaction.update(codeRef, {
+        used: true,
+        usedBy: userStudentId,
+      });
+      
+      // Create transaction history
+      const description = `${codeData.type} "${codeData.code}" 사용`;
+      const historyRef = doc(collection(userRef, 'transactions'));
+      transaction.set(historyRef, {
+        date: new Date(),
+        description: description,
+        amount: codeData.value,
+        type: 'credit',
+      });
+      
+      return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!` };
     }
-
-    // Update user's Lak balance
-    transaction.update(userRef, { lak: userData.lak + codeData.value });
-
-    // Mark code as used
-    transaction.update(codeRef, {
-      used: true,
-      usedBy: userData.studentId,
-    });
-    
-    const description = `${codeData.type} "${codeData.code}" 사용`;
-    // Create transaction history
-    const historyRef = doc(collection(userRef, 'transactions'));
-    transaction.set(historyRef, {
-      date: new Date(),
-      description: description,
-      amount: codeData.value,
-      type: 'credit',
-    });
-    
-    return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!` };
 
   }).catch((error) => {
       console.error("Code redemption error: ", error);
@@ -208,15 +264,17 @@ export const resetAllData = async () => {
 
         // 2. Reset user data (lak to 0) and delete transactions subcollection
         const usersSnapshot = await getDocs(collection(db, 'users'));
+        const batch = writeBatch(db);
         for (const userDoc of usersSnapshot.docs) {
             const userRef = userDoc.ref;
             // Reset lak to 0
-            await updateDoc(userRef, { lak: 0 });
+            batch.update(userRef, { lak: 0 });
 
             // Delete transactions subcollection
             const transactionsRef = collection(userRef, 'transactions');
             await deleteCollection(transactionsRef);
         }
+        await batch.commit();
 
         console.log("All data has been successfully reset.");
     } catch (error) {

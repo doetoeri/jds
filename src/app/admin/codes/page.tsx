@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,9 +50,10 @@ interface Code {
   code: string;
   type: '종달코드' | '메이트코드' | '온라인 특수코드';
   value: number;
-  used: boolean;
-  usedBy: string | null;
+  used?: boolean;
+  usedBy: string | string[] | null;
   createdAt: any;
+  ownerStudentId?: string;
 }
 
 export default function AdminCodesPage() {
@@ -172,6 +173,21 @@ export default function AdminCodesPage() {
       qrCodeLinkRef.current.click();
     }
   };
+  
+  const renderStatus = (code: Code) => {
+    if (code.type === '메이트코드') {
+      const count = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
+      return <Badge variant={count > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{count}회 사용</Badge>;
+    }
+    return <Badge variant={code.used ? 'outline' : 'default'}>{code.used ? '사용됨' : '미사용'}</Badge>;
+  };
+  
+  const renderUsedBy = (code: Code) => {
+    if (code.type === '메이트코드') {
+      return `소유자: ${code.ownerStudentId}`;
+    }
+    return code.usedBy || 'N/A';
+  }
 
   return (
     <>
@@ -214,7 +230,9 @@ export default function AdminCodesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="종달코드">종달코드</SelectItem>
+                      {/* 메이트코드는 자동 생성되므로 수동 생성 옵션에서는 제외
                       <SelectItem value="메이트코드">메이트코드</SelectItem>
+                      */}
                       <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                     </SelectContent>
                   </Select>
@@ -247,7 +265,7 @@ export default function AdminCodesPage() {
                 <TableHead>유형</TableHead>
                 <TableHead>Lak 값</TableHead>
                 <TableHead>상태</TableHead>
-                <TableHead>사용한 학생</TableHead>
+                <TableHead>사용자/소유자</TableHead>
                 <TableHead>생성일</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
@@ -274,12 +292,8 @@ export default function AdminCodesPage() {
                     </TableCell>
                     <TableCell>{c.type}</TableCell>
                     <TableCell>{c.value} Lak</TableCell>
-                    <TableCell>
-                      <Badge variant={c.used ? 'outline' : 'default'}>
-                        {c.used ? '사용됨' : '미사용'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{c.usedBy || 'N/A'}</TableCell>
+                    <TableCell>{renderStatus(c)}</TableCell>
+                    <TableCell>{renderUsedBy(c)}</TableCell>
                      <TableCell>{c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
                       <DropdownMenu>
