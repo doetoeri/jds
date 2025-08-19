@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coins, Mail, QrCode } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -18,12 +18,11 @@ export default function DashboardPage() {
   const [mateCode, setMateCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isCodeLoading, setIsCodeLoading] = useState(true);
-
-  // New state to always show the "new letter" card as a static prompt
-  const [hasNewLetters, setHasNewLetters] = useState(true);
+  const [hasNewLetters, setHasNewLetters] = useState(false);
 
   useEffect(() => {
     let unsubscribeUser = () => {};
+    let unsubscribeLetters = () => {};
 
     if (user) {
       setIsLoading(true);
@@ -31,11 +30,13 @@ export default function DashboardPage() {
       
       const userDocRef = doc(db, 'users', user.uid);
       
+      // Listen for user data changes (lak, mateCode, etc.)
       unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
         if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             setLakBalance(userData.lak);
             
+            // Generate QR Code for mateCode
             if (userData.mateCode) {
                 const code = userData.mateCode;
                 setMateCode(code);
@@ -50,9 +51,38 @@ export default function DashboardPage() {
                  setMateCode(null);
                  setQrCodeUrl(null);
             }
+
+            // Check for new letters
+            const lastCheckTimestamp = userData.lastLetterCheckTimestamp || null;
+            const lettersQuery = query(
+              collection(db, 'letters'),
+              where('receiverStudentId', '==', userData.studentId),
+              where('status', '==', 'approved'),
+              orderBy('approvedAt', 'desc'),
+              limit(1)
+            );
+
+            // Using onSnapshot for real-time letter check
+            unsubscribeLetters = onSnapshot(lettersQuery, (querySnapshot) => {
+                if (!querySnapshot.empty) {
+                    const latestLetter = querySnapshot.docs[0].data();
+                    if (lastCheckTimestamp) {
+                        setHasNewLetters(latestLetter.approvedAt.toMillis() > lastCheckTimestamp.toMillis());
+                    } else {
+                        // If user has never checked, any approved letter is new
+                        setHasNewLetters(true);
+                    }
+                } else {
+                    setHasNewLetters(false);
+                }
+            }, (error) => {
+                console.error("Error fetching latest letter:", error);
+            });
+
         } else {
           setLakBalance(0);
           setMateCode(null);
+          setHasNewLetters(false);
         }
         setIsLoading(false);
         setIsCodeLoading(false);
@@ -64,6 +94,7 @@ export default function DashboardPage() {
 
       return () => {
         unsubscribeUser();
+        unsubscribeLetters();
       };
     } else {
         setIsLoading(false);
@@ -100,7 +131,7 @@ export default function DashboardPage() {
                     <Mail className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-xl font-bold text-primary">도착한 편지가 있을 수 있어요!</div>
+                    <div className="text-xl font-bold text-primary">확인하지 않은 편지가 있어요!</div>
                     <p className="text-xs text-primary/80">
                       지금 바로 받은 편지함을 확인해보세요.
                     </p>

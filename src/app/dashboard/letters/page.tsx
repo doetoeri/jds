@@ -25,6 +25,7 @@ import {
   getDoc,
   updateDoc,
   Timestamp,
+  orderBy
 } from 'firebase/firestore';
 import { Loader2, Mail, Send, Inbox, Info } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -58,8 +59,8 @@ export default function LettersPage() {
 
 
   useEffect(() => {
-    if (user && initialTab === 'inbox') {
-      const fetchAndProcessLetters = async () => {
+    const fetchAndProcessLetters = async () => {
+      if (user) {
         setIsInboxLoading(true);
         try {
           const userDocRef = doc(db, 'users', user.uid);
@@ -71,7 +72,7 @@ export default function LettersPage() {
           const userData = userDocSnap.data();
           const currentUserStudentId = userData.studentId;
 
-          // 1. Fetch letters without complex ordering
+          // 1. Fetch letters with a simple query
           const q = query(
             collection(db, 'letters'),
             where('receiverStudentId', '==', currentUserStudentId),
@@ -107,11 +108,14 @@ export default function LettersPage() {
         } finally {
           setIsInboxLoading(false);
         }
-      };
-      
+      }
+    };
+    
+    // Only fetch letters when the inbox tab is active
+    if (initialTab === 'inbox') {
       fetchAndProcessLetters();
-    } else if (user && initialTab !== 'inbox') {
-       setIsInboxLoading(false);
+    } else {
+      setIsInboxLoading(false);
     }
   }, [user, toast, initialTab]);
 
@@ -180,9 +184,24 @@ export default function LettersPage() {
       setIsLoading(false);
     }
   };
+  
+  // This function is called when the user clicks on the inbox tab.
+  const handleTabChange = (value: string) => {
+      if (value === 'inbox') {
+          const updateTimestamp = async () => {
+              if (user) {
+                  const userDocRef = doc(db, 'users', user.uid);
+                  await updateDoc(userDocRef, {
+                      lastLetterCheckTimestamp: Timestamp.now()
+                  });
+              }
+          };
+          updateTimestamp();
+      }
+  }
 
   return (
-    <Tabs defaultValue={initialTab} className="w-full max-w-2xl mx-auto">
+    <Tabs defaultValue={initialTab} className="w-full max-w-2xl mx-auto" onValueChange={handleTabChange}>
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="send">
           <Send className="mr-2 h-4 w-4" />
