@@ -42,14 +42,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-NMV2H0HKGC"></Script>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-0B6DFH42ML"></Script>
         <Script id="google-analytics">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
 
-            gtag('config', 'G-NMV2H0HKGC');
+            gtag('config', 'G-0B6DFH42ML');
           `}
         </Script>
         {children}
