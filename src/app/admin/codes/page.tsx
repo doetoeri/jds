@@ -402,16 +402,18 @@ export default function AdminCodesPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isDeleting === c.id}>
+                           <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isDeleting === c.id || c.type === '메이트코드'}>
                             {isDeleting === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                             <span className="sr-only">Toggle menu</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)} disabled={isDeleting !== null}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            삭제
-                          </DropdownMenuItem>
+                          {c.type !== '메이트코드' && (
+                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteCode(c.id)} disabled={isDeleting !== null}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              삭제
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -460,3 +462,5 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
+    
