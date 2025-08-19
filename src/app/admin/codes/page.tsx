@@ -32,7 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp, writeBatch, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,6 +61,8 @@ export default function AdminCodesPage() {
   const [newCode, setNewCode] = useState('');
   const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
+  const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
+
 
   const [bulkCodeValue, setBulkCodeValue] = useState('');
   const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
@@ -114,25 +116,45 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "모든 필드를 채워주세요.", variant: "destructive" });
       return;
     }
+     if (newCodeType === '메이트코드' && !newCodeOwnerStudentId) {
+      toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
+      return;
+    }
+
     setIsCreating(true);
     try {
-      const docRef = await addDoc(collection(db, 'codes'), {
+      let codeData: any = {
         code: newCode.toUpperCase(),
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
         usedBy: null,
         createdAt: Timestamp.now(),
-      });
+      };
+
+      if (newCodeType === '메이트코드') {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('studentId', '==', newCodeOwnerStudentId));
+        const userSnapshot = await getDocs(q);
+
+        if (userSnapshot.empty) {
+            throw new Error(`학번 ${newCodeOwnerStudentId}에 해당하는 사용자를 찾을 수 없습니다.`);
+        }
+        const userDoc = userSnapshot.docs[0];
+        codeData = {
+            ...codeData,
+            ownerUid: userDoc.id,
+            ownerStudentId: newCodeOwnerStudentId,
+            usedBy: [],
+        };
+      }
+
+
+      const docRef = await addDoc(collection(db, 'codes'), codeData);
       
       const createdCode: Code = {
         id: docRef.id,
-        code: newCode.toUpperCase(),
-        type: newCodeType as any,
-        value: Number(newCodeValue),
-        used: false,
-        usedBy: null,
-        createdAt: Timestamp.now(),
+        ...codeData,
       };
       
       toast({ title: "성공", description: "새 코드를 생성했습니다." });
@@ -142,10 +164,11 @@ export default function AdminCodesPage() {
       setNewCode('');
       setNewCodeType('');
       setNewCodeValue('');
+      setNewCodeOwnerStudentId('');
       setIsCreateDialogOpen(false);
       fetchCodes();
-    } catch (error) {
-      toast({ title: "오류", description: "코드 생성에 실패했습니다.", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "오류", description: error.message || "코드 생성에 실패했습니다.", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }
@@ -301,7 +324,12 @@ export default function AdminCodesPage() {
             </Dialog>
 
             {/* Single Create Dialog */}
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={(isOpen) => {
+                setIsCreateDialogOpen(isOpen);
+                if (!isOpen) {
+                    setNewCodeType(''); // Reset type on close
+                }
+            }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-1">
                   <PlusCircle className="h-3.5 w-3.5" />
@@ -335,10 +363,25 @@ export default function AdminCodesPage() {
                       <SelectContent>
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
-                         <SelectItem value="메이트코드">메이트코드 (수동 생성 비권장)</SelectItem>
+                         <SelectItem value="메이트코드">메이트코드</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                   {newCodeType === '메이트코드' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="owner-student-id" className="text-right">
+                        소유자 학번
+                        </Label>
+                        <Input
+                        id="owner-student-id"
+                        placeholder="연동할 학생의 학번"
+                        className="col-span-3"
+                        value={newCodeOwnerStudentId}
+                        onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
+                        disabled={isCreating}
+                        />
+                    </div>
+                  )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="lak-value" className="text-right">
                       Lak 값
@@ -402,7 +445,7 @@ export default function AdminCodesPage() {
                        <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => handleDeleteCode(c.id)}
+                        onMouseDown={() => handleDeleteCode(c.id)}
                         disabled={isDeleting === c.id}
                       >
                         {isDeleting === c.id ? (
