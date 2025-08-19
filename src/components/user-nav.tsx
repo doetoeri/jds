@@ -48,7 +48,7 @@ export function UserNav() {
             if (userDoc.exists()) {
               setUserData(userDoc.data() as UserData);
             } else {
-              console.error("User document not found in Firestore for UID:", user.uid);
+              // This can happen during signup before the doc is created. It's not a critical error.
               setUserData(null); // Set to null if doc doesn't exist
             }
           } catch (error) {
