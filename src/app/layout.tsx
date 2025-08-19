@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: '고촌중학교 학생자치회 종달샘',
@@ -41,6 +42,16 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-0G8TF2CLRJ"></Script>
+        <Script id="google-analytics">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-0G8TF2CLRJ');
+          `}
+        </Script>
         {children}
         <Toaster />
       </body>
