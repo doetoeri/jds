@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Jongdalsem Hub',
-  description: '고촌중학교 학생자치회 종달샘',
+  title: '고촌중학교 학생자치회 종달샘',
+  description: '고촌중학교 학생들을 위한 포인트 및 커뮤니티 허브입니다. 다양한 활동에 참여하고 포인트를 관리해보세요.',
   manifest: '/manifest.json',
 };
 
@@ -21,6 +21,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
         <meta name="theme-color" content="#FF781F" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
