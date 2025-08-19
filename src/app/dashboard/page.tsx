@@ -40,11 +40,18 @@ export default function DashboardPage() {
                 const q = query(
                     collection(db, 'letters'),
                     where('receiverStudentId', '==', currentUserStudentId),
-                    where('status', '==', 'approved'),
-                    where('approvedAt', '>', lastCheckTimestamp)
+                    where('status', '==', 'approved')
                 );
                 const querySnapshot = await getDocs(q);
-                setHasNewLetters(!querySnapshot.empty);
+
+                // Filter for new letters on the client side
+                const newLetters = querySnapshot.docs.filter(doc => {
+                  const letterData = doc.data();
+                  const approvedAt = letterData.approvedAt;
+                  return approvedAt && approvedAt > lastCheckTimestamp;
+                });
+
+                setHasNewLetters(newLetters.length > 0);
             }
         } catch (error) {
             console.error("Error checking for new letters:", error);
