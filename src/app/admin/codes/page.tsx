@@ -17,13 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download, Users, Sparkles } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download, Users, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -214,16 +208,17 @@ export default function AdminCodesPage() {
   };
   
   const handleDeleteCode = async (codeId: string) => {
-    if (!window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
-    setIsDeleting(codeId);
-    try {
-      await deleteDoc(doc(db, 'codes', codeId));
-      toast({ title: "성공", description: "코드를 삭제했습니다." });
-      fetchCodes();
-    } catch (error) {
-       toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
-    } finally {
-      setIsDeleting(null);
+    if (window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      setIsDeleting(codeId);
+      try {
+        await deleteDoc(doc(db, 'codes', codeId));
+        toast({ title: "성공", description: "코드를 삭제했습니다." });
+        fetchCodes(); // Refetch codes to update the list
+      } catch (error) {
+        toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
+      } finally {
+        setIsDeleting(null);
+      }
     }
   };
 
@@ -337,6 +332,7 @@ export default function AdminCodesPage() {
                       <SelectContent>
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
+                         <SelectItem value="메이트코드">메이트코드 (수동 생성 비권장)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -371,7 +367,7 @@ export default function AdminCodesPage() {
                 <TableHead>상태</TableHead>
                 <TableHead>사용자/소유자</TableHead>
                 <TableHead>생성일</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
+                <TableHead className="text-right">작업</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -399,24 +395,21 @@ export default function AdminCodesPage() {
                     <TableCell>{renderStatus(c)}</TableCell>
                     <TableCell>{renderUsedBy(c)}</TableCell>
                      <TableCell>{c.createdAt ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isDeleting === c.id}>
-                            {isDeleting === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                            onSelect={() => handleDeleteCode(c.id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            삭제
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="text-right">
+                       <Button
+                        aria-haspopup="true"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteCode(c.id)}
+                        disabled={isDeleting === c.id}
+                      >
+                        {isDeleting === c.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="sr-only">Delete</span>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -463,3 +456,5 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
+    
