@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coins, Mail, QrCode } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -14,46 +14,68 @@ import QRCode from 'qrcode';
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
   const [lakBalance, setLakBalance] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [mateCode, setMateCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [isCodeLoading, setIsCodeLoading] = useState(true);
   const [hasNewLetters, setHasNewLetters] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Effect for user data (lak, mateCode)
   useEffect(() => {
-    let unsubscribeUser = () => {};
-    let unsubscribeLetters = () => {};
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
-    if (user) {
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
       setIsLoading(true);
-      setIsCodeLoading(true);
-      
-      const userDocRef = doc(db, 'users', user.uid);
-      
-      // Listen for user data changes (lak, mateCode, etc.)
-      unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        setLakBalance(userData.lak ?? 0);
+        
+        // Update mateCode and QR code only if it has changed
+        if (userData.mateCode && userData.mateCode !== mateCode) {
+          const code = userData.mateCode;
+          setMateCode(code);
+          try {
+            const url = await QRCode.toDataURL(code, { width: 200, margin: 2 });
+            setQrCodeUrl(url);
+          } catch (err) {
+            console.error("QR Code generation failed:", err);
+            setQrCodeUrl(null);
+          }
+        } else if (!userData.mateCode) {
+          setMateCode(null);
+          setQrCodeUrl(null);
+        }
+      } else {
+        setLakBalance(0);
+        setMateCode(null);
+        setQrCodeUrl(null);
+      }
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching user data:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribeUser();
+  }, [user, mateCode]); // Depend on mateCode to avoid re-generating QR code unnecessarily
+
+  // Effect for checking new letters
+  useEffect(() => {
+    if (!user) return;
+    
+    let unsubscribeLetters = () => {};
+    
+    const userDocRef = doc(db, 'users', user.uid);
+
+    // This outer snapshot gets the studentId first
+    const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
         if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
-            setLakBalance(userData.lak);
-            
-            // Generate QR Code for mateCode
-            if (userData.mateCode) {
-                const code = userData.mateCode;
-                setMateCode(code);
-                try {
-                    const url = await QRCode.toDataURL(code, { width: 200, margin: 2 });
-                    setQrCodeUrl(url);
-                } catch (err) {
-                    console.error("QR Code generation failed:", err);
-                    setQrCodeUrl(null);
-                }
-            } else {
-                 setMateCode(null);
-                 setQrCodeUrl(null);
-            }
-
-            // Check for new letters
             const lastCheckTimestamp = userData.lastLetterCheckTimestamp || null;
+
             const lettersQuery = query(
               collection(db, 'letters'),
               where('receiverStudentId', '==', userData.studentId),
@@ -61,46 +83,29 @@ export default function DashboardPage() {
               orderBy('approvedAt', 'desc'),
               limit(1)
             );
-
-            // Using onSnapshot for real-time letter check
+            
+            // This inner snapshot checks for new letters
             unsubscribeLetters = onSnapshot(lettersQuery, (querySnapshot) => {
                 if (!querySnapshot.empty) {
                     const latestLetter = querySnapshot.docs[0].data();
                     if (lastCheckTimestamp) {
                         setHasNewLetters(latestLetter.approvedAt.toMillis() > lastCheckTimestamp.toMillis());
                     } else {
-                        // If user has never checked, any approved letter is new
-                        setHasNewLetters(true);
+                        setHasNewLetters(true); // If user has never checked, any letter is new
                     }
                 } else {
                     setHasNewLetters(false);
                 }
-            }, (error) => {
-                console.error("Error fetching latest letter:", error);
             });
-
-        } else {
-          setLakBalance(0);
-          setMateCode(null);
-          setHasNewLetters(false);
         }
-        setIsLoading(false);
-        setIsCodeLoading(false);
-      }, (error) => {
-        console.error("Error fetching user data:", error);
-        setIsLoading(false);
-        setIsCodeLoading(false);
-      });
+    });
 
-      return () => {
+    return () => {
         unsubscribeUser();
         unsubscribeLetters();
-      };
-    } else {
-        setIsLoading(false);
-        setIsCodeLoading(false);
-    }
-  }, [user]);
+    };
+}, [user]);
+
 
   return (
     <div>
@@ -146,7 +151,7 @@ export default function DashboardPage() {
             <QrCode className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pt-4 gap-4">
-             {isCodeLoading ? (
+             {isLoading ? (
               <>
                 <Skeleton className="h-[120px] w-[120px]" />
                 <Skeleton className="h-6 w-24" />
