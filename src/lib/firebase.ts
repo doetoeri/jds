@@ -25,41 +25,58 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Sign up function
-export const signUp = async (studentId: string, password: string, email: string) => {
-  if (!/^\d{5}$/.test(studentId)) {
+export const signUp = async (
+    userType: 'student' | 'teacher', 
+    userData: { studentId?: string; name?: string; officeFloor?: string; },
+    password: string, 
+    email: string
+) => {
+  if (userType === 'student' && !/^\d{5}$/.test(userData.studentId!)) {
     throw new Error('학번은 5자리 숫자여야 합니다.');
   }
   
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+    const userDocRef = doc(db, "users", user.uid);
 
-    // Use a transaction to ensure both user and mate code are created atomically.
-    await runTransaction(db, async (transaction) => {
-      const mateCode = user.uid.substring(0, 4).toUpperCase();
+    if (userType === 'student') {
+        // Use a transaction to ensure both user and mate code are created atomically.
+        await runTransaction(db, async (transaction) => {
+            const mateCode = user.uid.substring(0, 4).toUpperCase();
+            const studentId = userData.studentId!;
 
-      // Create the user document and store the mateCode directly
-      const userDocRef = doc(db, "users", user.uid);
-      transaction.set(userDocRef, {
-        studentId: studentId,
-        email: email,
-        lak: 0,
-        createdAt: Timestamp.now(),
-        mateCode: mateCode, // Store the code string here
-      });
+            // Create the user document and store the mateCode directly
+            transaction.set(userDocRef, {
+                studentId: studentId,
+                email: email,
+                lak: 0,
+                createdAt: Timestamp.now(),
+                mateCode: mateCode,
+                role: 'student', // Set role for student
+            });
 
-      // Create a unique mate code for the new user in the 'codes' collection
-      const mateCodeRef = doc(collection(db, 'codes'));
-      transaction.set(mateCodeRef, {
-          code: mateCode,
-          type: '메이트코드',
-          value: 5, // Reward for both users
-          ownerUid: user.uid,
-          ownerStudentId: studentId,
-          usedBy: [], // Array of student IDs who have used this code
-          createdAt: Timestamp.now()
-      });
-    });
+            // Create a unique mate code for the new user in the 'codes' collection
+            const mateCodeRef = doc(collection(db, 'codes'));
+            transaction.set(mateCodeRef, {
+                code: mateCode,
+                type: '메이트코드',
+                value: 5, // Reward for both users
+                ownerUid: user.uid,
+                ownerStudentId: studentId,
+                usedBy: [], // Array of student IDs who have used this code
+                createdAt: Timestamp.now()
+            });
+        });
+    } else { // Teacher signup
+        await setDoc(userDocRef, {
+            name: userData.name,
+            officeFloor: userData.officeFloor,
+            email: email,
+            role: 'pending_teacher', // Special role for pending approval
+            createdAt: Timestamp.now(),
+        });
+    }
 
     return user;
   } catch (error: any) {

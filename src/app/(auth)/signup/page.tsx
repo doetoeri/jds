@@ -15,12 +15,17 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { signUp } from '@/lib/firebase';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 export default function SignupPage() {
+  const [userType, setUserType] = useState('student');
   const [studentId, setStudentId] = useState('');
+  const [teacherName, setTeacherName] = useState('');
+  const [officeFloor, setOfficeFloor] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,11 +44,18 @@ export default function SignupPage() {
       return;
     }
     setIsLoading(true);
+    
+    const signupData = userType === 'student' 
+      ? { studentId }
+      : { name: teacherName, officeFloor };
+
     try {
-      await signUp(studentId, password, email);
+      await signUp(userType, signupData, password, email);
       toast({
-        title: '회원가입 성공',
-        description: '로그인 페이지로 이동합니다.',
+        title: '회원가입 요청 완료',
+        description: userType === 'student' 
+          ? '회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.'
+          : '교직원 가입 신청이 완료되었습니다. 관리자 승인 후 활동할 수 있습니다.',
       });
       router.push('/login');
     } catch (error: any) {
@@ -66,17 +78,60 @@ export default function SignupPage() {
       </CardHeader>
       <form onSubmit={handleSignup}>
         <CardContent className="space-y-4">
+          
           <div className="space-y-2">
-            <Label htmlFor="studentId">학번 (5자리)</Label>
-            <Input
-              id="studentId"
-              placeholder="예: 10203 (1학년 2반 3번)"
-              required
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              disabled={isLoading}
-            />
+            <Label>가입 유형</Label>
+            <RadioGroup defaultValue="student" onValueChange={setUserType} className="flex gap-4" disabled={isLoading}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="student" id="r1" />
+                <Label htmlFor="r1">학생</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="teacher" id="r2" />
+                <Label htmlFor="r2">교직원</Label>
+              </div>
+            </RadioGroup>
           </div>
+
+          {userType === 'student' ? (
+             <div className="space-y-2">
+              <Label htmlFor="studentId">학번 (5자리)</Label>
+              <Input
+                id="studentId"
+                placeholder="예: 10203 (1학년 2반 3번)"
+                required
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+          ) : (
+            <>
+               <div className="space-y-2">
+                <Label htmlFor="teacherName">성함</Label>
+                <Input
+                  id="teacherName"
+                  placeholder="예: 홍길동"
+                  required
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="officeFloor">교무실 층수</Label>
+                <Input
+                  id="officeFloor"
+                  placeholder="예: 2층"
+                  required
+                  value={officeFloor}
+                  onChange={(e) => setOfficeFloor(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            </>
+          )}
+         
           <div className="space-y-2">
             <Label htmlFor="email">이메일</Label>
             <Input
@@ -123,6 +178,12 @@ export default function SignupPage() {
               로그인
             </Link>
           </div>
+           <Alert variant="destructive" className="mt-4 text-xs">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                계정 도용이 의심되는 경우, 즉시 <a href="mailto:doe0kim@gmail.com" className="underline">doe0kim@gmail.com</a> 또는 <a href="tel:010-4838-8264" className="underline">010-4838-8264</a>로 신고해주세요.
+              </AlertDescription>
+            </Alert>
         </CardFooter>
       </form>
     </Card>
