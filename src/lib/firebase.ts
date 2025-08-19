@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -33,32 +33,31 @@ export const signUp = async (studentId: string, password: string, email: string)
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    
-    const batch = writeBatch(db);
 
-    // Create the user document
-    const userDocRef = doc(db, "users", user.uid);
-    batch.set(userDocRef, {
-      studentId: studentId,
-      email: email,
-      lak: 0,
-      createdAt: new Date(),
+    // Use a transaction to ensure both user and mate code are created atomically.
+    await runTransaction(db, async (transaction) => {
+      // Create the user document
+      const userDocRef = doc(db, "users", user.uid);
+      transaction.set(userDocRef, {
+        studentId: studentId,
+        email: email,
+        lak: 0,
+        createdAt: serverTimestamp(),
+      });
+
+      // Create a unique mate code for the new user
+      const mateCode = user.uid.substring(0, 4).toUpperCase();
+      const mateCodeRef = doc(collection(db, 'codes'));
+      transaction.set(mateCodeRef, {
+          code: mateCode,
+          type: '메이트코드',
+          value: 5, // Reward for both users
+          ownerUid: user.uid,
+          ownerStudentId: studentId,
+          usedBy: [], // Array of student IDs who have used this code
+          createdAt: serverTimestamp()
+      });
     });
-
-    // Create a unique mate code for the new user
-    const mateCode = user.uid.substring(0, 4).toUpperCase();
-    const mateCodeRef = doc(collection(db, 'codes'));
-    batch.set(mateCodeRef, {
-        code: mateCode,
-        type: '메이트코드',
-        value: 5, // Reward for both users
-        ownerUid: user.uid,
-        ownerStudentId: studentId,
-        usedBy: [], // Array of student IDs who have used this code
-        createdAt: new Date()
-    });
-
-    await batch.commit();
 
     return user;
   } catch (error: any) {
@@ -72,7 +71,12 @@ export const signUp = async (studentId: string, password: string, email: string)
       throw new Error('유효하지 않은 이메일 주소입니다.');
     }
     console.error("Signup Error: ", error);
-    throw new Error('회원가입 중 오류가 발생했습니다.');
+    // Attempt to delete the user if doc creation fails
+    const currentUser = getAuth().currentUser;
+    if (currentUser) {
+      await currentUser.delete();
+    }
+    throw new Error('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
   }
 };
 
@@ -138,7 +142,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       transaction.update(userRef, { lak: increment(codeData.value) });
       const userHistoryRef = doc(collection(userRef, 'transactions'));
       transaction.set(userHistoryRef, {
-        date: new Date(),
+        date: serverTimestamp(),
         description: `'${codeData.ownerStudentId}'님의 메이트코드 사용`,
         amount: codeData.value,
         type: 'credit',
@@ -149,7 +153,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       transaction.update(ownerRef, { lak: increment(codeData.value) });
       const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
       transaction.set(ownerHistoryRef, {
-        date: new Date(),
+        date: serverTimestamp(),
         description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
         amount: codeData.value,
         type: 'credit',
@@ -179,7 +183,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       const description = `${codeData.type} "${codeData.code}" 사용`;
       const historyRef = doc(collection(userRef, 'transactions'));
       transaction.set(historyRef, {
-        date: new Date(),
+        date: serverTimestamp(),
         description: description,
         amount: codeData.value,
         type: 'credit',
@@ -218,7 +222,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     // 4. Create a single transaction history for the purchase
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
-      date: new Date(),
+      date: serverTimestamp(),
       description: `상품 구매: ${cartItemsDescription}`,
       amount: -totalCost,
       type: 'debit',
@@ -231,7 +235,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
         studentId: userData.studentId,
         items: cart, // Save the detailed cart
         totalCost: totalCost,
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
     });
 
 
@@ -259,22 +263,24 @@ export const resetAllData = async () => {
         // 1. Reset 'codes', 'letters', 'purchases'
         const collectionsToReset = ['codes', 'letters', 'purchases'];
         for (const col of collectionsToReset) {
-            await deleteCollection(collection(db, col));
+            const collectionRef = collection(db, col);
+            await deleteCollection(collectionRef);
         }
 
         // 2. Reset user data (lak to 0) and delete transactions subcollection
         const usersSnapshot = await getDocs(collection(db, 'users'));
-        const batch = writeBatch(db);
+        
         for (const userDoc of usersSnapshot.docs) {
             const userRef = userDoc.ref;
+            const batch = writeBatch(db);
             // Reset lak to 0
             batch.update(userRef, { lak: 0 });
+            await batch.commit();
 
             // Delete transactions subcollection
             const transactionsRef = collection(userRef, 'transactions');
             await deleteCollection(transactionsRef);
         }
-        await batch.commit();
 
         console.log("All data has been successfully reset.");
     } catch (error) {
@@ -285,3 +291,5 @@ export const resetAllData = async () => {
 
 
 export { auth, db };
+
+    
