@@ -216,8 +216,7 @@ export default function AdminCodesPage() {
     try {
       await deleteDoc(doc(db, 'codes', codeId));
       toast({ title: "성공", description: "코드를 삭제했습니다." });
-      // The list will be updated which will remove the item from the UI
-      setCodes(prevCodes => prevCodes.filter(c => c.id !== codeId));
+      fetchCodes(); // Fetch the updated list of codes
     } catch (error) {
       console.error("Error deleting code: ", error);
       toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
