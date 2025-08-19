@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download, Users } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download, Users, Sparkles } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,12 +60,17 @@ export default function AdminCodesPage() {
   const [codes, setCodes] = useState<Code[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isBulkCreateDialogOpen, setIsBulkCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   const [newCode, setNewCode] = useState('');
   const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
+
+  const [bulkCodeValue, setBulkCodeValue] = useState('');
+  const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
+
 
   const [generatedCode, setGeneratedCode] = useState<Code | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
@@ -151,6 +156,62 @@ export default function AdminCodesPage() {
       setIsCreating(false);
     }
   };
+
+  const generateRandomCode = (length: number) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const handleBulkCreateCodes = async () => {
+    const value = Number(bulkCodeValue);
+    const quantity = Number(bulkCodeQuantity);
+
+    if (!value || !quantity || value <= 0 || quantity <= 0) {
+      toast({ title: "입력 오류", description: "유효한 Lak 값과 수량을 입력해주세요.", variant: "destructive" });
+      return;
+    }
+
+    if (quantity > 500) {
+      toast({ title: "입력 오류", description: "한 번에 500개 이상의 코드를 생성할 수 없습니다.", variant: "destructive" });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const batch = writeBatch(db);
+      const codesCollection = collection(db, 'codes');
+      
+      for (let i = 0; i < quantity; i++) {
+        const newCodeRef = doc(codesCollection);
+        batch.set(newCodeRef, {
+          code: generateRandomCode(5),
+          type: '종달코드',
+          value: value,
+          used: false,
+          usedBy: null,
+          createdAt: Timestamp.now(),
+        });
+      }
+
+      await batch.commit();
+
+      toast({ title: "성공!", description: `${quantity}개의 코드를 성공적으로 생성했습니다.` });
+      setBulkCodeValue('');
+      setBulkCodeQuantity('');
+      setIsBulkCreateDialogOpen(false);
+      fetchCodes();
+
+    } catch (error) {
+      console.error("Bulk code creation error: ", error);
+      toast({ title: "오류", description: "코드 대량 생성 중 오류가 발생했습니다.", variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
+  };
   
   const handleDeleteCode = async (codeId: string) => {
     if (!window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
@@ -197,64 +258,107 @@ export default function AdminCodesPage() {
             <CardTitle className="font-headline">코드 관리</CardTitle>
             <CardDescription>발급된 모든 코드를 관리합니다.</CardDescription>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1">
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  새 코드 생성
-                </span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>새 코드 생성</DialogTitle>
-                <DialogDescription>
-                  새로운 코드를 생성합니다. 유형과 값을 지정하세요.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="code-value" className="text-right">
-                    코드
-                  </Label>
-                  <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="code-type" className="text-right">
-                    유형
-                  </Label>
-                  <Select onValueChange={(value) => setNewCodeType(value as any)} disabled={isCreating}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="코드 유형 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="종달코드">종달코드</SelectItem>
-                      {/* 메이트코드는 자동 생성되므로 수동 생성 옵션에서는 제외
-                      <SelectItem value="메이트코드">메이트코드</SelectItem>
-                      */}
-                      <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="lak-value" className="text-right">
-                    Lak 값
-                  </Label>
-                  <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} disabled={isCreating} />
-                </div>
-              </div>
-              <DialogFooter>
-                 <DialogClose asChild>
-                  <Button variant="outline" disabled={isCreating}>취소</Button>
-                </DialogClose>
-                <Button type="submit" onClick={handleCreateCode} disabled={isCreating}>
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  생성하기
+          <div className="flex gap-2">
+            {/* Bulk Create Dialog */}
+            <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    대량 생성
+                  </span>
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>코드 대량 생성</DialogTitle>
+                  <DialogDescription>
+                    지정한 Lak 값과 수량만큼 5자리 코드를 자동으로 생성합니다.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="bulk-lak-value" className="text-right">
+                      Lak 값
+                    </Label>
+                    <Input id="bulk-lak-value" type="number" placeholder="예: 5" className="col-span-3" value={bulkCodeValue} onChange={(e) => setBulkCodeValue(e.target.value)} disabled={isCreating} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="bulk-quantity" className="text-right">
+                      수량
+                    </Label>
+                    <Input id="bulk-quantity" type="number" placeholder="예: 100" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline" disabled={isCreating}>취소</Button>
+                  </DialogClose>
+                  <Button type="submit" onClick={handleBulkCreateCodes} disabled={isCreating}>
+                    {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    생성하기
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Single Create Dialog */}
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1">
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-rap">
+                    수동 생성
+                  </span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>새 코드 생성</DialogTitle>
+                  <DialogDescription>
+                    새로운 코드를 수동으로 생성합니다. 유형과 값을 지정하세요.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="code-value" className="text-right">
+                      코드
+                    </Label>
+                    <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="code-type" className="text-right">
+                      유형
+                    </Label>
+                    <Select onValueChange={(value) => setNewCodeType(value as any)} disabled={isCreating}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="코드 유형 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="종달코드">종달코드</SelectItem>
+                        <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="lak-value" className="text-right">
+                      Lak 값
+                    </Label>
+                    <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} disabled={isCreating} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline" disabled={isCreating}>취소</Button>
+                  </DialogClose>
+                  <Button type="submit" onClick={handleCreateCode} disabled={isCreating}>
+                    {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    생성하기
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
