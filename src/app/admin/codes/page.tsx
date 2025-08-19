@@ -208,17 +208,21 @@ export default function AdminCodesPage() {
   };
   
   const handleDeleteCode = async (codeId: string) => {
-    if (window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      setIsDeleting(codeId);
-      try {
-        await deleteDoc(doc(db, 'codes', codeId));
-        toast({ title: "성공", description: "코드를 삭제했습니다." });
-        fetchCodes(); // Refetch codes to update the list
-      } catch (error) {
-        toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
-      } finally {
-        setIsDeleting(null);
-      }
+    if (!window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    setIsDeleting(codeId);
+    try {
+      await deleteDoc(doc(db, 'codes', codeId));
+      toast({ title: "성공", description: "코드를 삭제했습니다." });
+      // The list will be updated which will remove the item from the UI
+      setCodes(prevCodes => prevCodes.filter(c => c.id !== codeId));
+    } catch (error) {
+      console.error("Error deleting code: ", error);
+      toast({ title: "오류", description: "코드 삭제에 실패했습니다.", variant: "destructive" });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -397,7 +401,6 @@ export default function AdminCodesPage() {
                      <TableCell>{c.createdAt ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                        <Button
-                        aria-haspopup="true"
                         size="icon"
                         variant="ghost"
                         onClick={() => handleDeleteCode(c.id)}
@@ -408,7 +411,7 @@ export default function AdminCodesPage() {
                         ) : (
                           <Trash2 className="h-4 w-4 text-red-500" />
                         )}
-                        <span className="sr-only">Delete</span>
+                        <span className="sr-only">Delete Code</span>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -456,5 +459,3 @@ export default function AdminCodesPage() {
     </>
   );
 }
-
-    
