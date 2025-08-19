@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
@@ -184,6 +184,45 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     console.error("Purchase error: ", error);
     return { success: false, message: error.message || "구매 중 오류가 발생했습니다." };
   });
+};
+
+// Function to delete all documents in a collection
+const deleteCollection = async (collectionRef: any) => {
+    const q = query(collectionRef);
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+};
+
+// Reset all data function
+export const resetAllData = async () => {
+    try {
+        // 1. Reset 'codes', 'letters', 'purchases'
+        const collectionsToReset = ['codes', 'letters', 'purchases'];
+        for (const col of collectionsToReset) {
+            await deleteCollection(collection(db, col));
+        }
+
+        // 2. Reset user data (lak to 0) and delete transactions subcollection
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        for (const userDoc of usersSnapshot.docs) {
+            const userRef = userDoc.ref;
+            // Reset lak to 0
+            await updateDoc(userRef, { lak: 0 });
+
+            // Delete transactions subcollection
+            const transactionsRef = collection(userRef, 'transactions');
+            await deleteCollection(transactionsRef);
+        }
+
+        console.log("All data has been successfully reset.");
+    } catch (error) {
+        console.error("Error resetting data: ", error);
+        throw new Error("데이터 초기화 중 오류가 발생했습니다.");
+    }
 };
 
 

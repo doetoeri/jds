@@ -1,15 +1,57 @@
+'use client';
+
+import { useState } from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Users, QrCode, Coins } from 'lucide-react';
+import { Users, QrCode, Coins, AlertTriangle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
+import { resetAllData } from '@/lib/firebase';
+
 
 export default function AdminDashboardPage() {
   const totalUsers = 152;
   const totalCodes = 521;
   const totalLakRedeemed = 1230;
+
+  const [isResetting, setIsResetting] = useState(false);
+  const { toast } = useToast();
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    try {
+      await resetAllData();
+      toast({
+        title: '초기화 완료',
+        description: '모든 활동 데이터가 성공적으로 초기화되었습니다.',
+      });
+      // You might want to refresh the page or update state here
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: '초기화 오류',
+        description: error.message || '데이터 초기화 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   return (
     <div>
@@ -52,6 +94,53 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+       <Card className="mt-8 border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle />
+            위험 구역
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            아래 버튼은 시스템의 모든 활동 데이터를 영구적으로 삭제하고 초기화합니다.
+            사용자 계정 정보는 유지되지만, 모든 포인트, 거래 내역, 코드, 편지, 구매 내역이 사라집니다.
+            이 작업은 되돌릴 수 없으므로 신중하게 사용하세요.
+          </p>
+           <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={isResetting}>
+                {isResetting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                전체 활동 데이터 초기화
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이 작업은 모든 사용자의 Lak, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive hover:bg-destructive/90"
+                  onClick={handleReset}
+                  disabled={isResetting}
+                >
+                  {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  네, 모든 활동 내역을 초기화합니다.
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
     </div>
   );
 }
