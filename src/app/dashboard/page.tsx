@@ -1,19 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Mail } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Coins, Mail, QrCode } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import Image from 'next/image';
+import QRCode from 'qrcode';
 
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
   const [lakBalance, setLakBalance] = useState<number | null>(null);
   const [hasNewLetters, setHasNewLetters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [mateCode, setMateCode] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isCodeLoading, setIsCodeLoading] = useState(true);
 
   useEffect(() => {
     let unsubscribeLak = () => {};
@@ -25,13 +30,13 @@ export default function DashboardPage() {
         if (doc.exists()) {
           setLakBalance(doc.data().lak);
         } else {
-          // This can happen briefly during logout, so we avoid logging an error.
           setLakBalance(0);
         }
       });
       
-      // Check for new letters
-      const checkForNewLetters = async () => {
+      const fetchDashboardData = async () => {
+         setIsLoading(true);
+         setIsCodeLoading(true);
          try {
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
@@ -39,46 +44,52 @@ export default function DashboardPage() {
                 const currentUserStudentId = userData.studentId;
                 const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
 
-                const q = query(
+                // Check for new letters
+                const lettersQuery = query(
                     collection(db, 'letters'),
                     where('receiverStudentId', '==', currentUserStudentId),
-                    where('status', '==', 'approved')
+                    where('status', '==', 'approved'),
+                    where('approvedAt', '>', lastCheckTimestamp)
                 );
-                const querySnapshot = await getDocs(q);
+                const letterSnapshot = await getDocs(lettersQuery);
+                setHasNewLetters(!letterSnapshot.empty);
 
-                // Filter for new letters on the client side
-                const newLetters = querySnapshot.docs.filter(doc => {
-                  const letterData = doc.data();
-                  const approvedAt = letterData.approvedAt;
-                  // Ensure approvedAt is a Firestore Timestamp before comparing
-                  if (approvedAt && approvedAt.toMillis) {
-                    return approvedAt.toMillis() > lastCheckTimestamp.toMillis();
-                  }
-                  return false;
-                });
-
-                setHasNewLetters(newLetters.length > 0);
+                // Fetch mate code
+                const mateCodeQuery = query(
+                  collection(db, 'codes'),
+                  where('ownerUid', '==', user.uid),
+                  where('type', '==', '메이트코드')
+                );
+                const mateCodeSnapshot = await getDocs(mateCodeQuery);
+                if (!mateCodeSnapshot.empty) {
+                  const codeData = mateCodeSnapshot.docs[0].data();
+                  setMateCode(codeData.code);
+                  const url = await QRCode.toDataURL(codeData.code, { width: 200, margin: 2 });
+                  setQrCodeUrl(url);
+                }
             }
         } catch (error) {
-            console.error("Error checking for new letters:", error);
+            console.error("Error fetching dashboard data:", error);
         } finally {
             setIsLoading(false);
+            setIsCodeLoading(false);
         }
       };
       
-      checkForNewLetters();
+      fetchDashboardData();
 
       // Cleanup subscription on unmount
       return () => unsubscribeLak();
     } else {
         setIsLoading(false);
+        setIsCodeLoading(false);
     }
   }, [user]);
 
   return (
     <div>
       <h1 className="text-3xl font-bold tracking-tight font-headline">대시보드</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 mt-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">나의 Lak</CardTitle>
@@ -122,6 +133,31 @@ export default function DashboardPage() {
                 </Card>
             </Link>
         ) : null}
+
+        <Card className="md:col-span-2 lg:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">나의 메이트 코드</CardTitle>
+            <QrCode className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center pt-4 gap-4">
+             {isCodeLoading ? (
+              <>
+                <Skeleton className="h-[120px] w-[120px]" />
+                <Skeleton className="h-6 w-24" />
+              </>
+            ) : mateCode && qrCodeUrl ? (
+              <>
+                <Image src={qrCodeUrl} alt="Mate Code QR" width={120} height={120} />
+                <div className="text-center">
+                   <p className="font-mono text-2xl font-bold">{mateCode}</p>
+                   <p className="text-xs text-muted-foreground">친구에게 코드를 공유하고 함께 Lak을 받으세요!</p>
+                </div>
+              </>
+            ) : (
+               <p className="text-sm text-muted-foreground py-10 text-center">메이트 코드를 불러올 수 없습니다.</p>
+            )}
+          </CardContent>
+        </Card>
 
       </div>
     </div>
