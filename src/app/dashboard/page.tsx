@@ -21,65 +21,72 @@ export default function DashboardPage() {
   const [isCodeLoading, setIsCodeLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribeLak = () => {};
+    let unsubscribeUser = () => {};
+    let unsubscribeLetters: (() => void) | null = null;
 
     if (user) {
-      // Subscribe to Lak balance changes
+      setIsLoading(true);
+      setIsCodeLoading(true);
+      
       const userDocRef = doc(db, 'users', user.uid);
-      unsubscribeLak = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          setLakBalance(doc.data().lak);
+      
+      unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
+        if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setLakBalance(userData.lak);
+            
+            // Fetch mate code and generate QR from user data
+            if (userData.mateCode) {
+                const code = userData.mateCode;
+                setMateCode(code);
+                try {
+                    const url = await QRCode.toDataURL(code, { width: 200, margin: 2 });
+                    setQrCodeUrl(url);
+                } catch (err) {
+                    console.error("QR Code generation failed:", err);
+                    setQrCodeUrl(null);
+                }
+            } else {
+                 setMateCode(null);
+                 setQrCodeUrl(null);
+            }
+            setIsCodeLoading(false);
+
+
+            // Setup listener for new letters
+            const currentUserStudentId = userData.studentId;
+            const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
+
+            const lettersQuery = query(
+                collection(db, 'letters'),
+                where('receiverStudentId', '==', currentUserStudentId),
+                where('status', '==', 'approved'),
+                where('approvedAt', '>', lastCheckTimestamp)
+            );
+            
+            // Real-time listener for letters
+            if (unsubscribeLetters) unsubscribeLetters(); // Unsubscribe from previous listener if it exists
+            unsubscribeLetters = onSnapshot(lettersQuery, (letterSnapshot) => {
+                 setHasNewLetters(!letterSnapshot.empty);
+            });
+
         } else {
           setLakBalance(0);
+          setMateCode(null);
         }
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Error fetching user data:", error);
+        setIsLoading(false);
+        setIsCodeLoading(false);
       });
-      
-      const fetchDashboardData = async () => {
-         setIsLoading(true);
-         setIsCodeLoading(true);
-         try {
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-                const userData = userDocSnap.data();
-                const currentUserStudentId = userData.studentId;
-                const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
 
-                // Check for new letters
-                const lettersQuery = query(
-                    collection(db, 'letters'),
-                    where('receiverStudentId', '==', currentUserStudentId),
-                    where('status', '==', 'approved'),
-                    where('approvedAt', '>', lastCheckTimestamp)
-                );
-                const letterSnapshot = await getDocs(lettersQuery);
-                setHasNewLetters(!letterSnapshot.empty);
-
-                // Fetch mate code
-                const mateCodeQuery = query(
-                  collection(db, 'codes'),
-                  where('ownerUid', '==', user.uid),
-                  where('type', '==', '메이트코드')
-                );
-                const mateCodeSnapshot = await getDocs(mateCodeQuery);
-                if (!mateCodeSnapshot.empty) {
-                  const codeData = mateCodeSnapshot.docs[0].data();
-                  setMateCode(codeData.code);
-                  const url = await QRCode.toDataURL(codeData.code, { width: 200, margin: 2 });
-                  setQrCodeUrl(url);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching dashboard data:", error);
-        } finally {
-            setIsLoading(false);
-            setIsCodeLoading(false);
+      return () => {
+        unsubscribeUser();
+        if (unsubscribeLetters) {
+          unsubscribeLetters();
         }
       };
-      
-      fetchDashboardData();
-
-      // Cleanup subscription on unmount
-      return () => unsubscribeLak();
     } else {
         setIsLoading(false);
         setIsCodeLoading(false);
@@ -96,10 +103,10 @@ export default function DashboardPage() {
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {lakBalance === null ? (
+            {isLoading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
-              <div className="text-2xl font-bold">{lakBalance.toLocaleString()} Lak</div>
+              <div className="text-2xl font-bold">{lakBalance?.toLocaleString() ?? 0} Lak</div>
             )}
             <p className="text-xs text-muted-foreground">
               (1 라크 = 500원)

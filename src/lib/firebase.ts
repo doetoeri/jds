@@ -36,17 +36,19 @@ export const signUp = async (studentId: string, password: string, email: string)
 
     // Use a transaction to ensure both user and mate code are created atomically.
     await runTransaction(db, async (transaction) => {
-      // Create the user document
+      const mateCode = user.uid.substring(0, 4).toUpperCase();
+
+      // Create the user document and store the mateCode directly
       const userDocRef = doc(db, "users", user.uid);
       transaction.set(userDocRef, {
         studentId: studentId,
         email: email,
         lak: 0,
         createdAt: Timestamp.now(),
+        mateCode: mateCode, // Store the code string here
       });
 
-      // Create a unique mate code for the new user
-      const mateCode = user.uid.substring(0, 4).toUpperCase();
+      // Create a unique mate code for the new user in the 'codes' collection
       const mateCodeRef = doc(collection(db, 'codes'));
       transaction.set(mateCodeRef, {
           code: mateCode,
@@ -291,5 +293,3 @@ export const resetAllData = async () => {
 
 
 export { auth, db };
-
-    
