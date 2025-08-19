@@ -80,14 +80,21 @@ export default function LettersPage() {
           const q = query(
             collection(db, 'letters'),
             where('receiverStudentId', '==', currentUserStudentId),
-            where('status', '==', 'approved'),
-            orderBy('approvedAt', 'desc')
+            where('status', '==', 'approved')
           );
           const querySnapshot = await getDocs(q);
           const letters = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
           })) as ReceivedLetter[];
+          
+          // Sort letters by approvedAt descending on the client-side
+          letters.sort((a, b) => {
+            const dateA = a.approvedAt?.seconds || 0;
+            const dateB = b.approvedAt?.seconds || 0;
+            return dateB - dateA;
+          });
+
           setReceivedLetters(letters);
           
         } catch (error) {
