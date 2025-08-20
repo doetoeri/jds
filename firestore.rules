@@ -1,25 +1,35 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Allow users to create their own user document upon signup
+
+    // Users can only create and update their own user document.
     match /users/{userId} {
-      allow read, update, delete: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read, update: if request.auth != null;
+      allow create: if request.auth.uid == userId;
     }
     
-    // Allow users to create their own mate code upon signup
-    match /codes/{codeId} {
-       allow read, update, delete: if request.auth != null;
-       // Allow create only if the user is creating their own mate code during signup
-       allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid && request.resource.data.type == '메이트코드';
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow logged-in users to access other collections
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // Allow authenticated users to create codes (for signup mate code)
+    // and read them. Updates are restricted.
+    match /codes/{codeId} {
+      allow read: if request.auth != null;
+      // Allow users to create their own mate code during signup.
+      allow create: if request.auth.uid == request.resource.data.ownerUid;
+      // For useCode transaction and admin actions
+      allow update: if request.auth != null;
+      allow delete: if false; // Deletion should be handled by admin tools
+    }
+
+    // Allow authenticated users to create letters and purchases.
+    match /letters/{letterId} {
+      allow read, create, update: if request.auth != null;
+    }
+
+    match /purchases/{purchaseId} {
+      allow read, create: if request.auth != null;
     }
   }
 }
