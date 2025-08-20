@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -241,16 +242,29 @@ export const useCode = async (userId: string, inputCode: string) => {
         if (targetUserSnapshot.empty) {
           throw `선물 대상 학생(${targetStudentId})을 찾을 수 없습니다.`;
         }
+        if (userStudentId === targetStudentId) {
+            throw "자기 자신에게 선물할 수 없습니다.";
+        }
         
         const targetUserDoc = targetUserSnapshot.docs[0];
         const targetUserRef = targetUserDoc.ref;
 
-        // Give points to the target user
+        // Give points to the target user (the one designated)
         transaction.update(targetUserRef, { lak: increment(codeData.value) });
         const targetHistoryRef = doc(collection(targetUserRef, 'transactions'));
         transaction.set(targetHistoryRef, {
           date: Timestamp.now(),
-          description: `'${userStudentId}'님이 선물한 히든코드`,
+          description: `히든코드 선물 받음 (전달자: ${userStudentId})`,
+          amount: codeData.value,
+          type: 'credit',
+        });
+        
+        // Give points to the redeemer (the one scanning the code)
+        transaction.update(userRef, { lak: increment(codeData.value) });
+        const redeemerHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(redeemerHistoryRef, {
+          date: Timestamp.now(),
+          description: `히든코드 선물 전달 (대상자: ${targetStudentId})`,
           amount: codeData.value,
           type: 'credit',
         });
@@ -262,7 +276,7 @@ export const useCode = async (userId: string, inputCode: string) => {
           giftedTo: targetStudentId, // The person who received the Lak
         });
         
-        return { success: true, message: `${targetStudentId}님에게 ${codeData.value} Lak을 성공적으로 선물했습니다!` };
+        return { success: true, message: `선물 전달 완료! 전달자와 대상자 모두에게 ${codeData.value} Lak이 지급되었습니다!` };
 
       default: // '종달코드', '온라인 특수코드'
         // Update user's Lak balance
@@ -420,3 +434,5 @@ export const updateUserProfile = async (
 };
 
 export { auth, db, storage };
+
+    
