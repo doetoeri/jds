@@ -22,6 +22,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { useLogout } from '@/hooks/use-logout';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface UserData {
   studentId?: string;
@@ -29,7 +30,8 @@ interface UserData {
   displayName?: string; // Nickname for all users
   email?: string;
   role?: string;
-  photoURL?: string;
+  photoURL?: string; // Legacy, kept for compatibility
+  avatarGradient?: string;
 }
 
 export function UserNav() {
@@ -74,7 +76,7 @@ export function UserNav() {
     if (userData?.displayName) return userData.displayName.substring(0, 1).toUpperCase();
     if (userData?.role === 'teacher') return userData.name?.substring(0, 1) || '교';
     if (userData?.role === 'student') return userData.studentId?.substring(userData.studentId.length - 2) || '학생';
-    return '??';
+    return user?.email?.substring(0,1).toUpperCase() || '??';
   }
 
   const getDisplayName = () => {
@@ -101,7 +103,12 @@ export function UserNav() {
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarImage src={userData.photoURL || undefined} alt="@user" />
-            <AvatarFallback>{getInitials()}</AvatarFallback>
+            <AvatarFallback className={cn(
+              "text-white font-bold",
+              userData.avatarGradient && `gradient-${userData.avatarGradient}`
+            )}>
+              {getInitials()}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>

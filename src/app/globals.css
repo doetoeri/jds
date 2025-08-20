@@ -77,3 +77,18 @@
     min-height: 100vh;
   }
 }
+
+@layer components {
+  .gradient-blue {
+    background-image: linear-gradient(to bottom right, #3b82f6, #60a5fa);
+  }
+  .gradient-orange {
+    background-image: linear-gradient(to bottom right, #f97316, #fb923c);
+  }
+  .gradient-purple {
+    background-image: linear-gradient(to bottom right, #8b5cf6, #a78bfa);
+  }
+  .gradient-red {
+    background-image: linear-gradient(to bottom right, #ef4444, #f87171);
+  }
+}

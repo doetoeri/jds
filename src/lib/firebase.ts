@@ -88,7 +88,7 @@ export const signUp = async (
                 mateCode: mateCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
-                photoURL: ''
+                avatarGradient: 'orange', // Default gradient
             });
 
             const mateCodeRef = doc(collection(db, 'codes'));
@@ -110,7 +110,7 @@ export const signUp = async (
             email: email,
             role: 'pending_teacher',
             createdAt: Timestamp.now(),
-            photoURL: ''
+            avatarGradient: 'blue', // Default gradient for teachers
         });
     }
 
@@ -440,32 +440,9 @@ export const resetAllData = async () => {
 
 
 // PROFILE FUNCTIONS
-
-export const uploadProfileImage = async (userId: string, file: File) => {
-  if (!file) throw new Error("업로드할 파일을 선택해주세요.");
-  const filePath = `profileImages/${userId}/${Date.now()}_${file.name}`;
-  const storageRef = ref(storage, filePath);
-  await uploadBytes(storageRef, file);
-  const downloadURL = await getDownloadURL(storageRef);
-  return { downloadURL, filePath };
-};
-
-export const deleteOldProfileImage = async (filePath: string) => {
-    if (!filePath) return;
-    const storageRef = ref(storage, filePath);
-    try {
-        await deleteObject(storageRef);
-    } catch (error: any) {
-        // It's okay if the old file doesn't exist.
-        if (error.code !== 'storage/object-not-found') {
-            console.error("Error deleting old profile image:", error);
-        }
-    }
-};
-
 export const updateUserProfile = async (
   userId: string,
-  data: { displayName?: string; photoURL?: string; photoPath?: string }
+  data: { displayName?: string; avatarGradient?: string }
 ) => {
   const userRef = doc(db, 'users', userId);
   // Filter out undefined values to prevent errors
