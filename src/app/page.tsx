@@ -120,10 +120,13 @@ const ParticleCanvas = () => {
      const rect = canvas.getBoundingClientRect();
 
      const getCoords = (event: typeof e): {x: number, y: number} => {
-        if ('touches' in event) {
+        if ('touches' in event && event.touches.length > 0) {
             return { x: event.touches[0].clientX, y: event.touches[0].clientY };
         }
-        return { x: event.clientX, y: event.clientY };
+        if ('clientX' in event) {
+            return { x: event.clientX, y: event.clientY };
+        }
+        return { x: 0, y: 0 }; // Fallback
      }
 
      const {x: clientX, y: clientY} = getCoords(e);

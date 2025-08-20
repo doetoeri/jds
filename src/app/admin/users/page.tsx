@@ -34,14 +34,13 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setIsLoading(true);
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, orderBy('studentId'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
       setUsers(userList);
-      setIsLoading(false);
+      setIsLoading(false); // Only set loading to false after first fetch
     }, (error) => {
       console.error("Error fetching real-time users:", error);
       toast({

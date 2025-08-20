@@ -18,6 +18,8 @@ export default function DashboardPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [hasNewLetters, setHasNewLetters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
+
 
   // Effect for user data (lak, mateCode)
   useEffect(() => {
@@ -34,8 +36,9 @@ export default function DashboardPage() {
         setLakBalance(userData.lak ?? 0);
         
         // Update mateCode and QR code only if it has changed
-        if (userData.mateCode && userData.mateCode !== mateCode) {
+        if (userData.mateCode && userData.mateCode !== currentMateCode) {
           const code = userData.mateCode;
+          setCurrentMateCode(code);
           setMateCode(code);
           try {
             const url = await QRCode.toDataURL(code, { width: 200, margin: 2 });
@@ -60,7 +63,7 @@ export default function DashboardPage() {
     });
 
     return () => unsubscribeUser();
-  }, [user, mateCode]); // Depend on mateCode to avoid re-generating QR code unnecessarily
+  }, [user, currentMateCode]);
 
   // Effect for checking new letters
   useEffect(() => {
