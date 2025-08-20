@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Loader2, QrCode as QrCodeIcon, Download, Users, Sparkles } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Download, Users, Sparkles, Ticket } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -36,8 +36,9 @@ import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp,
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import QRCode from 'qrcode';
-import Image from 'next/image';
+import { toPng } from 'html-to-image';
+import { CouponTicket } from '@/components/coupon-ticket';
+
 
 interface Code {
   id: string;
@@ -67,10 +68,9 @@ export default function AdminCodesPage() {
   const [bulkCodeValue, setBulkCodeValue] = useState('');
   const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
 
+  const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number} | null>(null);
+  const couponRef = useRef<HTMLDivElement>(null);
 
-  const [generatedCode, setGeneratedCode] = useState<Code | null>(null);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const qrCodeLinkRef = useRef<HTMLAnchorElement>(null);
 
   const { toast } = useToast();
 
@@ -93,22 +93,9 @@ export default function AdminCodesPage() {
   useEffect(() => {
     fetchCodes();
   }, [fetchCodes]);
-  
-  const generateQrCode = useCallback(async (text: string) => {
-    try {
-      const url = await QRCode.toDataURL(text, { width: 300, margin: 2 });
-      setQrCodeUrl(url);
-      return url;
-    } catch (err) {
-      console.error(err);
-      toast({ title: "QR 코드 생성 오류", description: "QR 코드 생성에 실패했습니다.", variant: "destructive" });
-      return '';
-    }
-  }, [toast]);
 
-  const handleShowQrCode = (code: Code) => {
-    setGeneratedCode(code);
-    generateQrCode(code.code);
+  const handleShowCoupon = (code: Code) => {
+    setGeneratedCouponInfo({ code: code.code, value: code.value });
   }
 
   const handleCreateCode = async () => {
@@ -150,16 +137,10 @@ export default function AdminCodesPage() {
       }
 
 
-      const docRef = await addDoc(collection(db, 'codes'), codeData);
-      
-      const createdCode: Code = {
-        id: docRef.id,
-        ...codeData,
-      };
+      await addDoc(collection(db, 'codes'), codeData);
       
       toast({ title: "성공", description: "새 코드를 생성했습니다." });
-      setGeneratedCode(createdCode);
-      await generateQrCode(createdCode.code);
+      setGeneratedCouponInfo({ code: codeData.code, value: codeData.value });
       
       setNewCode('');
       setNewCodeType('');
@@ -198,14 +179,19 @@ export default function AdminCodesPage() {
     }
 
     setIsCreating(true);
+    let lastGeneratedCode: string | null = null;
     try {
       const batch = writeBatch(db);
       const codesCollection = collection(db, 'codes');
       
       for (let i = 0; i < quantity; i++) {
         const newCodeRef = doc(codesCollection);
+        const codeValue = generateRandomCode(5);
+        if (i === quantity -1) {
+            lastGeneratedCode = codeValue;
+        }
         batch.set(newCodeRef, {
-          code: generateRandomCode(5),
+          code: codeValue,
           type: '종달코드',
           value: value,
           used: false,
@@ -217,6 +203,11 @@ export default function AdminCodesPage() {
       await batch.commit();
 
       toast({ title: "성공!", description: `${quantity}개의 코드를 성공적으로 생성했습니다.` });
+      
+      if (lastGeneratedCode) {
+        setGeneratedCouponInfo({ code: lastGeneratedCode, value: value });
+      }
+
       setBulkCodeValue('');
       setBulkCodeQuantity('');
       setIsBulkCreateDialogOpen(false);
@@ -248,13 +239,23 @@ export default function AdminCodesPage() {
     }
   };
 
-  const handleDownloadQr = () => {
-    if (qrCodeLinkRef.current && generatedCode) {
-      qrCodeLinkRef.current.href = qrCodeUrl;
-      qrCodeLinkRef.current.download = `JDS_QR_${generatedCode.code}.png`;
-      qrCodeLinkRef.current.click();
+  const handleDownloadCoupon = useCallback(() => {
+    if (!couponRef.current || !generatedCouponInfo) {
+      return;
     }
-  };
+
+    toPng(couponRef.current, { cacheBust: true, pixelRatio: 2 })
+      .then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `JDS_Coupon_${generatedCouponInfo.code}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => {
+        console.error(err);
+        toast({ title: "이미지 생성 오류", description: "쿠폰 이미지 생성에 실패했습니다.", variant: "destructive" });
+      });
+  }, [generatedCouponInfo, toast]);
   
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
@@ -407,7 +408,7 @@ export default function AdminCodesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>코드</TableHead>
-                <TableHead>QR</TableHead>
+                <TableHead>쿠폰</TableHead>
                 <TableHead>유형</TableHead>
                 <TableHead>Lak 값</TableHead>
                 <TableHead>상태</TableHead>
@@ -432,8 +433,8 @@ export default function AdminCodesPage() {
                   <TableRow key={c.id}>
                     <TableCell className="font-mono font-medium">{c.code}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleShowQrCode(c)}>
-                        <QrCodeIcon className="h-5 w-5" />
+                      <Button variant="ghost" size="icon" onClick={() => handleShowCoupon(c)}>
+                        <Ticket className="h-5 w-5" />
                       </Button>
                     </TableCell>
                     <TableCell>{c.type}</TableCell>
@@ -464,25 +465,23 @@ export default function AdminCodesPage() {
         </CardContent>
       </Card>
       
-      {/* QR Code Display Dialog */}
-      <Dialog open={!!generatedCode} onOpenChange={(isOpen) => !isOpen && setGeneratedCode(null)}>
+      {/* Coupon Display Dialog */}
+      <Dialog open={!!generatedCouponInfo} onOpenChange={(isOpen) => !isOpen && setGeneratedCouponInfo(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>코드 생성 완료</DialogTitle>
+            <DialogTitle>쿠폰 생성 완료</DialogTitle>
             <DialogDescription>
-              아래 QR코드를 다운로드하거나 코드를 직접 사용하세요.
+              아래 쿠폰 이미지를 다운로드하여 사용하세요.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center gap-4 py-4">
-            {qrCodeUrl ? (
-              <Image src={qrCodeUrl} alt="Generated QR Code" width={250} height={250} />
-            ) : (
-              <Skeleton className="h-[250px] w-[250px]" />
+          <div className="flex items-center justify-center my-4">
+             {generatedCouponInfo && (
+              <CouponTicket 
+                ref={couponRef} 
+                code={generatedCouponInfo.code} 
+                value={generatedCouponInfo.value}
+              />
             )}
-            <div className="text-center">
-              <p className="font-mono text-2xl font-bold">{generatedCode?.code}</p>
-              <p className="text-lg">{generatedCode?.value} Lak</p>
-            </div>
           </div>
           <DialogFooter className="sm:justify-between gap-2">
              <DialogClose asChild>
@@ -490,14 +489,13 @@ export default function AdminCodesPage() {
                   닫기
                 </Button>
               </DialogClose>
-            <Button type="button" onClick={handleDownloadQr} disabled={!qrCodeUrl}>
+            <Button type="button" onClick={handleDownloadCoupon}>
               <Download className="mr-2 h-4 w-4" />
-              QR코드 다운로드
+              쿠폰 이미지 다운로드
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <a ref={qrCodeLinkRef} style={{ display: 'none' }}></a>
     </>
   );
 }

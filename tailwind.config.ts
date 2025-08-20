@@ -13,6 +13,7 @@ export default {
         body: ['"Gowun Dodum"', 'sans-serif'],
         headline: ['"Gowun Dodum"', 'sans-serif'],
         code: ['monospace'],
+        batang: ['"Gowun Batang"', 'serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
