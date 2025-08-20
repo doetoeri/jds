@@ -8,11 +8,13 @@ import {
   signOut,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+
 
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
   appId: '1:145118642611:web:3d29407e957e6ea4f18bc6',
-  storageBucket: 'jongdalsem-hub.firebasestorage.app',
+  storageBucket: 'jongdalsem-hub.appspot.com',
   apiKey: 'AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc',
   authDomain: 'jongdalsem-hub.firebaseapp.com',
   measurementId: '',
@@ -23,6 +25,8 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
+
 
 // Sign up function
 export const signUp = async (
@@ -67,6 +71,8 @@ export const signUp = async (
                 createdAt: Timestamp.now(),
                 mateCode: mateCode,
                 role: 'student', // Set role for student
+                displayName: `학생 (${studentId})`,
+                photoURL: ''
             });
 
             // Create a unique mate code for the new user in the 'codes' collection
@@ -84,10 +90,12 @@ export const signUp = async (
     } else { // Teacher signup
         await setDoc(userDocRef, {
             name: userData.name,
+            displayName: `${userData.name} 선생님`,
             officeFloor: userData.officeFloor,
             email: email,
             role: 'pending_teacher', // Special role for pending approval
             createdAt: Timestamp.now(),
+            photoURL: ''
         });
     }
 
@@ -337,5 +345,36 @@ export const resetAllData = async () => {
 };
 
 
-export { auth, db };
-    
+// PROFILE FUNCTIONS
+
+export const uploadProfileImage = async (userId: string, file: File) => {
+  if (!file) throw new Error("업로드할 파일을 선택해주세요.");
+  const filePath = `profileImages/${userId}/${Date.now()}_${file.name}`;
+  const storageRef = ref(storage, filePath);
+  await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(storageRef);
+  return { downloadURL, filePath };
+};
+
+export const deleteOldProfileImage = async (filePath: string) => {
+    if (!filePath) return;
+    const storageRef = ref(storage, filePath);
+    try {
+        await deleteObject(storageRef);
+    } catch (error: any) {
+        // It's okay if the old file doesn't exist.
+        if (error.code !== 'storage/object-not-found') {
+            console.error("Error deleting old profile image:", error);
+        }
+    }
+};
+
+export const updateUserProfile = async (
+  userId: string, 
+  data: { displayName?: string; photoURL?: string, photoPath?: string }
+) => {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, data);
+};
+
+export { auth, db, storage };

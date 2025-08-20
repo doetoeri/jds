@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { useLogout } from '@/hooks/use-logout';
 import { Loader2 } from 'lucide-react';
@@ -26,8 +26,10 @@ import { Loader2 } from 'lucide-react';
 interface UserData {
   studentId?: string;
   name?: string; // For teachers
+  displayName?: string; // Nickname for all users
   email?: string;
   role?: string;
+  photoURL?: string;
 }
 
 export function UserNav() {
@@ -36,35 +38,40 @@ export function UserNav() {
   const { handleLogout, isLoggingOut } = useLogout();
   
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
+        if (user.email === 'admin@jongdalsem.com') {
+            setUserData({ email: user.email, name: '관리자', role: 'admin' });
+            return;
+        }
+        
         const userDocRef = doc(db, 'users', user.uid);
-        try {
-          const userDoc = await getDoc(userDocRef);
+        const unsubDoc = onSnapshot(userDocRef, (userDoc) => {
           if (userDoc.exists()) {
             setUserData(userDoc.data() as UserData);
           } else {
-             // Handle master admin user separately without a Firestore doc
-            if (user.email === 'admin@jongdalsem.com') {
-                setUserData({ email: user.email, name: '관리자', role: 'admin' });
-            } else {
-                setUserData(null);
-            }
+            setUserData(null);
           }
-        } catch (error) {
+        }, (error) => {
           console.error("Error fetching user document:", error);
           setUserData(null);
-        }
+        });
+
+        // Detach listener when user logs out
+        return () => unsubDoc();
+
       } else {
         setUserData(null);
       }
     });
+
     return () => unsubscribe();
   }, []);
 
   const getInitials = () => {
     if (userData?.role === 'admin') return '관리';
+    if (userData?.displayName) return userData.displayName.substring(0, 1).toUpperCase();
     if (userData?.role === 'teacher') return userData.name?.substring(0, 1) || '교';
     if (userData?.role === 'student') return userData.studentId?.substring(userData.studentId.length - 2) || '학생';
     return '??';
@@ -72,6 +79,7 @@ export function UserNav() {
 
   const getDisplayName = () => {
      if (userData?.role === 'admin') return '관리자';
+     if (userData?.displayName) return userData.displayName;
      if (userData?.role === 'teacher') return `${userData.name} 선생님`;
      if (userData?.role === 'student') return `학생 (${userData.studentId})`;
      return '사용자';
@@ -83,9 +91,7 @@ export function UserNav() {
       return '/dashboard';
   }
 
-
   if (!user || !userData) {
-    // Don't render anything until user and userData is loaded, to prevent flashes of incorrect state.
     return null;
   }
 
@@ -94,7 +100,7 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src="https://placehold.co/100x100.png" alt="@user" data-ai-hint="person avatar" />
+            <AvatarImage src={userData.photoURL || undefined} alt="@user" />
             <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
@@ -113,6 +119,9 @@ export function UserNav() {
            <DropdownMenuItem asChild>
               <Link href={getDashboardLink()}>대시보드</Link>
             </DropdownMenuItem>
+             <DropdownMenuItem asChild>
+              <Link href="/dashboard/settings">프로필 설정</Link>
+            </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" disabled={isLoggingOut}>
@@ -123,5 +132,3 @@ export function UserNav() {
     </DropdownMenu>
   );
 }
-
-    
