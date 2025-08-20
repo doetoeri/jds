@@ -41,6 +41,12 @@ export default function LoginPage() {
       if (!currentUser) {
           throw new Error("사용자를 찾을 수 없습니다.");
       }
+      
+      // Master admin account check
+      if (email === 'admin@jongdalsem.com') {
+         router.push('/admin');
+         return; // Stop further execution
+      }
 
       const userDocRef = doc(db, "users", currentUser.uid);
       const userDoc = await getDoc(userDocRef);
@@ -63,12 +69,7 @@ export default function LoginPage() {
           router.push('/dashboard');
         }
       } else {
-         // This might happen for the master admin account which might not have a doc
-         if (email === 'admin@jongdalsem.com') {
-            router.push('/admin');
-         } else {
-            throw new Error("사용자 데이터가 존재하지 않습니다.");
-         }
+         throw new Error("사용자 데이터가 존재하지 않습니다.");
       }
 
     } catch (error: any) {
@@ -77,7 +78,7 @@ export default function LoginPage() {
         description: error.message,
         variant: 'destructive',
       });
-      setIsLoading(false); // Stop loading only on error
+      setIsLoading(false);
     } 
   };
 
@@ -131,4 +132,3 @@ export default function LoginPage() {
     </Card>
   );
 }
-    

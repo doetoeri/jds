@@ -61,6 +61,7 @@ export default function AdminPurchasesPage() {
   }, [toast]);
 
   const formatItems = (items: Purchase['items']) => {
+    if (!Array.isArray(items)) return 'N/A';
     return items.map(item => `${item.name} x${item.quantity}`).join(', ');
   }
 
@@ -100,7 +101,7 @@ export default function AdminPurchasesPage() {
               purchases.map((purchase) => (
                 <TableRow key={purchase.id}>
                   <TableCell className="font-medium">{purchase.studentId}</TableCell>
-                  <TableCell>{purchase.createdAt ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
+                  <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
                   <TableCell className="max-w-[300px] truncate">{formatItems(purchase.items)}</TableCell>
                   <TableCell className="text-right">
                     <Badge variant="destructive">

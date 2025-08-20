@@ -105,7 +105,8 @@ export default function AdminLettersPage() {
             title: '성공',
             description: '오프라인 편지를 승인 처리했습니다. 이제 직접 전달해주세요.',
         });
-        fetchLetters();
+        await fetchLetters();
+        setIsProcessing(null);
         return;
       }
 
@@ -160,7 +161,7 @@ export default function AdminLettersPage() {
         title: '성공',
         description: '편지를 승인하고 Lak을 지급했습니다.',
       });
-      fetchLetters();
+      await fetchLetters();
     } catch (error: any) {
       toast({
         title: '오류',
@@ -182,7 +183,7 @@ export default function AdminLettersPage() {
             description: '편지를 거절 처리했습니다.',
             variant: 'default',
         });
-        fetchLetters();
+        await fetchLetters();
      } catch (error) {
         toast({
             title: '오류',
@@ -276,9 +277,7 @@ export default function AdminLettersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {letter.createdAt
-                      ? letter.createdAt.toDate().toLocaleDateString()
-                      : 'N/A'}
+                    {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
                     {isProcessing === letter.id ? (

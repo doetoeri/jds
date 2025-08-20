@@ -18,13 +18,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
+import { collection, collectionGroup, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Transaction {
   id: string;
-  studentId: string;
+  studentId: string; // This will be added during processing
   date: Timestamp;
   description: string;
   amount: number;
@@ -45,33 +45,25 @@ export default function AdminHistoryPage() {
     const fetchAllTransactions = async () => {
       setIsLoading(true);
       try {
-        // 1. Fetch all users to get their IDs and studentIds
+        // 1. Fetch all users to create a map from UID to studentId
         const usersSnapshot = await getDocs(collection(db, 'users'));
-        const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-        const studentIdMap = new Map(users.map(user => [user.id, user.studentId]));
+        const studentIdMap = new Map(usersSnapshot.docs.map(doc => [doc.id, doc.data().studentId]));
 
-        // 2. Fetch transactions for each user
-        let allTransactions: Transaction[] = [];
-        for (const user of users) {
-          const transactionsRef = collection(db, `users/${user.id}/transactions`);
-          const q = query(transactionsRef, orderBy('date', 'desc'));
-          const querySnapshot = await getDocs(q);
-          const userTransactions = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              studentId: studentIdMap.get(user.id) || 'N/A', // Get studentId from the map
-              ...data
-            } as Transaction;
-          });
-          allTransactions.push(...userTransactions);
-        }
+        // 2. Use a collection group query to get all transactions at once
+        const transactionsGroupRef = collectionGroup(db, 'transactions');
+        const q = query(transactionsGroupRef, orderBy('date', 'desc'));
+        const querySnapshot = await getDocs(q);
 
-        // 3. Sort all transactions by date
-        allTransactions.sort((a, b) => {
-            const dateA = a.date?.toMillis() || 0;
-            const dateB = b.date?.toMillis() || 0;
-            return dateB - dateA;
+        const allTransactions = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          const userPath = doc.ref.parent.parent; // Get the user document path
+          const userId = userPath?.id || '';
+          
+          return {
+            id: doc.id,
+            studentId: studentIdMap.get(userId) || '알 수 없음', // Look up studentId from map
+            ...data
+          } as Transaction;
         });
 
         setTransactions(allTransactions);
@@ -109,7 +101,7 @@ export default function AdminHistoryPage() {
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-7 w-16 ml-auto" /></TableCell>
                   </TableRow>
                 ))
             ) : transactions.length === 0 ? (
@@ -122,7 +114,7 @@ export default function AdminHistoryPage() {
               transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell className="font-medium">{transaction.studentId}</TableCell>
-                  <TableCell>{transaction.date ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}</TableCell>
+                  <TableCell>{transaction.date?.toDate ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}</TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell className="text-right">
                     <Badge

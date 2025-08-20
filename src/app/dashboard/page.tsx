@@ -88,10 +88,13 @@ export default function DashboardPage() {
             unsubscribeLetters = onSnapshot(lettersQuery, (querySnapshot) => {
                 if (!querySnapshot.empty) {
                     const latestLetter = querySnapshot.docs[0].data();
-                    if (lastCheckTimestamp) {
+                    if (lastCheckTimestamp && latestLetter.approvedAt) {
                         setHasNewLetters(latestLetter.approvedAt.toMillis() > lastCheckTimestamp.toMillis());
+                    } else if (latestLetter.approvedAt) {
+                        // If user has never checked, any letter is new
+                        setHasNewLetters(true); 
                     } else {
-                        setHasNewLetters(true); // If user has never checked, any letter is new
+                        setHasNewLetters(false);
                     }
                 } else {
                     setHasNewLetters(false);

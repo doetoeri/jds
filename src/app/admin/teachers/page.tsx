@@ -134,9 +134,7 @@ export default function AdminTeachersPage() {
                   <TableCell>{teacher.email}</TableCell>
                   <TableCell>{teacher.officeFloor}</TableCell>
                    <TableCell>
-                    {teacher.createdAt
-                      ? teacher.createdAt.toDate().toLocaleDateString()
-                      : 'N/A'}
+                    {teacher.createdAt?.toDate ? teacher.createdAt.toDate().toLocaleDateString() : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
                     {isProcessing === teacher.id ? (

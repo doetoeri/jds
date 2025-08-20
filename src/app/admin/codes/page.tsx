@@ -440,12 +440,12 @@ export default function AdminCodesPage() {
                     <TableCell>{c.value} Lak</TableCell>
                     <TableCell>{renderStatus(c)}</TableCell>
                     <TableCell>{renderUsedBy(c)}</TableCell>
-                     <TableCell>{c.createdAt ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
+                     <TableCell>{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                        <Button
                         size="icon"
                         variant="ghost"
-                        onMouseDown={() => handleDeleteCode(c.id)}
+                        onClick={() => handleDeleteCode(c.id)}
                         disabled={isDeleting === c.id}
                       >
                         {isDeleting === c.id ? (
