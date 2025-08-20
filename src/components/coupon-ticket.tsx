@@ -37,34 +37,35 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
     }, [code]);
 
     const TicketContent = () => (
-      <div className="flex flex-col items-center justify-between h-full py-16 px-8 relative">
+      <div className="flex flex-col items-center justify-between h-full py-10 px-4 relative">
         <div className="text-center w-full">
-            <h2 className="font-batang text-5xl font-bold text-primary">Jongdal Code</h2>
-            <p className="mt-2 text-sm text-primary">
+            <h2 className="font-batang text-4xl font-bold text-primary">Jongdal Code</h2>
+            <p className="mt-2 text-xs text-primary">
                 jongdalsam.shop에서 소중한 친구와 라크를 나눠보세요.
             </p>
         </div>
 
-        <div className="flex flex-col items-center gap-6">
-            {qrCodeUrl ? (
-                <Image src={qrCodeUrl} alt={`QR Code for ${code}`} width={120} height={120} />
-            ) : (
-                <Skeleton className="w-[120px] h-[120px]" />
-            )}
-            <p className="font-batang font-bold text-3xl tracking-widest text-primary">{code}</p>
+        <div className="flex flex-row items-center justify-around w-full">
+            <div className="flex flex-col items-center gap-2">
+                {qrCodeUrl ? (
+                    <Image src={qrCodeUrl} alt={`QR Code for ${code}`} width={80} height={80} />
+                ) : (
+                    <Skeleton className="w-[80px] h-[80px]" />
+                )}
+                <p className="font-batang font-bold text-xl tracking-widest text-primary">{code}</p>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+                {qrCodeUrl ? (
+                    <Image src={qrCodeUrl} alt={`QR Code for ${code}`} width={80} height={80} />
+                ) : (
+                    <Skeleton className="w-[80px] h-[80px]" />
+                )}
+                <p className="font-batang font-bold text-xl tracking-widest text-primary">{code}</p>
+            </div>
         </div>
 
-        <div className="flex flex-col items-center gap-6">
-            {qrCodeUrl ? (
-                <Image src={qrCodeUrl} alt={`QR Code for ${code}`} width={120} height={120} />
-            ) : (
-                <Skeleton className="w-[120px] h-[120px]" />
-            )}
-            <p className="font-batang font-bold text-3xl tracking-widest text-primary">{code}</p>
-        </div>
-
-        <div className="absolute bottom-8 text-4xl font-batang text-primary font-bold">
-            S
+        <div className="absolute bottom-6 text-3xl font-batang text-primary font-bold">
+            {value} Lak
         </div>
       </div>
     );
