@@ -1,11 +1,33 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all documents for any authenticated user.
-    // This is a simple rule for trusted environments.
-    match /{document=**} {
+    
+    // Users can only create a document for themselves.
+    // Anyone authenticated can read, update or delete user data.
+    match /users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read, update, delete: if request.auth != null;
+      
+      // Allow authenticated users to handle their own transactions
+      match /transactions/{transactionId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    // Allow users to create their own mate codes during signup.
+    // Anyone authenticated can read, update or delete codes.
+    match /codes/{codeId} {
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow read, update, delete: if request.auth != null;
+    }
+    
+    // Allow authenticated users to perform actions on other collections
+    match /letters/{letterId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /purchases/{purchaseId} {
       allow read, write: if request.auth != null;
     }
   }
