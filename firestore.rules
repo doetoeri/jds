@@ -1,64 +1,25 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Admin: Allows read/write access to all collections for the admin user.
-    function isAdmin() {
-      return request.auth.token.email == 'admin@jongdalsem.com';
-    }
-
-    // Authenticated User: Checks if the user is signed in.
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // User Self: Checks if the requesting user's UID matches the document's UID.
-    function isUserSelf(userId) {
-      return request.auth.uid == userId;
-    }
-
+  
+    // Allow users to create their own user document upon signup
     match /users/{userId} {
-      // Allow user to create their own document on signup.
-      // Allow user to read/update their own document.
-      // Admin can read/write any user document.
-      allow read, update: if isUserSelf(userId) || isAdmin();
-      allow create: if isUserSelf(userId);
-    }
-
-    match /users/{userId}/transactions/{transactionId} {
-        // Only the user themselves or an admin can read/write their own transactions.
-        allow read, write: if isUserSelf(userId) || isAdmin();
+      allow read, update, delete: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Allow users to create their own mate code upon signup
     match /codes/{codeId} {
-        // Admin can do anything with codes.
-        allow read, write: if isAdmin();
-        
-        // Allow authenticated users to create their own '메이트코드' during signup.
-        allow create: if isAuthenticated() && request.resource.data.type == '메이트코드' && request.resource.data.ownerUid == request.auth.uid;
-        
-        // Allow authenticated users to update codes (for using them).
-        // This is handled by the `useCode` cloud function logic, which runs with admin privileges,
-        // so direct client updates are not needed. However, if you were to allow client-side updates:
-        // allow update: if isAuthenticated(); 
+       allow read, update, delete: if request.auth != null;
+       // Allow create only if the user is creating their own mate code during signup
+       allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid && request.resource.data.type == '메이트코드';
     }
 
-    match /letters/{letterId} {
-        // Admin can read/write all letters.
-        allow read, write: if isAdmin();
-
-        // Authenticated users can create new letters.
-        allow create: if isAuthenticated();
-        
-        // Authenticated users can read letters addressed to them if approved.
-        // This rule is more complex and might require checking the receiverStudentId against the user's studentId.
-        // For simplicity, we can allow reads and rely on application logic to filter correctly.
-        allow read: if isAuthenticated();
-    }
-
-    match /purchases/{purchaseId} {
-        // Only admin can read all purchases.
-        allow read, write: if isAdmin();
+    // Allow logged-in users to access other collections
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
