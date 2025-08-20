@@ -44,14 +44,13 @@ import { Textarea } from '@/components/ui/textarea';
 interface Code {
   id: string;
   code: string;
-  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드';
+  type: '종달코드' | '메이트코드' | '온라인 특수코드';
   value: number;
   used?: boolean;
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
-  forStudentId?: string;
-  giftedTo?: string;
+  giftedTo?: string; // Kept for historical data, but no longer set
 }
 
 export default function AdminCodesPage() {
@@ -63,16 +62,14 @@ export default function AdminCodesPage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   const [newCode, setNewCode] = useState('');
-  const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드' | ''>('');
+  const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
   const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
-  const [newCodeForStudentId, setNewCodeForStudentId] = useState('');
 
 
-  const [bulkCodeType, setBulkCodeType] = useState<'종달코드' | '히든코드' | ''>('');
+  const [bulkCodeType, setBulkCodeType] = useState<'종달코드' | ''>('');
   const [bulkCodeValue, setBulkCodeValue] = useState('');
   const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
-  const [bulkForStudentIds, setBulkForStudentIds] = useState('');
 
 
   const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number, type: Code['type']} | null>(null);
@@ -115,27 +112,19 @@ export default function AdminCodesPage() {
   };
 
   const handleCreateCode = async () => {
-    if (!newCodeType || !newCodeValue) {
-        toast({ title: "입력 오류", description: "유형과 Lak 값을 채워주세요.", variant: "destructive" });
+    if (!newCodeType || !newCodeValue || !newCode) {
+        toast({ title: "입력 오류", description: "코드, 유형, Lak 값을 모두 채워주세요.", variant: "destructive" });
         return;
-    }
-    if (newCodeType !== '히든코드' && !newCode) {
-       toast({ title: "입력 오류", description: "코드를 입력해주세요.", variant: "destructive" });
-       return;
     }
      if (newCodeType === '메이트코드' && !newCodeOwnerStudentId) {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
-      return;
-    }
-    if (newCodeType === '히든코드' && !newCodeForStudentId) {
-      toast({ title: "입력 오류", description: "히든코드는 선물을 받을 학생의 학번이 필요합니다.", variant: "destructive" });
       return;
     }
 
 
     setIsCreating(true);
     try {
-      const finalCode = newCodeType === '히든코드' ? generateRandomCode(6) : newCode.toUpperCase();
+      const finalCode = newCode.toUpperCase();
      
       const baseCodeData = {
         code: finalCode,
@@ -164,14 +153,6 @@ export default function AdminCodesPage() {
             usedBy: [],
         };
       }
-      
-      if (newCodeType === '히든코드') {
-        codeData = {
-          ...codeData,
-          forStudentId: newCodeForStudentId,
-          giftedTo: null,
-        };
-      }
 
 
       await addDoc(collection(db, 'codes'), codeData);
@@ -183,7 +164,6 @@ export default function AdminCodesPage() {
       setNewCodeType('');
       setNewCodeValue('');
       setNewCodeOwnerStudentId('');
-      setNewCodeForStudentId('');
       setIsCreateDialogOpen(false);
       fetchCodes();
     } catch (error: any) {
@@ -195,85 +175,48 @@ export default function AdminCodesPage() {
 
   const handleBulkCreateCodes = async () => {
     const value = Number(bulkCodeValue);
-    if (!bulkCodeType || !value || value <= 0) {
-      toast({ title: "입력 오류", description: "유효한 코드 유형과 Lak 값을 입력해주세요.", variant: "destructive" });
+    const quantity = Number(bulkCodeQuantity);
+    
+    if (bulkCodeType !== '종달코드' || !value || value <= 0 || !quantity || quantity <= 0) {
+      toast({ title: "입력 오류", description: "종달코드 유형과 유효한 Lak 값, 수량을 입력해주세요.", variant: "destructive" });
       return;
+    }
+    if (quantity > 500) {
+        toast({ title: "입력 오류", description: "한 번에 500개 이상의 코드를 생성할 수 없습니다.", variant: "destructive" });
+        return;
     }
 
     setIsCreating(true);
     try {
       const batch = writeBatch(db);
       const codesCollection = collection(db, 'codes');
-      let createdCount = 0;
       let lastGeneratedCode: string | null = null;
       
-      if (bulkCodeType === '종달코드') {
-        const quantity = Number(bulkCodeQuantity);
-        if (!quantity || quantity <= 0) {
-           throw new Error("유효한 수량을 입력해주세요.");
-        }
-        if (quantity > 500) {
-            throw new Error("한 번에 500개 이상의 코드를 생성할 수 없습니다.");
-        }
-
-        for (let i = 0; i < quantity; i++) {
-          const newCodeRef = doc(codesCollection);
-          const codeValue = generateRandomCode(6);
-          lastGeneratedCode = codeValue;
-          batch.set(newCodeRef, {
-            code: codeValue,
-            type: '종달코드',
-            value: value,
-            used: false,
-            usedBy: null,
-            createdAt: Timestamp.now(),
-          });
-        }
-        createdCount = quantity;
-
-      } else if (bulkCodeType === '히든코드') {
-        const studentIds = bulkForStudentIds.split(/[\s,]+/).filter(id => /^\d{5}$/.test(id));
-        if (studentIds.length === 0) {
-           throw new Error("유효한 5자리 학번을 하나 이상 입력해주세요.");
-        }
-        if (studentIds.length > 500) {
-            throw new Error("한 번에 500명 이상의 학생에게 코드를 생성할 수 없습니다.");
-        }
-
-        for (const studentId of studentIds) {
-            const newCodeRef = doc(codesCollection);
-            const codeValue = generateRandomCode(6);
-            lastGeneratedCode = codeValue;
-            batch.set(newCodeRef, {
-                code: codeValue,
-                type: '히든코드',
-                value: value,
-                used: false,
-                usedBy: null,
-                createdAt: Timestamp.now(),
-                forStudentId: studentId,
-                giftedTo: null
-            });
-        }
-        createdCount = studentIds.length;
+      for (let i = 0; i < quantity; i++) {
+        const newCodeRef = doc(codesCollection);
+        const codeValue = generateRandomCode(6);
+        lastGeneratedCode = codeValue;
+        batch.set(newCodeRef, {
+          code: codeValue,
+          type: '종달코드',
+          value: value,
+          used: false,
+          usedBy: null,
+          createdAt: Timestamp.now(),
+        });
       }
       
-      if (createdCount === 0) {
-        throw new Error("생성할 코드가 없습니다.");
-      }
-
       await batch.commit();
 
-      toast({ title: "성공!", description: `${createdCount}개의 코드를 성공적으로 생성했습니다.` });
+      toast({ title: "성공!", description: `${quantity}개의 코드를 성공적으로 생성했습니다.` });
       
       if (lastGeneratedCode) {
-        setGeneratedCouponInfo({ code: lastGeneratedCode, value: value, type: bulkCodeType });
+        setGeneratedCouponInfo({ code: lastGeneratedCode, value: value, type: '종달코드' });
       }
 
       setBulkCodeValue('');
       setBulkCodeQuantity('');
       setBulkCodeType('');
-      setBulkForStudentIds('');
       setIsBulkCreateDialogOpen(false);
       fetchCodes();
 
@@ -333,9 +276,6 @@ export default function AdminCodesPage() {
     if (code.type === '메이트코드') {
       return `소유자: ${code.ownerStudentId}`;
     }
-    if (code.type === '히든코드') {
-      return code.giftedTo ? `선물 대상: ${code.giftedTo}` : `대상 지정: ${code.forStudentId}`;
-    }
     return code.usedBy || 'N/A';
   }
 
@@ -349,12 +289,7 @@ export default function AdminCodesPage() {
           </div>
           <div className="flex gap-2">
             {/* Bulk Create Dialog */}
-            <Dialog open={isBulkCreateDialogOpen} onOpenChange={(isOpen) => {
-                setIsBulkCreateDialogOpen(isOpen);
-                 if (!isOpen) {
-                    setBulkCodeType('');
-                }
-            }}>
+            <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-1">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -367,7 +302,7 @@ export default function AdminCodesPage() {
                 <DialogHeader>
                   <DialogTitle>코드 대량 생성</DialogTitle>
                   <DialogDescription>
-                    지정한 유형과 값으로 코드를 자동으로 생성합니다.
+                    지정한 유형과 값으로 코드를 자동으로 생성합니다. 현재 '종달코드'만 지원됩니다.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -375,15 +310,8 @@ export default function AdminCodesPage() {
                     <Label htmlFor="bulk-code-type" className="text-right">
                       유형
                     </Label>
-                    <Select onValueChange={(value) => setBulkCodeType(value as any)} value={bulkCodeType} disabled={isCreating}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="코드 유형 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="종달코드">종달코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input id="bulk-code-type" value="종달코드" className="col-span-3" readOnly disabled />
+
                   </div>
 
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -393,37 +321,19 @@ export default function AdminCodesPage() {
                     <Input id="bulk-lak-value" type="number" placeholder="예: 5" className="col-span-3" value={bulkCodeValue} onChange={(e) => setBulkCodeValue(e.target.value)} disabled={isCreating} />
                   </div>
 
-                  {bulkCodeType === '종달코드' && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="bulk-quantity" className="text-right">
-                        수량
-                      </Label>
-                      <Input id="bulk-quantity" type="number" placeholder="예: 100" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
-                    </div>
-                  )}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="bulk-quantity" className="text-right">
+                      수량
+                    </Label>
+                    <Input id="bulk-quantity" type="number" placeholder="예: 100" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
+                  </div>
 
-                  {bulkCodeType === '히든코드' && (
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label htmlFor="bulk-for-student-ids" className="text-right pt-2">
-                          대상 학번
-                        </Label>
-                        <Textarea
-                          id="bulk-for-student-ids"
-                          placeholder="쉼표, 공백, 줄바꿈으로 학번 구분&#10;예: 10101, 10102 10103"
-                          className="col-span-3"
-                          value={bulkForStudentIds}
-                          onChange={(e) => setBulkForStudentIds(e.target.value)}
-                          disabled={isCreating}
-                          rows={4}
-                        />
-                    </div>
-                  )}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
                     <Button variant="outline" disabled={isCreating}>취소</Button>
                   </DialogClose>
-                  <Button type="submit" onClick={handleBulkCreateCodes} disabled={isCreating}>
+                  <Button type="submit" onClick={() => { setBulkCodeType('종달코드'); handleBulkCreateCodes(); }} disabled={isCreating}>
                     {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     생성하기
                   </Button>
@@ -432,13 +342,7 @@ export default function AdminCodesPage() {
             </Dialog>
 
             {/* Single Create Dialog */}
-            <Dialog open={isCreateDialogOpen} onOpenChange={(isOpen) => {
-                setIsCreateDialogOpen(isOpen);
-                if (!isOpen) {
-                    setNewCodeType(''); // Reset type on close
-                    setNewCode('');
-                }
-            }}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-1">
                   <PlusCircle className="h-3.5 w-3.5" />
@@ -455,14 +359,12 @@ export default function AdminCodesPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                 {newCodeType !== '히든코드' && (
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="code-value" className="text-right">
                         코드
                         </Label>
                         <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
                     </div>
-                  )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="code-type" className="text-right">
                       유형
@@ -475,7 +377,6 @@ export default function AdminCodesPage() {
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                         <SelectItem value="메이트코드">메이트코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -490,21 +391,6 @@ export default function AdminCodesPage() {
                         className="col-span-3"
                         value={newCodeOwnerStudentId}
                         onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
-                        disabled={isCreating}
-                        />
-                    </div>
-                  )}
-                  {newCodeType === '히든코드' && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="for-student-id" className="text-right">
-                          대상 학번
-                        </Label>
-                        <Input
-                        id="for-student-id"
-                        placeholder="선물 받을 학생의 학번"
-                        className="col-span-3"
-                        value={newCodeForStudentId}
-                        onChange={(e) => setNewCodeForStudentId(e.target.value)}
                         disabled={isCreating}
                         />
                     </div>

@@ -8,7 +8,7 @@ import { Skeleton } from './ui/skeleton';
 interface CouponTicketProps {
   code: string;
   value: number;
-  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드';
+  type: '종달코드' | '메이트코드' | '온라인 특수코드';
 }
 
 export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(

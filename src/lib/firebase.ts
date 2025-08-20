@@ -127,8 +127,9 @@ export const signIn = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
+    // Master admin account bypass
     if (user.email === 'admin@jongdalsem.com') {
-      return userCredential.user;
+        return user;
     }
     
     const userDocRef = doc(db, 'users', user.uid);
@@ -232,51 +233,6 @@ export const useCode = async (userId: string, inputCode: string) => {
         transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
         
         return { success: true, message: `메이트코드를 사용하여 ${codeData.value} Lak을, 코드 주인도 ${codeData.value} Lak을 받았습니다!` };
-
-      case '히든코드':
-        // Find the target user
-        const targetStudentId = codeData.forStudentId;
-        const targetUserQuery = query(collection(db, 'users'), where('studentId', '==', targetStudentId));
-        const targetUserSnapshot = await transaction.get(targetUserQuery);
-        
-        if (targetUserSnapshot.empty) {
-          throw `선물 대상 학생(${targetStudentId})을 찾을 수 없습니다.`;
-        }
-        if (userStudentId === targetStudentId) {
-            throw "자기 자신에게 선물할 수 없습니다.";
-        }
-        
-        const targetUserDoc = targetUserSnapshot.docs[0];
-        const targetUserRef = targetUserDoc.ref;
-
-        // Give points to the target user (the one designated)
-        transaction.update(targetUserRef, { lak: increment(codeData.value) });
-        const targetHistoryRef = doc(collection(targetUserRef, 'transactions'));
-        transaction.set(targetHistoryRef, {
-          date: Timestamp.now(),
-          description: `히든코드 선물 받음 (전달자: ${userStudentId})`,
-          amount: codeData.value,
-          type: 'credit',
-        });
-        
-        // Give points to the redeemer (the one scanning the code)
-        transaction.update(userRef, { lak: increment(codeData.value) });
-        const redeemerHistoryRef = doc(collection(userRef, 'transactions'));
-        transaction.set(redeemerHistoryRef, {
-          date: Timestamp.now(),
-          description: `히든코드 선물 전달 (대상자: ${targetStudentId})`,
-          amount: codeData.value,
-          type: 'credit',
-        });
-
-        // Mark code as used and record who used it and who received the gift
-        transaction.update(codeRef, {
-          used: true,
-          usedBy: userStudentId, // The person who scanned the code
-          giftedTo: targetStudentId, // The person who received the Lak
-        });
-        
-        return { success: true, message: `선물 전달 완료! 전달자와 대상자 모두에게 ${codeData.value} Lak이 지급되었습니다!` };
 
       default: // '종달코드', '온라인 특수코드'
         // Update user's Lak balance
@@ -434,5 +390,3 @@ export const updateUserProfile = async (
 };
 
 export { auth, db, storage };
-
-    
