@@ -126,15 +126,24 @@ export const signIn = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // For non-admin users, check if their role is 'pending_teacher'
-    if (email !== 'admin@jongdalsem.com') {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists() && userDoc.data().role === 'pending_teacher') {
-            // Log them out immediately and show a message
+    if (user.email === 'admin@jongdalsem.com') {
+      return userCredential.user;
+    }
+    
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'pending_teacher') {
             await signOut(auth);
             throw new Error('관리자 승인 대기중인 계정입니다.');
         }
+    } else {
+        // This case can happen if a user is created in Auth but their Firestore doc fails.
+        // Or if they were deleted from Firestore but not Auth.
+        await signOut(auth);
+        throw new Error('사용자 데이터가 존재하지 않습니다. 관리자에게 문의하세요.');
     }
     
     return userCredential.user;
@@ -171,14 +180,30 @@ export const useCode = async (userId: string, inputCode: string) => {
     const userStudentId = userData.studentId;
 
     // 2. Find the code
-    const codesQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
-    const codesSnapshot = await getDocs(codesQuery);
+    // Firestore does not support 'contains' or 'like' queries for strings.
+    // For 히든코드, we have to fetch all of them and filter client-side.
+    // This is not ideal for performance but necessary with the current data model.
+    const allCodesSnapshot = await getDocs(query(collection(db, 'codes')));
+    let codeDoc: any = null;
 
-    if (codesSnapshot.empty) {
+    for (const doc of allCodesSnapshot.docs) {
+        const codeData = doc.data();
+        if (codeData.type === '히든코드') {
+            const codePair = codeData.code.split(' & ');
+            if (codePair.includes(upperCaseCode)) {
+                codeDoc = doc;
+                break;
+            }
+        } else if (codeData.code === upperCaseCode) {
+            codeDoc = doc;
+            break;
+        }
+    }
+
+    if (!codeDoc) {
        throw "유효하지 않은 코드입니다.";
     }
     
-    const codeDoc = codesSnapshot.docs[0];
     const codeRef = codeDoc.ref;
     const codeData = codeDoc.data();
 
@@ -218,7 +243,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       return { success: true, message: `메이트코드를 사용하여 ${codeData.value} Lak을, 코드 주인도 ${codeData.value} Lak을 받았습니다!` };
 
     } else {
-      // 4. Handle regular codes
+      // 4. Handle regular and hidden codes
       if (codeData.used) {
         throw "이미 사용된 코드입니다.";
       }

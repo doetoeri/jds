@@ -43,7 +43,7 @@ import { CouponTicket } from '@/components/coupon-ticket';
 interface Code {
   id: string;
   code: string;
-  type: '종달코드' | '메이트코드' | '온라인 특수코드';
+  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드';
   value: number;
   used?: boolean;
   usedBy: string | string[] | null;
@@ -60,7 +60,7 @@ export default function AdminCodesPage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   const [newCode, setNewCode] = useState('');
-  const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | ''>('');
+  const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드' | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
   const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
 
@@ -68,7 +68,7 @@ export default function AdminCodesPage() {
   const [bulkCodeValue, setBulkCodeValue] = useState('');
   const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
 
-  const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number} | null>(null);
+  const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number, type: Code['type']} | null>(null);
   const couponRef = useRef<HTMLDivElement>(null);
 
 
@@ -95,13 +95,26 @@ export default function AdminCodesPage() {
   }, [fetchCodes]);
 
   const handleShowCoupon = (code: Code) => {
-    setGeneratedCouponInfo({ code: code.code, value: code.value });
+    setGeneratedCouponInfo({ code: code.code, value: code.value, type: code.type });
   }
 
+  const generateRandomCode = (length: number) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const handleCreateCode = async () => {
-    if (!newCode || !newCodeType || !newCodeValue) {
-      toast({ title: "입력 오류", description: "모든 필드를 채워주세요.", variant: "destructive" });
-      return;
+    if (!newCodeType || !newCodeValue) {
+        toast({ title: "입력 오류", description: "유형과 Lak 값을 채워주세요.", variant: "destructive" });
+        return;
+    }
+    if (newCodeType !== '히든코드' && !newCode) {
+       toast({ title: "입력 오류", description: "코드를 입력해주세요.", variant: "destructive" });
+       return;
     }
      if (newCodeType === '메이트코드' && !newCodeOwnerStudentId) {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
@@ -110,8 +123,17 @@ export default function AdminCodesPage() {
 
     setIsCreating(true);
     try {
+      let finalCode;
+      if (newCodeType === '히든코드') {
+        const code1 = generateRandomCode(4);
+        const code2 = generateRandomCode(4);
+        finalCode = `${code1} & ${code2}`;
+      } else {
+        finalCode = newCode.toUpperCase();
+      }
+
       let codeData: any = {
-        code: newCode.toUpperCase(),
+        code: finalCode,
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
@@ -140,7 +162,7 @@ export default function AdminCodesPage() {
       await addDoc(collection(db, 'codes'), codeData);
       
       toast({ title: "성공", description: "새 코드를 생성했습니다." });
-      setGeneratedCouponInfo({ code: codeData.code, value: codeData.value });
+      setGeneratedCouponInfo({ code: codeData.code, value: codeData.value, type: codeData.type });
       
       setNewCode('');
       setNewCodeType('');
@@ -153,15 +175,6 @@ export default function AdminCodesPage() {
     } finally {
       setIsCreating(false);
     }
-  };
-
-  const generateRandomCode = (length: number) => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
   };
 
   const handleBulkCreateCodes = async () => {
@@ -205,7 +218,7 @@ export default function AdminCodesPage() {
       toast({ title: "성공!", description: `${quantity}개의 코드를 성공적으로 생성했습니다.` });
       
       if (lastGeneratedCode) {
-        setGeneratedCouponInfo({ code: lastGeneratedCode, value: value });
+        setGeneratedCouponInfo({ code: lastGeneratedCode, value: value, type: '종달코드' });
       }
 
       setBulkCodeValue('');
@@ -247,7 +260,7 @@ export default function AdminCodesPage() {
     toPng(couponRef.current, { cacheBust: true, pixelRatio: 2 })
       .then((dataUrl) => {
         const link = document.createElement('a');
-        link.download = `JDS_Coupon_${generatedCouponInfo.code}.png`;
+        link.download = `JDS_Coupon_${generatedCouponInfo.code.replace(' & ', '_')}.png`;
         link.href = dataUrl;
         link.click();
       })
@@ -329,6 +342,7 @@ export default function AdminCodesPage() {
                 setIsCreateDialogOpen(isOpen);
                 if (!isOpen) {
                     setNewCodeType(''); // Reset type on close
+                    setNewCode('');
                 }
             }}>
               <DialogTrigger asChild>
@@ -347,24 +361,27 @@ export default function AdminCodesPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="code-value" className="text-right">
-                      코드
-                    </Label>
-                    <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
-                  </div>
+                 {newCodeType !== '히든코드' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="code-value" className="text-right">
+                        코드
+                        </Label>
+                        <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
+                    </div>
+                  )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="code-type" className="text-right">
                       유형
                     </Label>
-                    <Select onValueChange={(value) => setNewCodeType(value as any)} disabled={isCreating}>
+                    <Select onValueChange={(value) => setNewCodeType(value as any)} value={newCodeType} disabled={isCreating}>
                       <SelectTrigger className="col-span-3">
                         <SelectValue placeholder="코드 유형 선택" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
-                         <SelectItem value="메이트코드">메이트코드</SelectItem>
+                        <SelectItem value="메이트코드">메이트코드</SelectItem>
+                        <SelectItem value="히든코드">히든코드</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -480,6 +497,7 @@ export default function AdminCodesPage() {
                 ref={couponRef} 
                 code={generatedCouponInfo.code} 
                 value={generatedCouponInfo.value}
+                type={generatedCouponInfo.type}
               />
             )}
           </div>
