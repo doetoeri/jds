@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,8 @@ interface Code {
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
-  giftedTo?: string; 
+  giftedTo?: string;
+  forStudentId?: string;
 }
 
 export default function AdminCodesPage() {
@@ -60,16 +62,17 @@ export default function AdminCodesPage() {
   const [isBulkCreateDialogOpen, setIsBulkCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  
+
   const [newCode, setNewCode] = useState('');
   const [newCodeType, setNewCodeType] = useState<Code['type'] | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
   const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
+  const [newCodeForStudentId, setNewCodeForStudentId] = useState('');
 
 
   const [bulkCodeType, setBulkCodeType] = useState<Code['type'] | ''>('');
   const [bulkCodeValue, setBulkCodeValue] = useState('');
-  const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
+  const [bulkCodeForStudentIds, setBulkCodeForStudentIds] = useState('');
 
 
   const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number, type: Code['type']} | null>(null);
@@ -120,22 +123,24 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
       return;
     }
+    if (newCodeType === '히든코드' && !newCodeForStudentId) {
+      toast({ title: "입력 오류", description: "히든코드는 대상 학생 학번이 필요합니다.", variant: "destructive" });
+      return;
+    }
 
 
     setIsCreating(true);
     try {
       const finalCode = newCode.toUpperCase();
-     
-      const baseCodeData = {
+
+      let codeData: any = {
         code: finalCode,
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
-        usedBy: null,
+        usedBy: newCodeType === '메이트코드' ? [] : null,
         createdAt: Timestamp.now(),
       };
-      
-      let codeData: any = baseCodeData;
 
       if (newCodeType === '메이트코드') {
         const usersRef = collection(db, 'users');
@@ -150,20 +155,24 @@ export default function AdminCodesPage() {
             ...codeData,
             ownerUid: userDoc.id,
             ownerStudentId: newCodeOwnerStudentId,
-            usedBy: [],
         };
+      }
+
+      if (newCodeType === '히든코드') {
+         codeData.forStudentId = newCodeForStudentId;
       }
 
 
       await addDoc(collection(db, 'codes'), codeData);
-      
+
       toast({ title: "성공", description: "새 코드를 생성했습니다." });
       setGeneratedCouponInfo({ code: codeData.code, value: codeData.value, type: codeData.type });
-      
+
       setNewCode('');
       setNewCodeType('');
       setNewCodeValue('');
       setNewCodeOwnerStudentId('');
+      setNewCodeForStudentId('');
       setIsCreateDialogOpen(false);
       fetchCodes();
     } catch (error: any) {
@@ -175,12 +184,20 @@ export default function AdminCodesPage() {
 
   const handleBulkCreateCodes = async () => {
     const value = Number(bulkCodeValue);
-    const quantity = Number(bulkCodeQuantity);
-    
-    if (!bulkCodeType || !value || value <= 0 || !quantity || quantity <= 0) {
-      toast({ title: "입력 오류", description: "유효한 코드 유형, Lak 값, 수량을 입력해주세요.", variant: "destructive" });
+    const studentIds = bulkCodeForStudentIds.split(/[\s,]+/).filter(id => id.trim() !== '');
+    const quantity = studentIds.length;
+
+    if (!bulkCodeType || !value || value <= 0) {
+      toast({ title: "입력 오류", description: "유효한 코드 유형과 Lak 값을 입력해주세요.", variant: "destructive" });
       return;
     }
+
+    if (bulkCodeType === '히든코드' && studentIds.length === 0) {
+       toast({ title: "입력 오류", description: "히든코드를 생성하려면 대상 학생 학번을 한 명 이상 입력해야 합니다.", variant: "destructive" });
+       return;
+    }
+
+
     if (quantity > 500) {
         toast({ title: "입력 오류", description: "한 번에 500개 이상의 코드를 생성할 수 없습니다.", variant: "destructive" });
         return;
@@ -191,31 +208,38 @@ export default function AdminCodesPage() {
       const batch = writeBatch(db);
       const codesCollection = collection(db, 'codes');
       let lastGeneratedCode: string | null = null;
-      
-      for (let i = 0; i < quantity; i++) {
+
+      for (const studentId of studentIds) {
         const newCodeRef = doc(codesCollection);
         const codeValue = generateRandomCode(6);
         lastGeneratedCode = codeValue;
-        batch.set(newCodeRef, {
+
+        let codeData: any = {
           code: codeValue,
           type: bulkCodeType,
           value: value,
           used: false,
           usedBy: bulkCodeType === '메이트코드' ? [] : null,
           createdAt: Timestamp.now(),
-        });
+        };
+
+        if (bulkCodeType === '히든코드') {
+           codeData.forStudentId = studentId;
+        }
+
+        batch.set(newCodeRef, codeData);
       }
-      
+
       await batch.commit();
 
       toast({ title: "성공!", description: `${quantity}개의 코드를 성공적으로 생성했습니다.` });
-      
+
       if (lastGeneratedCode && bulkCodeType) {
         setGeneratedCouponInfo({ code: lastGeneratedCode, value: value, type: bulkCodeType });
       }
 
       setBulkCodeValue('');
-      setBulkCodeQuantity('');
+      setBulkCodeForStudentIds('');
       setBulkCodeType('');
       setIsBulkCreateDialogOpen(false);
       fetchCodes();
@@ -227,7 +251,7 @@ export default function AdminCodesPage() {
       setIsCreating(false);
     }
   };
-  
+
   const handleDeleteCode = async (codeId: string) => {
     if (!window.confirm('정말로 이 코드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       return;
@@ -263,7 +287,7 @@ export default function AdminCodesPage() {
         toast({ title: "이미지 생성 오류", description: "쿠폰 이미지 생성에 실패했습니다.", variant: "destructive" });
       });
   }, [generatedCouponInfo, toast]);
-  
+
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
       const count = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
@@ -271,10 +295,13 @@ export default function AdminCodesPage() {
     }
     return <Badge variant={code.used ? 'outline' : 'default'}>{code.used ? '사용됨' : '미사용'}</Badge>;
   };
-  
+
   const renderUsedBy = (code: Code) => {
     if (code.type === '메이트코드') {
       return `소유자: ${code.ownerStudentId}`;
+    }
+    if (code.type === '히든코드' && code.used) {
+       return `${code.usedBy} -> ${code.forStudentId}`;
     }
     if (code.giftedTo) {
       return `${code.usedBy} -> ${code.giftedTo}`;
@@ -319,24 +346,32 @@ export default function AdminCodesPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="종달코드">종달코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드</SelectItem>
+                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  {bulkCodeType === '히든코드' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="bulk-student-ids" className="text-right">
+                        대상 학번
+                      </Label>
+                       <Textarea
+                          id="bulk-student-ids"
+                          placeholder="학번을 쉼표, 공백, 또는 줄바꿈으로 구분하여 입력하세요. (예: 10101, 10102)"
+                          className="col-span-3"
+                          value={bulkCodeForStudentIds}
+                          onChange={(e) => setBulkCodeForStudentIds(e.target.value)}
+                          disabled={isCreating}
+                          rows={3}
+                        />
+                    </div>
+                  )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="bulk-lak-value" className="text-right">
                       Lak 값
                     </Label>
                     <Input id="bulk-lak-value" type="number" placeholder="예: 5" className="col-span-3" value={bulkCodeValue} onChange={(e) => setBulkCodeValue(e.target.value)} disabled={isCreating} />
                   </div>
-
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="bulk-quantity" className="text-right">
-                      수량
-                    </Label>
-                    <Input id="bulk-quantity" type="number" placeholder="예: 100" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
-                  </div>
-
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -386,7 +421,7 @@ export default function AdminCodesPage() {
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                         <SelectItem value="메이트코드">메이트코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드</SelectItem>
+                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -403,6 +438,21 @@ export default function AdminCodesPage() {
                         onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
                         disabled={isCreating}
                         />
+                    </div>
+                  )}
+                  {newCodeType === '히든코드' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="for-student-id" className="text-right">
+                        대상 학번
+                      </Label>
+                      <Input
+                        id="for-student-id"
+                        placeholder="선물받을 학생의 학번"
+                        className="col-span-3"
+                        value={newCodeForStudentId}
+                        onChange={(e) => setNewCodeForStudentId(e.target.value)}
+                        disabled={isCreating}
+                      />
                     </div>
                   )}
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -434,7 +484,7 @@ export default function AdminCodesPage() {
                 <TableHead>유형</TableHead>
                 <TableHead>Lak 값</TableHead>
                 <TableHead>상태</TableHead>
-                <TableHead>사용자/소유자</TableHead>
+                <TableHead>사용자/대상</TableHead>
                 <TableHead>생성일</TableHead>
                 <TableHead className="text-right">작업</TableHead>
               </TableRow>
@@ -486,7 +536,7 @@ export default function AdminCodesPage() {
           </Table>
         </CardContent>
       </Card>
-      
+
       {/* Coupon Display Dialog */}
       <Dialog open={!!generatedCouponInfo} onOpenChange={(isOpen) => !isOpen && setGeneratedCouponInfo(null)}>
         <DialogContent className="sm:max-w-md">
@@ -498,9 +548,9 @@ export default function AdminCodesPage() {
           </DialogHeader>
           <div className="flex items-center justify-center my-4">
              {generatedCouponInfo && (
-              <CouponTicket 
-                ref={couponRef} 
-                code={generatedCouponInfo.code} 
+              <CouponTicket
+                ref={couponRef}
+                code={generatedCouponInfo.code}
                 value={generatedCouponInfo.value}
                 type={generatedCouponInfo.type}
               />
@@ -522,5 +572,3 @@ export default function AdminCodesPage() {
     </>
   );
 }
-
-    
