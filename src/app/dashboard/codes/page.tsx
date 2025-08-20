@@ -13,11 +13,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { auth, useCode } from '@/lib/firebase';
-import { Loader2, QrCode, CameraOff } from 'lucide-react';
+import { auth, useCode, db } from '@/lib/firebase';
+import { Loader2, QrCode, CameraOff, UserPlus } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import jsQR from 'jsqr';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 
 export default function CodesPage() {
@@ -33,6 +44,12 @@ export default function CodesPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const animationFrameId = useRef<number>();
 
+  // State for Hidden Code partner selection
+  const [isPartnerDialogVisible, setIsPartnerDialogVisible] = useState(false);
+  const [partnerStudentId, setPartnerStudentId] = useState('');
+  const [isConfirmingPartner, setIsConfirmingPartner] = useState(false);
+
+
   const closeScanner = useCallback(() => {
     setIsScannerOpen(false);
     if (videoRef.current && videoRef.current.srcObject) {
@@ -44,6 +61,50 @@ export default function CodesPage() {
         cancelAnimationFrame(animationFrameId.current);
     }
   }, []);
+  
+  // This is the final step that sends the code and partner to Firebase
+  const confirmAndUseCode = async (codeToUse: string, partnerId?: string) => {
+      if (!user) {
+          toast({ title: "오류", description: "로그인이 필요합니다.", variant: "destructive" });
+          return;
+      }
+      setIsConfirmingPartner(true); // Show loading state on the final confirm button
+      setIsLoading(true);
+
+      try {
+          const result = await useCode(user.uid, codeToUse, partnerId);
+          if (result.success) {
+              toast({
+                  title: "성공!",
+                  description: result.message,
+              });
+              // Reset all states
+              setCode('');
+              setPartnerStudentId('');
+              closeScanner();
+              setIsPartnerDialogVisible(false);
+              if (audioRef.current) {
+                audioRef.current.play();
+              }
+          } else {
+              toast({
+                  title: "오류",
+                  description: result.message,
+                  variant: "destructive",
+              });
+          }
+      } catch (error: any) {
+          toast({
+              title: "치명적인 오류",
+              description: error.message || "알 수 없는 오류가 발생했습니다.",
+              variant: "destructive",
+          });
+      } finally {
+          setIsLoading(false);
+          setIsConfirmingPartner(false);
+      }
+  }
+
 
   const handleUseCode = useCallback(async (scannedCode: string) => {
     if (!scannedCode) {
@@ -54,40 +115,33 @@ export default function CodesPage() {
       toast({ title: "오류", description: "로그인이 필요합니다.", variant: "destructive" });
       return;
     }
-
+    
     setIsLoading(true);
-    try {
-      const result = await useCode(user.uid, scannedCode);
-      if (result.success) {
-        toast({
-          title: "성공!",
-          description: result.message,
-        });
-        setCode('');
-        closeScanner(); // Close scanner on success
-        if (audioRef.current) {
-          audioRef.current.play();
-        }
-      } else {
-        toast({
-          title: "오류",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "치명적인 오류",
-        description: error.message || "알 수 없는 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    // 1. Check code type first
+    const codeQuery = query(collection(db, 'codes'), where('code', '==', scannedCode.toUpperCase()));
+    const codeSnapshot = await getDocs(codeQuery);
+
+    setIsLoading(false);
+    if (codeSnapshot.empty) {
+        toast({ title: "오류", description: "유효하지 않은 코드입니다.", variant: "destructive" });
+        return;
     }
-  }, [user, toast, closeScanner]);
+    const codeData = codeSnapshot.docs[0].data();
+
+    // 2. If it's a hidden code, open the partner selection dialog
+    if (codeData.type === '히든코드' && !codeData.used) {
+        setCode(scannedCode); // Store the code to be used
+        setIsPartnerDialogVisible(true);
+        return; // Stop here and wait for partner input
+    }
+    
+    // 3. If it's any other code type, use it directly
+    await confirmAndUseCode(scannedCode);
+
+  }, [user, toast]);
 
   const tick = useCallback(() => {
-    if (isLoading) return;
+    if (isLoading || isPartnerDialogVisible) return; // Pause scanning if dialog is open
     if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
       if (canvasRef.current) {
         const canvas = canvasRef.current;
@@ -103,15 +157,15 @@ export default function CodesPage() {
           });
 
           if (qrCode) {
-            setCode(qrCode.data);
+            closeScanner(); // Close scanner immediately after finding a code
             handleUseCode(qrCode.data);
-            return; // Stop scanning after finding a code
+            return; 
           }
         }
       }
     }
     animationFrameId.current = requestAnimationFrame(tick);
-  }, [isLoading, handleUseCode]);
+  }, [isLoading, handleUseCode, closeScanner, isPartnerDialogVisible]);
 
   useEffect(() => {
     if (isScannerOpen && hasCameraPermission) {
@@ -144,69 +198,118 @@ export default function CodesPage() {
     handleUseCode(code);
   }
 
-  return (
-    <div className="flex justify-center items-start pt-8">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl">코드 사용하기</CardTitle>
-          <CardDescription>
-            코드를 직접 입력하거나, QR/바코드를 스캔하여 Lak을 적립하세요.
-          </CardDescription>
-        </CardHeader>
+  const handlePartnerConfirm = () => {
+      if (!partnerStudentId) {
+          toast({ title: "입력 오류", description: "친구의 학번을 입력해주세요.", variant: "destructive" });
+          return;
+      }
+      confirmAndUseCode(code, partnerStudentId);
+  }
 
-        {isScannerOpen ? (
-          <CardContent className="space-y-4">
-             {hasCameraPermission === false ? (
-                 <Alert variant="destructive">
-                  <CameraOff className="h-4 w-4" />
-                  <AlertTitle>카메라 접근 불가</AlertTitle>
-                  <AlertDescription>
-                    카메라 사용 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.
-                  </AlertDescription>
-                </Alert>
-             ) : (
-                <div className="relative">
-                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay playsInline muted />
-                   <div className="absolute inset-0 flex items-center justify-center p-8">
-                    <div className="w-full max-w-[200px] aspect-square border-4 border-white/50 rounded-lg shadow-lg"/>
-                   </div>
-                </div>
-             )}
-             <Button variant="outline" className="w-full" onClick={closeScanner}>스캐너 닫기</Button>
-          </CardContent>
-        ) : (
-          <>
-            <form onSubmit={handleManualSubmit}>
-              <CardContent>
-                <div className="grid w-full items-center gap-4">
-                  <div className="flex flex-col space-y-1.5">
-                    <Label htmlFor="code">코드</Label>
-                    <Input 
-                      id="code" 
-                      placeholder="코드를 입력하세요" 
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      disabled={isLoading}
-                    />
+  return (
+    <>
+      <div className="flex justify-center items-start pt-8">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle className="font-headline text-2xl">코드 사용하기</CardTitle>
+            <CardDescription>
+              코드를 직접 입력하거나, QR/바코드를 스캔하여 Lak을 적립하세요.
+            </CardDescription>
+          </CardHeader>
+
+          {isScannerOpen ? (
+            <CardContent className="space-y-4">
+              {hasCameraPermission === false ? (
+                  <Alert variant="destructive">
+                    <CameraOff className="h-4 w-4" />
+                    <AlertTitle>카메라 접근 불가</AlertTitle>
+                    <AlertDescription>
+                      카메라 사용 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.
+                    </AlertDescription>
+                  </Alert>
+              ) : (
+                  <div className="relative">
+                    <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay playsInline muted />
+                    <div className="absolute inset-0 flex items-center justify-center p-8">
+                      <div className="w-full max-w-[200px] aspect-square border-4 border-white/50 rounded-lg shadow-lg"/>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row justify-end gap-2">
-                <Button variant="secondary" className="w-full sm:w-auto" type="button" onClick={openScanner} disabled={isLoading}>
-                  <QrCode className="mr-2 h-4 w-4" />
-                  QR/바코드 스캔하기
-                </Button>
-                <Button type="submit" className="font-bold w-full sm:w-auto" disabled={isLoading || !code}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  사용하기
-                </Button>
-              </CardFooter>
-            </form>
-          </>
-        )}
-      </Card>
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-      <audio ref={audioRef} src="https://cdn.pixabay.com/audio/2021/08/04/audio_c668156e54.mp3" preload="auto" />
-    </div>
+              )}
+              <Button variant="outline" className="w-full" onClick={closeScanner}>스캐너 닫기</Button>
+            </CardContent>
+          ) : (
+            <>
+              <form onSubmit={handleManualSubmit}>
+                <CardContent>
+                  <div className="grid w-full items-center gap-4">
+                    <div className="flex flex-col space-y-1.5">
+                      <Label htmlFor="code">코드</Label>
+                      <Input 
+                        id="code" 
+                        placeholder="코드를 입력하세요" 
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.toUpperCase())}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col sm:flex-row justify-end gap-2">
+                  <Button variant="secondary" className="w-full sm:w-auto" type="button" onClick={openScanner} disabled={isLoading}>
+                    <QrCode className="mr-2 h-4 w-4" />
+                    QR/바코드 스캔하기
+                  </Button>
+                  <Button type="submit" className="font-bold w-full sm:w-auto" disabled={isLoading || !code}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    사용하기
+                  </Button>
+                </CardFooter>
+              </form>
+            </>
+          )}
+        </Card>
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+        <audio ref={audioRef} src="https://cdn.pixabay.com/audio/2021/08/04/audio_c668156e54.mp3" preload="auto" />
+      </div>
+
+       {/* Partner Selection Dialog for Hidden Codes */}
+      <AlertDialog open={isPartnerDialogVisible} onOpenChange={setIsPartnerDialogVisible}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <UserPlus />
+              파트너 지정하기
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              이 코드는 '히든코드'입니다! 함께 Lak을 받을 친구의 5자리 학번을 입력해주세요. 본인과 입력한 친구 모두에게 보상이 지급됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="partner-id" className="text-right">
+                친구 학번
+              </Label>
+              <Input
+                id="partner-id"
+                placeholder="예: 10203"
+                value={partnerStudentId}
+                onChange={(e) => setPartnerStudentId(e.target.value)}
+                className="col-span-3"
+                disabled={isConfirmingPartner}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isConfirmingPartner}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePartnerConfirm} disabled={!partnerStudentId || isConfirmingPartner}>
+              {isConfirmingPartner && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              확인
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
+
+    

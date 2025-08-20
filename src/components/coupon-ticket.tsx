@@ -8,7 +8,7 @@ import { Skeleton } from './ui/skeleton';
 interface CouponTicketProps {
   code: string;
   value: number;
-  type: '종달코드' | '메이트코드' | '온라인 특수코드';
+  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드';
 }
 
 export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
@@ -57,7 +57,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
             <div className="text-center w-full">
                 <h2 className="font-batang text-4xl font-bold text-primary">Jongdal Code</h2>
                 <p className="mt-2 text-xs text-primary">
-                    jongdalsam.shop에서 소중한 친구와 라크를 나눠보세요.
+                    {type === '히든코드' ? '파트너와 함께 코드를 사용하고 두 배의 라크를 받으세요!' : 'jongdalsam.shop에서 소중한 친구와 라크를 나눠보세요.'}
                 </p>
             </div>
     
@@ -73,3 +73,5 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
 );
 
 CouponTicket.displayName = 'CouponTicket';
+
+    

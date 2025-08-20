@@ -168,7 +168,7 @@ export const handleSignOut = async () => {
 };
 
 // Use Code function
-export const useCode = async (userId: string, inputCode: string) => {
+export const useCode = async (userId: string, inputCode: string, partnerStudentId?: string) => {
   const upperCaseCode = inputCode.toUpperCase();
 
   return await runTransaction(db, async (transaction) => {
@@ -200,6 +200,50 @@ export const useCode = async (userId: string, inputCode: string) => {
 
     // 4. Handle different code types
     switch (codeData.type) {
+      case '히든코드':
+        if (!partnerStudentId) {
+          throw "파트너의 학번이 필요합니다.";
+        }
+        if (partnerStudentId === userStudentId) {
+          throw "자기 자신을 파트너로 지정할 수 없습니다.";
+        }
+        
+        // Find partner
+        const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
+        const partnerSnapshot = await transaction.get(partnerQuery);
+        if (partnerSnapshot.empty) {
+          throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
+        }
+        const partnerRef = partnerSnapshot.docs[0].ref;
+
+        // Give points to the code user
+        transaction.update(userRef, { lak: increment(codeData.value) });
+        const userHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(userHistoryRef, {
+          date: Timestamp.now(),
+          description: `히든코드 사용 (파트너: ${partnerStudentId})`,
+          amount: codeData.value,
+          type: 'credit',
+        });
+
+        // Give points to the partner
+        transaction.update(partnerRef, { lak: increment(codeData.value) });
+        const partnerHistoryRef = doc(collection(partnerRef, 'transactions'));
+        transaction.set(partnerHistoryRef, {
+          date: Timestamp.now(),
+          description: `히든코드 파트너 보상 (사용자: ${userStudentId})`,
+          amount: codeData.value,
+          type: 'credit',
+        });
+
+        // Mark code as used
+        transaction.update(codeRef, {
+          used: true,
+          usedBy: [userStudentId, partnerStudentId],
+        });
+
+        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${codeData.value} Lak을 받았습니다!` };
+
       case '메이트코드':
         if (codeData.ownerUid === userId) {
           throw "자신의 메이트 코드는 사용할 수 없습니다.";
@@ -210,8 +254,8 @@ export const useCode = async (userId: string, inputCode: string) => {
 
         // Give points to the code user
         transaction.update(userRef, { lak: increment(codeData.value) });
-        const userHistoryRef = doc(collection(userRef, 'transactions'));
-        transaction.set(userHistoryRef, {
+        const mateUserHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(mateUserHistoryRef, {
           date: Timestamp.now(),
           description: `'${codeData.ownerStudentId}'님의 메이트코드 사용`,
           amount: codeData.value,
@@ -390,3 +434,5 @@ export const updateUserProfile = async (
 };
 
 export { auth, db, storage };
+
+    
