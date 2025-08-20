@@ -37,7 +37,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
     }, [code]);
 
     const TicketContent = () => (
-      <div className="flex flex-col items-center justify-between h-full py-10 px-4 relative">
+      <div className="flex flex-col items-center justify-center h-full py-10 px-4 relative gap-10">
         <div className="text-center w-full">
             <h2 className="font-batang text-4xl font-bold text-primary">Jongdal Code</h2>
             <p className="mt-2 text-xs text-primary">
@@ -64,7 +64,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
             </div>
         </div>
 
-        <div className="absolute bottom-6 text-2xl font-batang text-primary font-bold">
+        <div className="text-2xl font-batang text-primary font-bold">
             {value} Lak
         </div>
       </div>
@@ -73,15 +73,8 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
     return (
       <div
         ref={ref}
-        className="w-[300px] h-[480px] bg-white rounded-3xl overflow-hidden relative shadow-lg"
+        className="w-[300px] h-[480px] bg-gradient-to-b from-white to-primary/20 rounded-3xl overflow-hidden relative shadow-lg"
       >
-        <Image
-          src="/coupon-template.png"
-          alt="Coupon background"
-          layout="fill"
-          objectFit="cover"
-          quality={100}
-        />
         <div className="absolute inset-0">
           <TicketContent />
         </div>
