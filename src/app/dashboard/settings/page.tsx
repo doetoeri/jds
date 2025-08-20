@@ -101,18 +101,26 @@ export default function SettingsPage() {
       };
 
       const imageFile = data.photo?.[0];
+      const oldPhotoPath = userData?.photoPath;
 
       if (imageFile) {
-         // If there's an old image, delete it from storage
-        if(userData?.photoPath) {
-            await deleteOldProfileImage(userData.photoPath);
-        }
         const { downloadURL, filePath } = await uploadProfileImage(user.uid, imageFile);
         updateData.photoURL = downloadURL;
         updateData.photoPath = filePath;
+        
+        // Delete old image only after new one is successfully uploaded
+        if (oldPhotoPath) {
+            await deleteOldProfileImage(oldPhotoPath);
+        }
       }
 
       await updateUserProfile(user.uid, updateData);
+      
+      // Immediately update the local state to reflect changes
+      setUserData(prev => ({...prev, ...updateData}));
+      if (updateData.photoURL) {
+          setPreviewImage(null); // Clear preview after successful upload
+      }
 
       toast({ title: "성공", description: "프로필이 성공적으로 업데이트되었습니다." });
     } catch (error: any) {

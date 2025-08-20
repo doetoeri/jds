@@ -465,10 +465,17 @@ export const deleteOldProfileImage = async (filePath: string) => {
 
 export const updateUserProfile = async (
   userId: string,
-  data: { displayName?: string; photoURL?: string, photoPath?: string }
+  data: { displayName?: string; photoURL?: string; photoPath?: string }
 ) => {
   const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, data);
+  // Filter out undefined values to prevent errors
+  const updateData = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+
+  if (Object.keys(updateData).length > 0) {
+    await updateDoc(userRef, updateData);
+  }
 };
 
 export { auth, db, storage };
