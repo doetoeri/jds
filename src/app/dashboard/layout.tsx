@@ -11,6 +11,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { motion } from 'framer-motion';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -80,9 +81,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="w-full flex-1" />
           <UserNav />
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent">
+        <motion.main 
+          className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+        >
           {children}
-        </main>
+        </motion.main>
       </div>
     </div>
   );
