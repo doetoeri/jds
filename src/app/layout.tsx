@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: '고촌중학교 학생자치회 종달샘',
   description: '고촌중학교 학생들을 위한 포인트 및 커뮤니티 허브입니다. 다양한 활동에 참여하고 포인트를 관리해보세요.',
   icons: {
-    icon: '/favicon.ico',
+    icon: './favicon.ico',
   },
   manifest: '/manifest.json',
 };
