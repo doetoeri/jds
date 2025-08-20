@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Card,
@@ -29,7 +29,7 @@ interface PendingTeacher {
   email: string;
   officeFloor: string;
   role: 'pending_teacher';
-  createdAt: any;
+  createdAt: Timestamp;
 }
 
 export default function AdminTeachersPage() {
@@ -135,9 +135,7 @@ export default function AdminTeachersPage() {
                   <TableCell>{teacher.officeFloor}</TableCell>
                    <TableCell>
                     {teacher.createdAt
-                      ? new Date(
-                          teacher.createdAt.seconds * 1000
-                        ).toLocaleDateString()
+                      ? teacher.createdAt.toDate().toLocaleDateString()
                       : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">

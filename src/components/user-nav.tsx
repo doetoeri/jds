@@ -25,7 +25,9 @@ import { Loader2 } from 'lucide-react';
 
 interface UserData {
   studentId?: string;
+  name?: string; // For teachers
   email?: string;
+  role?: string;
 }
 
 export function UserNav() {
@@ -37,24 +39,22 @@ export function UserNav() {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user);
       if (user) {
-        // Handle admin user separately without a Firestore doc
-        if (user.email === 'admin@jongdalsem.com') {
-          setUserData({ email: user.email, studentId: 'Admin' });
-        } else {
-          // For regular users, fetch data from Firestore
-          const userDocRef = doc(db, 'users', user.uid);
-          try {
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-              setUserData(userDoc.data() as UserData);
+        const userDocRef = doc(db, 'users', user.uid);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setUserData(userDoc.data() as UserData);
+          } else {
+             // Handle master admin user separately without a Firestore doc
+            if (user.email === 'admin@jongdalsem.com') {
+                setUserData({ email: user.email, name: '관리자', role: 'admin' });
             } else {
-              // This can happen during signup before the doc is created. It's not a critical error.
-              setUserData(null); // Set to null if doc doesn't exist
+                setUserData(null);
             }
-          } catch (error) {
-            console.error("Error fetching user document:", error);
-            setUserData(null);
           }
+        } catch (error) {
+          console.error("Error fetching user document:", error);
+          setUserData(null);
         }
       } else {
         setUserData(null);
@@ -63,12 +63,26 @@ export function UserNav() {
     return () => unsubscribe();
   }, []);
 
-  const getInitials = (studentId: string | undefined) => {
-    if (!studentId || studentId === 'Admin') return '관리';
-    return studentId.substring(studentId.length - 2);
+  const getInitials = () => {
+    if (userData?.role === 'admin') return '관리';
+    if (userData?.role === 'teacher') return userData.name?.substring(0, 1) || '교';
+    if (userData?.role === 'student') return userData.studentId?.substring(userData.studentId.length - 2) || '학생';
+    return '??';
   }
 
-  const isAdmin = user?.email === 'admin@jongdalsem.com';
+  const getDisplayName = () => {
+     if (userData?.role === 'admin') return '관리자';
+     if (userData?.role === 'teacher') return `${userData.name} 선생님`;
+     if (userData?.role === 'student') return `학생 (${userData.studentId})`;
+     return '사용자';
+  }
+  
+  const getDashboardLink = () => {
+      if (userData?.role === 'admin') return '/admin';
+      if (userData?.role === 'teacher') return '/teacher/rewards';
+      return '/dashboard';
+  }
+
 
   if (!user || !userData) {
     // Don't render anything until user and userData is loaded, to prevent flashes of incorrect state.
@@ -80,15 +94,15 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src="https://placehold.co/100x100.png" alt="@student" data-ai-hint="person avatar" />
-            <AvatarFallback>{getInitials(userData?.studentId)}</AvatarFallback>
+            <AvatarImage src="https://placehold.co/100x100.png" alt="@user" data-ai-hint="person avatar" />
+            <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{isAdmin ? '관리자' : `학생 (${userData.studentId})`}</p>
+            <p className="text-sm font-medium leading-none">{getDisplayName()}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {userData.email}
             </p>
@@ -96,15 +110,9 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {isAdmin ? (
-            <DropdownMenuItem asChild>
-              <Link href="/admin">관리자 페이지</Link>
+           <DropdownMenuItem asChild>
+              <Link href={getDashboardLink()}>대시보드</Link>
             </DropdownMenuItem>
-          ) : (
-             <DropdownMenuItem asChild>
-              <Link href="/dashboard">대시보드</Link>
-            </DropdownMenuItem>
-          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" disabled={isLoggingOut}>
@@ -115,3 +123,5 @@ export function UserNav() {
     </DropdownMenu>
   );
 }
+
+    
