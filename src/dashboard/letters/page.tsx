@@ -301,7 +301,7 @@ export default function LettersPage() {
                       {letter.senderStudentId}님이 보낸 편지
                     </h4>
                     <Badge variant="secondary">
-                      {letter.approvedAt?.toDate ? letter.approvedAt.toDate().toLocaleDateString() : ''}
+                      {letter.approvedAt?.toDate ? letter.approvedAt.toDate().toLocaleDateString() : '날짜 없음'}
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">

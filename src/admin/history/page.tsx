@@ -114,7 +114,7 @@ export default function AdminHistoryPage() {
               transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell className="font-medium">{transaction.studentId}</TableCell>
-                  <TableCell>{transaction.date ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}</TableCell>
+                  <TableCell>{transaction.date?.toDate ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}</TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell className="text-right">
                     <Badge
