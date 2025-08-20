@@ -49,6 +49,8 @@ interface Code {
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
+  forStudentId?: string;
+  giftedTo?: string;
 }
 
 export default function AdminCodesPage() {
@@ -63,6 +65,7 @@ export default function AdminCodesPage() {
   const [newCodeType, setNewCodeType] = useState<'종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드' | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
   const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
+  const [newCodeForStudentId, setNewCodeForStudentId] = useState('');
 
 
   const [bulkCodeValue, setBulkCodeValue] = useState('');
@@ -120,19 +123,17 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
       return;
     }
+    if (newCodeType === '히든코드' && !newCodeForStudentId) {
+      toast({ title: "입력 오류", description: "히든코드는 선물을 받을 학생의 학번이 필요합니다.", variant: "destructive" });
+      return;
+    }
+
 
     setIsCreating(true);
     try {
-      let finalCode;
-      if (newCodeType === '히든코드') {
-        const code1 = generateRandomCode(4);
-        const code2 = generateRandomCode(4);
-        finalCode = `${code1} & ${code2}`;
-      } else {
-        finalCode = newCode.toUpperCase();
-      }
-
-      let codeData: any = {
+      const finalCode = newCodeType === '히든코드' ? generateRandomCode(6) : newCode.toUpperCase();
+     
+      const baseCodeData = {
         code: finalCode,
         type: newCodeType,
         value: Number(newCodeValue),
@@ -140,6 +141,8 @@ export default function AdminCodesPage() {
         usedBy: null,
         createdAt: Timestamp.now(),
       };
+      
+      let codeData: any = baseCodeData;
 
       if (newCodeType === '메이트코드') {
         const usersRef = collection(db, 'users');
@@ -157,6 +160,14 @@ export default function AdminCodesPage() {
             usedBy: [],
         };
       }
+      
+      if (newCodeType === '히든코드') {
+        codeData = {
+          ...codeData,
+          forStudentId: newCodeForStudentId,
+          giftedTo: null,
+        };
+      }
 
 
       await addDoc(collection(db, 'codes'), codeData);
@@ -168,6 +179,7 @@ export default function AdminCodesPage() {
       setNewCodeType('');
       setNewCodeValue('');
       setNewCodeOwnerStudentId('');
+      setNewCodeForStudentId('');
       setIsCreateDialogOpen(false);
       fetchCodes();
     } catch (error: any) {
@@ -260,7 +272,7 @@ export default function AdminCodesPage() {
     toPng(couponRef.current, { cacheBust: true, pixelRatio: 2 })
       .then((dataUrl) => {
         const link = document.createElement('a');
-        link.download = `JDS_Coupon_${generatedCouponInfo.code.replace(' & ', '_')}.png`;
+        link.download = `JDS_Coupon_${generatedCouponInfo.code}.png`;
         link.href = dataUrl;
         link.click();
       })
@@ -281,6 +293,9 @@ export default function AdminCodesPage() {
   const renderUsedBy = (code: Code) => {
     if (code.type === '메이트코드') {
       return `소유자: ${code.ownerStudentId}`;
+    }
+    if (code.type === '히든코드') {
+      return code.giftedTo ? `선물 대상: ${code.giftedTo}` : `대상 지정: ${code.forStudentId}`;
     }
     return code.usedBy || 'N/A';
   }
@@ -381,7 +396,7 @@ export default function AdminCodesPage() {
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                         <SelectItem value="메이트코드">메이트코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드</SelectItem>
+                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -396,6 +411,21 @@ export default function AdminCodesPage() {
                         className="col-span-3"
                         value={newCodeOwnerStudentId}
                         onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
+                        disabled={isCreating}
+                        />
+                    </div>
+                  )}
+                  {newCodeType === '히든코드' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="for-student-id" className="text-right">
+                          대상 학번
+                        </Label>
+                        <Input
+                        id="for-student-id"
+                        placeholder="선물 받을 학생의 학번"
+                        className="col-span-3"
+                        value={newCodeForStudentId}
+                        onChange={(e) => setNewCodeForStudentId(e.target.value)}
                         disabled={isCreating}
                         />
                     </div>

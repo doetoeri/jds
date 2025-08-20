@@ -13,10 +13,7 @@ interface CouponTicketProps {
 
 export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
   ({ code, value, type }, ref) => {
-    const [qrCodeUrl1, setQrCodeUrl1] = useState('');
-    const [qrCodeUrl2, setQrCodeUrl2] = useState('');
-
-    const codes = type === '히든코드' ? code.split(' & ') : [code];
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
 
     useEffect(() => {
       const generateQr = async (codeToQr: string, setUrl: (url: string) => void) => {
@@ -35,15 +32,12 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
         }
       };
 
-      if (codes[0]) {
-        generateQr(codes[0], setQrCodeUrl1);
+      if (code) {
+        generateQr(code, setQrCodeUrl);
       }
-      if (codes[1]) {
-        generateQr(codes[1], setQrCodeUrl2);
-      }
-    }, [code, type]); // Rerun when code or type changes
+    }, [code]);
 
-    const SingleCodeDisplay = ({ qrUrl, codeStr }: { qrUrl: string, codeStr: string }) => (
+    const CodeDisplay = ({ qrUrl, codeStr }: { qrUrl: string, codeStr: string }) => (
         <div className="flex flex-col items-center justify-center gap-4">
             {qrUrl ? (
                 <Image src={qrUrl} alt={`QR Code for ${codeStr}`} width={120} height={120} />
@@ -54,28 +48,6 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
         </div>
     );
     
-    const PairedCodeDisplay = ({ qrUrl1, qrUrl2, codeStr1, codeStr2 }: { qrUrl1: string, qrUrl2: string, codeStr1: string, codeStr2: string }) => (
-       <div className="flex flex-row items-center justify-around w-full">
-            <div className="flex flex-col items-center gap-2">
-                {qrUrl1 ? (
-                    <Image src={qrUrl1} alt={`QR Code for ${codeStr1}`} width={80} height={80} />
-                ) : (
-                    <Skeleton className="w-[80px] h-[80px]" />
-                )}
-                <p className="font-batang font-bold text-xl tracking-widest text-primary">{codeStr1}</p>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-                {qrUrl2 ? (
-                    <Image src={qrUrl2} alt={`QR Code for ${codeStr2}`} width={80} height={80} />
-                ) : (
-                    <Skeleton className="w-[80px] h-[80px]" />
-                )}
-                <p className="font-batang font-bold text-xl tracking-widest text-primary">{codeStr2}</p>
-            </div>
-        </div>
-    );
-
-
     return (
       <div
         ref={ref}
@@ -89,11 +61,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
                 </p>
             </div>
     
-            {type === '히든코드' ? (
-                <PairedCodeDisplay qrUrl1={qrCodeUrl1} qrUrl2={qrCodeUrl2} codeStr1={codes[0]} codeStr2={codes[1]} />
-            ) : (
-                <SingleCodeDisplay qrUrl={qrCodeUrl1} codeStr={codes[0]} />
-            )}
+            <CodeDisplay qrUrl={qrCodeUrl} codeStr={code} />
 
             <div className="text-2xl font-batang text-primary font-bold">
                 {value} Lak

@@ -170,7 +170,7 @@ export const useCode = async (userId: string, inputCode: string) => {
   const upperCaseCode = inputCode.toUpperCase();
 
   return await runTransaction(db, async (transaction) => {
-    // 1. Get user data
+    // 1. Get user data (the person redeeming the code)
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists()) {
@@ -180,94 +180,111 @@ export const useCode = async (userId: string, inputCode: string) => {
     const userStudentId = userData.studentId;
 
     // 2. Find the code
-    // Firestore does not support 'contains' or 'like' queries for strings.
-    // For 히든코드, we have to fetch all of them and filter client-side.
-    // This is not ideal for performance but necessary with the current data model.
-    const allCodesSnapshot = await getDocs(query(collection(db, 'codes')));
-    let codeDoc: any = null;
+    const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
+    const codeSnapshot = await transaction.get(codeQuery);
 
-    for (const doc of allCodesSnapshot.docs) {
-        const codeData = doc.data();
-        if (codeData.type === '히든코드') {
-            const codePair = codeData.code.split(' & ');
-            if (codePair.includes(upperCaseCode)) {
-                codeDoc = doc;
-                break;
-            }
-        } else if (codeData.code === upperCaseCode) {
-            codeDoc = doc;
-            break;
-        }
-    }
-
-    if (!codeDoc) {
-       throw "유효하지 않은 코드입니다.";
+    if (codeSnapshot.empty) {
+      throw "유효하지 않은 코드입니다.";
     }
     
+    const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
     const codeData = codeDoc.data();
 
-    // 3. Handle '메이트코드' logic
-    if (codeData.type === '메이트코드') {
-      if (codeData.ownerUid === userId) {
-        throw "자신의 메이트 코드는 사용할 수 없습니다.";
-      }
-      if (codeData.usedBy && codeData.usedBy.includes(userStudentId)) {
-        throw "이미 사용한 메이트 코드입니다.";
-      }
+    // 3. Check if used
+    if (codeData.used) {
+      throw "이미 사용된 코드입니다.";
+    }
 
-      // Give points to the code user
-      transaction.update(userRef, { lak: increment(codeData.value) });
-      const userHistoryRef = doc(collection(userRef, 'transactions'));
-      transaction.set(userHistoryRef, {
-        date: Timestamp.now(),
-        description: `'${codeData.ownerStudentId}'님의 메이트코드 사용`,
-        amount: codeData.value,
-        type: 'credit',
-      });
+    // 4. Handle different code types
+    switch (codeData.type) {
+      case '메이트코드':
+        if (codeData.ownerUid === userId) {
+          throw "자신의 메이트 코드는 사용할 수 없습니다.";
+        }
+        if (codeData.usedBy && codeData.usedBy.includes(userStudentId)) {
+          throw "이미 사용한 메이트 코드입니다.";
+        }
 
-      // Give points to the code owner
-      const ownerRef = doc(db, 'users', codeData.ownerUid);
-      transaction.update(ownerRef, { lak: increment(codeData.value) });
-      const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
-      transaction.set(ownerHistoryRef, {
-        date: Timestamp.now(),
-        description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
-        amount: codeData.value,
-        type: 'credit',
-      });
+        // Give points to the code user
+        transaction.update(userRef, { lak: increment(codeData.value) });
+        const userHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(userHistoryRef, {
+          date: Timestamp.now(),
+          description: `'${codeData.ownerStudentId}'님의 메이트코드 사용`,
+          amount: codeData.value,
+          type: 'credit',
+        });
 
-      // Add user to the usedBy list
-      transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
-      
-      return { success: true, message: `메이트코드를 사용하여 ${codeData.value} Lak을, 코드 주인도 ${codeData.value} Lak을 받았습니다!` };
+        // Give points to the code owner
+        const ownerRef = doc(db, 'users', codeData.ownerUid);
+        transaction.update(ownerRef, { lak: increment(codeData.value) });
+        const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
+        transaction.set(ownerHistoryRef, {
+          date: Timestamp.now(),
+          description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
+          amount: codeData.value,
+          type: 'credit',
+        });
 
-    } else {
-      // 4. Handle regular and hidden codes
-      if (codeData.used) {
-        throw "이미 사용된 코드입니다.";
-      }
+        // Add user to the usedBy list
+        transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
+        
+        return { success: true, message: `메이트코드를 사용하여 ${codeData.value} Lak을, 코드 주인도 ${codeData.value} Lak을 받았습니다!` };
 
-      // Update user's Lak balance
-      transaction.update(userRef, { lak: increment(codeData.value) });
+      case '히든코드':
+        // Find the target user
+        const targetStudentId = codeData.forStudentId;
+        const targetUserQuery = query(collection(db, 'users'), where('studentId', '==', targetStudentId));
+        const targetUserSnapshot = await transaction.get(targetUserQuery);
+        
+        if (targetUserSnapshot.empty) {
+          throw `선물 대상 학생(${targetStudentId})을 찾을 수 없습니다.`;
+        }
+        
+        const targetUserDoc = targetUserSnapshot.docs[0];
+        const targetUserRef = targetUserDoc.ref;
 
-      // Mark code as used
-      transaction.update(codeRef, {
-        used: true,
-        usedBy: userStudentId,
-      });
-      
-      // Create transaction history
-      const description = `${codeData.type} "${codeData.code}" (사유: ${codeData.reason || '일반'})`;
-      const historyRef = doc(collection(userRef, 'transactions'));
-      transaction.set(historyRef, {
-        date: Timestamp.now(),
-        description: description,
-        amount: codeData.value,
-        type: 'credit',
-      });
-      
-      return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!` };
+        // Give points to the target user
+        transaction.update(targetUserRef, { lak: increment(codeData.value) });
+        const targetHistoryRef = doc(collection(targetUserRef, 'transactions'));
+        transaction.set(targetHistoryRef, {
+          date: Timestamp.now(),
+          description: `'${userStudentId}'님이 선물한 히든코드`,
+          amount: codeData.value,
+          type: 'credit',
+        });
+
+        // Mark code as used and record who used it and who received the gift
+        transaction.update(codeRef, {
+          used: true,
+          usedBy: userStudentId, // The person who scanned the code
+          giftedTo: targetStudentId, // The person who received the Lak
+        });
+        
+        return { success: true, message: `${targetStudentId}님에게 ${codeData.value} Lak을 성공적으로 선물했습니다!` };
+
+      default: // '종달코드', '온라인 특수코드'
+        // Update user's Lak balance
+        transaction.update(userRef, { lak: increment(codeData.value) });
+
+        // Mark code as used
+        transaction.update(codeRef, {
+          used: true,
+          usedBy: userStudentId,
+        });
+        
+        // Create transaction history
+        const description = `${codeData.type} "${codeData.code}" (사유: ${codeData.reason || '일반'})`;
+        const historyRef = doc(collection(userRef, 'transactions'));
+        transaction.set(historyRef, {
+          date: Timestamp.now(),
+          description: description,
+          amount: codeData.value,
+          type: 'credit',
+        });
+        
+        return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} Lak을 적립했습니다!` };
     }
 
   }).catch((error) => {
