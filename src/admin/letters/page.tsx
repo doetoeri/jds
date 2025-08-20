@@ -11,7 +11,7 @@ import {
   getDoc,
   where,
   updateDoc,
-  serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -52,7 +52,7 @@ interface Letter {
   receiverStudentId: string;
   content: string;
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: any;
+  createdAt: Timestamp;
   senderUid: string;
   isOffline?: boolean;
 }
@@ -98,14 +98,15 @@ export default function AdminLettersPage() {
       if (letter.isOffline) {
         await updateDoc(letterRef, {
             status: 'approved',
-            approvedAt: serverTimestamp(),
+            approvedAt: Timestamp.now(),
             content: '학생회를 통해 오프라인으로 편지가 전달되었습니다.' // Hide content
         });
         toast({
             title: '성공',
             description: '오프라인 편지를 승인 처리했습니다. 이제 직접 전달해주세요.',
         });
-        fetchLetters();
+        await fetchLetters();
+        setIsProcessing(null);
         return;
       }
 
@@ -133,7 +134,7 @@ export default function AdminLettersPage() {
       }
       const senderData = senderDoc.data();
 
-      batch.update(letterRef, { status: 'approved', approvedAt: serverTimestamp() });
+      batch.update(letterRef, { status: 'approved', approvedAt: Timestamp.now() });
 
       batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
       batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
@@ -141,7 +142,7 @@ export default function AdminLettersPage() {
       const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
       batch.set(receiverTransactionRef, {
         amount: 2,
-        date: serverTimestamp(),
+        date: Timestamp.now(),
         description: `편지 수신 (보낸 사람: ${letter.senderStudentId})`,
         type: 'credit',
       });
@@ -149,7 +150,7 @@ export default function AdminLettersPage() {
       const senderTransactionRef = doc(collection(senderRef, 'transactions'));
       batch.set(senderTransactionRef, {
         amount: 2,
-        date: serverTimestamp(),
+        date: Timestamp.now(),
         description: `편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
         type: 'credit',
       });
@@ -160,7 +161,7 @@ export default function AdminLettersPage() {
         title: '성공',
         description: '편지를 승인하고 Lak을 지급했습니다.',
       });
-      fetchLetters();
+      await fetchLetters();
     } catch (error: any) {
       toast({
         title: '오류',
@@ -182,7 +183,7 @@ export default function AdminLettersPage() {
             description: '편지를 거절 처리했습니다.',
             variant: 'default',
         });
-        fetchLetters();
+        await fetchLetters();
      } catch (error) {
         toast({
             title: '오류',
@@ -276,11 +277,7 @@ export default function AdminLettersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {letter.createdAt
-                      ? new Date(
-                          letter.createdAt.seconds * 1000
-                        ).toLocaleDateString()
-                      : 'N/A'}
+                    {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
                     {isProcessing === letter.id ? (
