@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -52,18 +53,19 @@ export const signUp = async (
     const userDocRef = doc(db, "users", user.uid);
 
     if (userType === 'student') {
-        // Use a transaction to ensure both user and mate code are created atomically.
+        const studentId = userData.studentId!;
+        
+        // 1. Check for duplicate studentId before the transaction
+        const studentQuery = query(collection(db, "users"), where("studentId", "==", studentId));
+        const studentSnapshot = await getDocs(studentQuery);
+        if (!studentSnapshot.empty) {
+            throw new Error("이미 등록된 학번입니다.");
+        }
+
+        // 2. Use a transaction to ensure both user and mate code are created atomically.
         await runTransaction(db, async (transaction) => {
             const mateCode = user.uid.substring(0, 4).toUpperCase();
-            const studentId = userData.studentId!;
-
-            // Check if studentId already exists
-            const studentQuery = query(collection(db, "users"), where("studentId", "==", studentId));
-            const studentSnapshot = await transaction.get(studentQuery);
-            if (!studentSnapshot.empty) {
-                throw new Error("이미 등록된 학번입니다.");
-            }
-
+            
             // Create the user document and store the mateCode directly
             transaction.set(userDocRef, {
                 studentId: studentId,
