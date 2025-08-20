@@ -96,8 +96,9 @@ export default function SettingsPage() {
     }
     setIsSubmitting(true);
     try {
-      let photoURL = userData?.photoURL || '';
-      let photoPath = userData?.photoPath || '';
+      const updateData: { displayName: string; photoURL?: string; photoPath?: string } = {
+        displayName: data.displayName,
+      };
 
       const imageFile = data.photo?.[0];
 
@@ -107,15 +108,11 @@ export default function SettingsPage() {
             await deleteOldProfileImage(userData.photoPath);
         }
         const { downloadURL, filePath } = await uploadProfileImage(user.uid, imageFile);
-        photoURL = downloadURL;
-        photoPath = filePath;
+        updateData.photoURL = downloadURL;
+        updateData.photoPath = filePath;
       }
 
-      await updateUserProfile(user.uid, {
-        displayName: data.displayName,
-        photoURL: photoURL,
-        photoPath: photoPath,
-      });
+      await updateUserProfile(user.uid, updateData);
 
       toast({ title: "성공", description: "프로필이 성공적으로 업데이트되었습니다." });
     } catch (error: any) {
