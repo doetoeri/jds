@@ -17,6 +17,10 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { signIn } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getAuth } from 'firebase/auth';
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,13 +33,44 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signIn(email, password);
-      // Redirect based on user type after successful login
-      if (email === 'admin@jongdalsem.com') {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
+      const user = await signIn(email, password);
+      
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+
+      if (!currentUser) {
+          throw new Error("사용자를 찾을 수 없습니다.");
       }
+
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'admin') {
+          router.push('/admin');
+        } else if (userData.role === 'teacher') {
+          router.push('/teacher/rewards');
+        } else if (userData.role === 'pending_teacher') {
+            toast({
+                title: '승인 대기중',
+                description: '관리자 승인 후 로그인할 수 있습니다.',
+                variant: 'default',
+            });
+            setIsLoading(false);
+        }
+        else {
+          router.push('/dashboard');
+        }
+      } else {
+         // This might happen for the master admin account which might not have a doc
+         if (email === 'admin@jongdalsem.com') {
+            router.push('/admin');
+         } else {
+            throw new Error("사용자 데이터가 존재하지 않습니다.");
+         }
+      }
+
     } catch (error: any) {
       toast({
         title: '로그인 실패',
@@ -96,3 +131,4 @@ export default function LoginPage() {
     </Card>
   );
 }
+    

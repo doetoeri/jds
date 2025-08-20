@@ -36,6 +36,12 @@ export const signUp = async (
   }
   
   try {
+    // We need to create the user with a master admin account in firebase console: admin@jongdalsem.com
+    // For other users, they sign up here.
+    if (email === 'admin@jongdalsem.com') {
+        throw new Error("관리자 계정은 여기서 생성할 수 없습니다.");
+    }
+      
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     const userDocRef = doc(db, "users", user.uid);
@@ -45,6 +51,13 @@ export const signUp = async (
         await runTransaction(db, async (transaction) => {
             const mateCode = user.uid.substring(0, 4).toUpperCase();
             const studentId = userData.studentId!;
+
+            // Check if studentId already exists
+            const studentQuery = query(collection(db, "users"), where("studentId", "==", studentId));
+            const studentSnapshot = await transaction.get(studentQuery);
+            if (!studentSnapshot.empty) {
+                throw new Error("이미 등록된 학번입니다.");
+            }
 
             // Create the user document and store the mateCode directly
             transaction.set(userDocRef, {
@@ -95,7 +108,7 @@ export const signUp = async (
     if (currentUser) {
       await currentUser.delete();
     }
-    throw new Error('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
+    throw new Error(error.message || '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
   }
 };
 
@@ -103,12 +116,25 @@ export const signUp = async (
 export const signIn = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    // For non-admin users, check if their role is 'pending_teacher'
+    if (email !== 'admin@jongdalsem.com') {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && userDoc.data().role === 'pending_teacher') {
+            // Log them out immediately and show a message
+            await signOut(auth);
+            throw new Error('관리자 승인 대기중인 계정입니다.');
+        }
+    }
+    
     return userCredential.user;
   } catch (error: any) {
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
       throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
-    throw new Error('로그인 중 오류가 발생했습니다.');
+    throw new Error(error.message || '로그인 중 오류가 발생했습니다.');
   }
 };
 
@@ -199,7 +225,7 @@ export const useCode = async (userId: string, inputCode: string) => {
       });
       
       // Create transaction history
-      const description = `${codeData.type} "${codeData.code}" 사용`;
+      const description = `${codeData.type} "${codeData.code}" (사유: ${codeData.reason || '일반'})`;
       const historyRef = doc(collection(userRef, 'transactions'));
       transaction.set(historyRef, {
         date: Timestamp.now(),
@@ -292,8 +318,10 @@ export const resetAllData = async () => {
         for (const userDoc of usersSnapshot.docs) {
             const userRef = userDoc.ref;
             const batch = writeBatch(db);
-            // Reset lak to 0
-            batch.update(userRef, { lak: 0 });
+            // Reset lak to 0, but keep user data
+            if (userDoc.data().role !== 'admin') {
+                batch.update(userRef, { lak: 0 });
+            }
             await batch.commit();
 
             // Delete transactions subcollection
@@ -310,3 +338,4 @@ export const resetAllData = async () => {
 
 
 export { auth, db };
+    
