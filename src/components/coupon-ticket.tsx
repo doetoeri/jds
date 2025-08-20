@@ -64,7 +64,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
             </div>
         </div>
 
-        <div className="absolute bottom-6 text-3xl font-batang text-primary font-bold">
+        <div className="absolute bottom-6 text-2xl font-batang text-primary font-bold">
             {value} Lak
         </div>
       </div>
