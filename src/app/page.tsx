@@ -4,6 +4,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Bird } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 // A single ripple wave
 class Ripple {
@@ -190,23 +191,50 @@ const ParticleCanvas = () => {
 
 
 export default function LandingPage() {
+
+  const FADE_IN_ANIMATION_VARIANTS = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring' } },
+  };
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-transparent isolate">
       
       <ParticleCanvas />
       
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center text-center p-4 pointer-events-none">
-         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 backdrop-blur-sm pointer-events-auto">
+      <motion.div 
+        className="relative z-10 flex min-h-screen flex-col items-center justify-center text-center p-4"
+        initial="hidden"
+        animate="show"
+        viewport={{ once: true }}
+        variants={{
+          hidden: {},
+          show: {
+            transition: {
+              staggerChildren: 0.15,
+            },
+          },
+        }}
+      >
+        <motion.div
+          variants={FADE_IN_ANIMATION_VARIANTS}
+          className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 backdrop-blur-sm">
           <Bird className="h-8 w-8 text-primary" />
-        </div>
-        <h1 className="font-headline text-5xl md:text-6xl font-bold text-gray-800">
+        </motion.div>
+        <motion.h1 
+          variants={FADE_IN_ANIMATION_VARIANTS}
+          className="font-headline text-5xl md:text-6xl font-bold text-gray-800">
           종달샘 허브
-        </h1>
-        <p className="mt-4 max-w-md text-lg text-gray-600">
+        </motion.h1>
+        <motion.p 
+           variants={FADE_IN_ANIMATION_VARIANTS}
+           className="mt-4 max-w-md text-lg text-gray-600">
           고촌중학교 학생자치회 종달샘에 오신 것을 환영합니다. 포인트를
           관리하고 다양한 활동에 참여해보세요.
-        </p>
-        <div className="mt-8 flex w-full flex-col gap-4 sm:flex-row sm:justify-center pointer-events-auto">
+        </motion.p>
+        <motion.div 
+          variants={FADE_IN_ANIMATION_VARIANTS}
+          className="mt-8 flex w-full flex-col gap-4 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="font-bold w-full sm:w-auto">
             <Link href="/login">로그인</Link>
           </Button>
@@ -218,8 +246,8 @@ export default function LandingPage() {
           >
             <Link href="/signup">회원가입</Link>
           </Button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </main>
   );
 }
