@@ -92,22 +92,23 @@ export default function DashboardPage() {
             const friendsQuery = query(
                 collection(db, 'codes'),
                 where('type', '==', '메이트코드'),
-                where('participants', 'array-contains', studentId),
-                where('lastUsedAt', '>', lastCheckTimestamp)
+                where('participants', 'array-contains', studentId)
             );
             
             const friendsSnapshot = await getDocs(friendsQuery);
-            if (!friendsSnapshot.empty) {
-                const newFriendActivities = friendsSnapshot.docs.filter(doc => (doc.data().lastUsedAt.seconds > lastCheckTimestamp.seconds));
-                if (newFriendActivities.length > 0) {
-                     setNewUpdate({
-                        type: 'friend',
-                        message: '새로운 친구가 생겼어요!',
-                        link: '/dashboard/friends',
-                        icon: Users
-                    });
-                    return; // New friend found, stop checking for other updates
-                }
+            const newFriendActivities = friendsSnapshot.docs.filter(doc => {
+                 const lastUsedAt = doc.data().lastUsedAt as Timestamp;
+                 return lastUsedAt && lastUsedAt.toMillis() > lastCheckTimestamp.toMillis();
+            });
+
+            if (newFriendActivities.length > 0) {
+                 setNewUpdate({
+                    type: 'friend',
+                    message: '새로운 친구가 생겼어요!',
+                    link: '/dashboard/friends',
+                    icon: Users
+                });
+                return; // New friend found, stop checking for other updates
             }
             
             // 2. If no new friends, check for new letters
