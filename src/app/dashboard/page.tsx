@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Mail, QrCode, Gift } from 'lucide-react';
+import { Coins, Mail, QrCode, Gift, Users } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -11,12 +11,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 import QRCode from 'qrcode';
 
+interface NewUpdate {
+  type: 'friend' | 'letter';
+  message: string;
+  link: string;
+  icon: React.ElementType;
+}
+
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
   const [lakBalance, setLakBalance] = useState<number | null>(null);
   const [mateCode, setMateCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [hasNewUpdate, setHasNewUpdate] = useState(false);
+  const [newUpdate, setNewUpdate] = useState<NewUpdate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
@@ -66,56 +73,73 @@ export default function DashboardPage() {
     return () => unsubscribeUser();
   }, [user, currentMateCode]);
   
-  // Effect for checking new updates (letters, friends, etc.)
-  useEffect(() => {
-    if (!user) return;
-    
-    let unsubscribeTransactions = () => {};
-    
-    const userDocRef = doc(db, 'users', user.uid);
+  // Effect for checking new updates (friends, letters)
+    useEffect(() => {
+        if (!user) return;
 
-    // This outer snapshot gets the last check timestamp first
-    const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
-        if (userDocSnap.exists()) {
+        let unsubUser: () => void = () => {};
+        let unsubFriends: () => void = () => {};
+        let unsubLetters: () => void = () => {};
+
+        const userDocRef = doc(db, 'users', user.uid);
+
+        unsubUser = onSnapshot(userDocRef, (userDocSnap) => {
+            if (!userDocSnap.exists()) return;
+
             const userData = userDocSnap.data();
-            const lastCheckTimestamp = userData.lastLetterCheckTimestamp || null;
+            const studentId = userData.studentId;
+            const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
 
-            // Query for the latest transaction (any type)
-            const transactionsQuery = query(
-              collection(db, 'users', user.uid, 'transactions'),
-              orderBy('date', 'desc'),
-              limit(1)
+            // 1. Check for new friends (highest priority)
+            const friendsQuery = query(
+                collection(db, 'codes'),
+                where('type', '==', '메이트코드'),
+                where('participants', 'array-contains', studentId)
             );
             
-            // This inner snapshot checks for new transactions since last check
-            unsubscribeTransactions = onSnapshot(transactionsQuery, (querySnapshot) => {
-                if (!querySnapshot.empty) {
-                    const latestTransaction = querySnapshot.docs[0].data();
-                    // We only care about credit transactions for notifications
-                    if (latestTransaction.type === 'credit') {
-                        if (lastCheckTimestamp && latestTransaction.date) {
-                            setHasNewUpdate(latestTransaction.date.toMillis() > lastCheckTimestamp.toMillis());
-                        } else if (latestTransaction.date) {
-                            // If user has never checked, any credit transaction is new
-                            setHasNewUpdate(true); 
-                        } else {
-                            setHasNewUpdate(false);
-                        }
-                    } else {
-                        setHasNewUpdate(false);
-                    }
-                } else {
-                    setHasNewUpdate(false);
+            unsubFriends = onSnapshot(friendsQuery, (friendsSnapshot) => {
+                const newFriendActivities = friendsSnapshot.docs.filter(doc => doc.data().lastUsedAt > lastCheckTimestamp);
+                
+                if (newFriendActivities.length > 0) {
+                    setNewUpdate({
+                        type: 'friend',
+                        message: '새로운 친구가 생겼어요!',
+                        link: '/dashboard/friends',
+                        icon: Users
+                    });
+                    return; // New friend found, stop checking for other updates
                 }
-            });
-        }
-    });
 
-    return () => {
-        unsubscribeUser();
-        unsubscribeTransactions();
-    };
-  }, [user]);
+                // 2. If no new friends, check for new letters
+                const lettersQuery = query(
+                    collection(db, 'letters'),
+                    where('receiverStudentId', '==', studentId),
+                    where('status', '==', 'approved'),
+                    where('approvedAt', '>', lastCheckTimestamp)
+                );
+
+                unsubLetters = onSnapshot(lettersQuery, (lettersSnapshot) => {
+                    if (!lettersSnapshot.empty) {
+                        setNewUpdate({
+                            type: 'letter',
+                            message: '새로운 편지가 도착했어요!',
+                            link: '/dashboard/letters?tab=inbox',
+                            icon: Mail
+                        });
+                    } else {
+                        // No new friends or letters
+                        setNewUpdate(null);
+                    }
+                });
+            });
+        });
+
+        return () => {
+            unsubUser();
+            unsubFriends();
+            unsubLetters();
+        };
+    }, [user]);
 
 
   // Effect for counting unused Hidden codes
@@ -175,17 +199,17 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
         
-        {hasNewUpdate && (
-            <Link href="/dashboard/letters?tab=inbox" className="block">
+        {newUpdate && (
+             <Link href={newUpdate.link} className="block">
                 <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors animate-highlight-pulse">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">새로운 소식</CardTitle>
-                    <Mail className="h-4 w-4 text-primary" />
+                    <newUpdate.icon className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-xl font-bold text-primary">확인하지 않은 새로운 소식이 있어요!</div>
+                    <div className="text-xl font-bold text-primary">{newUpdate.message}</div>
                     <p className="text-xs text-primary/80">
-                      지금 바로 받은 편지함을 확인해보세요.
+                      지금 바로 확인해보세요.
                     </p>
                 </CardContent>
                 </Card>

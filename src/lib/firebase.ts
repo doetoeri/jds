@@ -98,8 +98,10 @@ export const signUp = async (
                 value: 5,
                 ownerUid: user.uid,
                 ownerStudentId: studentId,
-                usedBy: [],
-                createdAt: Timestamp.now()
+                usedBy: [], // Now deprecated in favor of participants
+                participants: [studentId], // Start with the owner
+                createdAt: Timestamp.now(),
+                lastUsedAt: Timestamp.now(),
             });
         });
     } else { // 'teacher' (which is pending_teacher initially)
@@ -268,8 +270,9 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (freshCodeData.ownerUid === userId) {
           throw "자신의 메이트 코드는 사용할 수 없습니다.";
         }
-        if (freshCodeData.usedBy && freshCodeData.usedBy.includes(userStudentId)) {
-          throw "이미 사용한 메이트 코드입니다.";
+         // Check if user is already a participant
+        if (freshCodeData.participants && freshCodeData.participants.includes(userStudentId)) {
+            throw "이미 사용한 메이트 코드입니다.";
         }
 
         // Give points to the code user
@@ -293,8 +296,11 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
 
-        // Add user to the usedBy list
-        transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
+        // Add user to the participants list and update timestamp
+        transaction.update(codeRef, { 
+            participants: arrayUnion(userStudentId),
+            lastUsedAt: Timestamp.now()
+        });
 
         return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} Lak을, 코드 주인도 ${freshCodeData.value} Lak을 받았습니다!` };
 

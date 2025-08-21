@@ -56,6 +56,14 @@ export default function LettersView() {
   const [user] = useAuthState(auth);
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'send';
+  const initialReceiver = searchParams.get('to') || '';
+
+  // Set initial receiver from URL params
+  useEffect(() => {
+    if (initialReceiver) {
+      setReceiverStudentId(initialReceiver);
+    }
+  }, [initialReceiver]);
 
 
   useEffect(() => {
@@ -205,7 +213,7 @@ export default function LettersView() {
   }
 
   return (
-    <Tabs defaultValue={initialTab} className="w-full max-w-2xl mx-auto" onValueChange={handleTabChange}>
+    <Tabs defaultValue={initialTab} value={initialReceiver ? 'send' : undefined} className="w-full max-w-2xl mx-auto" onValueChange={handleTabChange}>
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="send">
           <Send className="mr-2 h-4 w-4" />
