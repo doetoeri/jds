@@ -295,14 +295,9 @@ export default function AdminCodesPage() {
       
       const columns = 4;
       const rows = 4;
-      const marginX = 40;
-      const marginY = 40;
       
-      const contentWidth = a4Width - (marginX * 2);
-      const contentHeight = a4Height - (marginY * 2);
-
-      const cellWidth = contentWidth / columns;
-      const cellHeight = contentHeight / rows;
+      const cellWidth = a4Width / columns;
+      const cellHeight = a4Height / rows;
       
       const scale = Math.min(cellWidth / couponWidth, cellHeight / couponHeight);
       const scaledWidth = couponWidth * scale;
@@ -328,8 +323,8 @@ export default function AdminCodesPage() {
             img.onload = () => {
                 const row = Math.floor(i / columns);
                 const col = i % columns;
-                const x = marginX + (col * cellWidth) + (cellWidth - scaledWidth) / 2;
-                const y = marginY + (row * cellHeight) + (cellHeight - scaledHeight) / 2;
+                const x = (col * cellWidth) + (cellWidth - scaledWidth) / 2;
+                const y = (row * cellHeight) + (cellHeight - scaledHeight) / 2;
                 ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
                 resolve();
             };
