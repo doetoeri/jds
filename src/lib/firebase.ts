@@ -95,7 +95,7 @@ export const signUp = async (
             transaction.set(mateCodeRef, {
                 code: mateCode,
                 type: '메이트코드',
-                value: 5,
+                value: 1,
                 ownerUid: user.uid,
                 ownerStudentId: studentId,
                 usedBy: [], // Now deprecated in favor of participants
