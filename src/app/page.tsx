@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Bird, Gift } from 'lucide-react';
+import { Gift } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -59,21 +58,16 @@ export default function LandingPage() {
           },
         }}
       >
-        <motion.div
-          variants={FADE_IN_ANIMATION_VARIANTS}
-          className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 backdrop-blur-sm">
-          <Bird className="h-8 w-8 text-primary" />
-        </motion.div>
         <motion.h1 
           variants={FADE_IN_ANIMATION_VARIANTS}
-          className="font-headline text-5xl md:text-6xl font-bold text-gray-800">
-          종달샘 허브
+          className="font-headline text-6xl md:text-8xl font-bold text-gray-800 tracking-tighter">
+          JongDalSam
         </motion.h1>
         <motion.p 
            variants={FADE_IN_ANIMATION_VARIANTS}
            className="mt-4 max-w-md text-lg text-gray-600">
-          고촌중학교 학생자치회 종달샘에 오신 것을 환영합니다. 포인트를
-          관리하고 다양한 활동에 참여해보세요.
+          Welcome to the hub for Gochon Middle School's student council.
+          Manage your points and participate in various activities.
         </motion.p>
         
         <motion.div
@@ -86,8 +80,8 @@ export default function LandingPage() {
             <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm animate-highlight-pulse">
               <Gift className="h-5 w-5" />
               <span>
-                찾아보세요! 학교에 숨겨진 종달새의 선물{' '}
-                <span className="font-bold text-base">{unusedCodeCount}</span>개
+                Find the hidden gifts! There are{' '}
+                <span className="font-bold text-base">{unusedCodeCount}</span> unused codes around the school.
               </span>
             </div>
           )}
@@ -97,7 +91,7 @@ export default function LandingPage() {
           variants={FADE_IN_ANIMATION_VARIANTS}
           className="mt-8 flex w-full flex-col gap-4 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="font-bold w-full sm:w-auto">
-            <Link href="/login">로그인</Link>
+            <Link href="/login">Log In</Link>
           </Button>
           <Button
             asChild
@@ -105,7 +99,7 @@ export default function LandingPage() {
             size="lg"
             className="font-bold w-full sm:w-auto bg-white/50"
           >
-            <Link href="/signup">회원가입</Link>
+            <Link href="/signup">Sign Up</Link>
           </Button>
         </motion.div>
       </motion.div>
