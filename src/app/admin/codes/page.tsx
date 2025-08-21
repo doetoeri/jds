@@ -50,8 +50,6 @@ interface Code {
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
-  giftedTo?: string;
-  forStudentId?: string;
 }
 
 export default function AdminCodesPage() {
@@ -66,7 +64,6 @@ export default function AdminCodesPage() {
   const [newCodeType, setNewCodeType] = useState<Code['type'] | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
   const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
-  const [newCodeForStudentId, setNewCodeForStudentId] = useState('');
 
 
   const [bulkCodeType, setBulkCodeType] = useState<Code['type'] | ''>('');
@@ -122,11 +119,6 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
       return;
     }
-    if (newCodeType === '히든코드' && newCodeForStudentId) {
-       console.warn("히든코드는 더 이상 특정 학생에게 할당되지 않습니다. '대상 학번' 입력은 무시됩니다.")
-       setNewCodeForStudentId(''); // Clear the field to avoid confusion
-    }
-
 
     setIsCreating(true);
     try {
@@ -167,7 +159,6 @@ export default function AdminCodesPage() {
       setNewCodeType('');
       setNewCodeValue('');
       setNewCodeOwnerStudentId('');
-      setNewCodeForStudentId('');
       setIsCreateDialogOpen(false);
       fetchCodes();
     } catch (error: any) {
@@ -287,9 +278,6 @@ export default function AdminCodesPage() {
     }
     if (code.type === '히든코드' && code.used && Array.isArray(code.usedBy)) {
         return code.usedBy.join(', ');
-    }
-    if (code.giftedTo) {
-        return `${code.usedBy} -> ${code.giftedTo}`;
     }
     return Array.isArray(code.usedBy) ? code.usedBy.join(', ') : code.usedBy || 'N/A';
   }

@@ -212,7 +212,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     // 3. Check if used (re-fetch inside transaction for consistent read)
     const freshCodeDoc = await transaction.get(codeRef);
     const freshCodeData = freshCodeDoc.data();
-    if (freshCodeData?.used) {
+    if (freshCodeData?.used && freshCodeData.type !== '메이트코드') {
       throw "이미 사용된 코드입니다.";
     }
 
@@ -220,6 +220,9 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     // 4. Handle different code types
     switch (freshCodeData?.type) {
       case '히든코드':
+         if (freshCodeData.used) {
+          throw "이미 사용된 코드입니다.";
+        }
         if (!partnerStudentId) {
           throw "파트너의 학번이 필요합니다.";
         }
@@ -305,6 +308,9 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} Lak을, 코드 주인도 ${freshCodeData.value} Lak을 받았습니다!` };
 
       default: // '종달코드', '온라인 특수코드'
+        if (freshCodeData.used) {
+          throw "이미 사용된 코드입니다.";
+        }
         // Update user's Lak balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 
@@ -312,37 +318,18 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         transaction.update(codeRef, {
           used: true,
           usedBy: userStudentId,
-          giftedTo: freshCodeData.forStudentId || null
         });
 
-        const transactionTargetRef = freshCodeData.forStudentId
-            ? (await getDocs(query(collection(db, 'users'), where('studentId', '==', freshCodeData.forStudentId)))).docs[0].ref
-            : userRef;
-
-        if(freshCodeData.forStudentId) {
-            transaction.update(transactionTargetRef, { lak: increment(freshCodeData.value) });
-        }
-
-
         // Create transaction history
-        const description = freshCodeData.forStudentId
-          ? `'${userStudentId}'님이 전달한 선물 코드 사용`
-          : `${freshCodeData.type} "${freshCodeData.code}" (사유: ${freshCodeData.reason || '일반'})`;
-
-        const historyRef = doc(collection(transactionTargetRef, 'transactions'));
+        const historyRef = doc(collection(userRef, 'transactions'));
         transaction.set(historyRef, {
           date: Timestamp.now(),
-          description: description,
+          description: `${freshCodeData.type} "${freshCodeData.code}" 사용`,
           amount: freshCodeData.value,
           type: 'credit',
         });
 
-        const message = freshCodeData.forStudentId
-            ? `선물 코드를 성공적으로 전달하여 ${freshCodeData.forStudentId}님에게 ${freshCodeData.value} Lak이 지급되었습니다!`
-            : `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} Lak을 적립했습니다!`;
-
-
-        return { success: true, message: message };
+        return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} Lak을 적립했습니다!` };
     }
 
   }).catch((error) => {

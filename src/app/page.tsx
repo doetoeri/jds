@@ -72,7 +72,7 @@ export default function LandingPage() {
         
         <motion.div
           variants={FADE_IN_ANIMATION_VARIANTS}
-          className="mt-6 -mb-2"
+          className="mt-6"
         >
           {unusedCodeCount === null ? (
             <Skeleton className="h-10 w-64 rounded-lg" />
