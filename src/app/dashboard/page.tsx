@@ -80,10 +80,9 @@ export default function DashboardPage() {
             const userData = userDocSnap.data();
             const lastCheckTimestamp = userData.lastLetterCheckTimestamp || null;
 
-            // Query for the latest credit transaction
+            // Query for the latest transaction (any type)
             const transactionsQuery = query(
               collection(db, 'users', user.uid, 'transactions'),
-              where('type', '==', 'credit'),
               orderBy('date', 'desc'),
               limit(1)
             );
@@ -92,11 +91,16 @@ export default function DashboardPage() {
             unsubscribeTransactions = onSnapshot(transactionsQuery, (querySnapshot) => {
                 if (!querySnapshot.empty) {
                     const latestTransaction = querySnapshot.docs[0].data();
-                    if (lastCheckTimestamp && latestTransaction.date) {
-                        setHasNewUpdate(latestTransaction.date.toMillis() > lastCheckTimestamp.toMillis());
-                    } else if (latestTransaction.date) {
-                        // If user has never checked, any transaction is new
-                        setHasNewUpdate(true); 
+                    // We only care about credit transactions for notifications
+                    if (latestTransaction.type === 'credit') {
+                        if (lastCheckTimestamp && latestTransaction.date) {
+                            setHasNewUpdate(latestTransaction.date.toMillis() > lastCheckTimestamp.toMillis());
+                        } else if (latestTransaction.date) {
+                            // If user has never checked, any credit transaction is new
+                            setHasNewUpdate(true); 
+                        } else {
+                            setHasNewUpdate(false);
+                        }
                     } else {
                         setHasNewUpdate(false);
                     }
