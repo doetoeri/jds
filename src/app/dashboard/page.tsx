@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coins, Mail, QrCode, Gift } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ export default function DashboardPage() {
   const [lakBalance, setLakBalance] = useState<number | null>(null);
   const [mateCode, setMateCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [hasNewLetters, setHasNewLetters] = useState(false);
+  const [hasNewUpdate, setHasNewUpdate] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
@@ -65,43 +65,43 @@ export default function DashboardPage() {
 
     return () => unsubscribeUser();
   }, [user, currentMateCode]);
-
-  // Effect for checking new letters
+  
+  // Effect for checking new updates (letters, friends, etc.)
   useEffect(() => {
     if (!user) return;
     
-    let unsubscribeLetters = () => {};
+    let unsubscribeTransactions = () => {};
     
     const userDocRef = doc(db, 'users', user.uid);
 
-    // This outer snapshot gets the studentId first
+    // This outer snapshot gets the last check timestamp first
     const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
         if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             const lastCheckTimestamp = userData.lastLetterCheckTimestamp || null;
 
-            const lettersQuery = query(
-              collection(db, 'letters'),
-              where('receiverStudentId', '==', userData.studentId),
-              where('status', '==', 'approved'),
-              orderBy('approvedAt', 'desc'),
+            // Query for the latest credit transaction
+            const transactionsQuery = query(
+              collection(db, 'users', user.uid, 'transactions'),
+              where('type', '==', 'credit'),
+              orderBy('date', 'desc'),
               limit(1)
             );
             
-            // This inner snapshot checks for new letters
-            unsubscribeLetters = onSnapshot(lettersQuery, (querySnapshot) => {
+            // This inner snapshot checks for new transactions since last check
+            unsubscribeTransactions = onSnapshot(transactionsQuery, (querySnapshot) => {
                 if (!querySnapshot.empty) {
-                    const latestLetter = querySnapshot.docs[0].data();
-                    if (lastCheckTimestamp && latestLetter.approvedAt) {
-                        setHasNewLetters(latestLetter.approvedAt.toMillis() > lastCheckTimestamp.toMillis());
-                    } else if (latestLetter.approvedAt) {
-                        // If user has never checked, any letter is new
-                        setHasNewLetters(true); 
+                    const latestTransaction = querySnapshot.docs[0].data();
+                    if (lastCheckTimestamp && latestTransaction.date) {
+                        setHasNewUpdate(latestTransaction.date.toMillis() > lastCheckTimestamp.toMillis());
+                    } else if (latestTransaction.date) {
+                        // If user has never checked, any transaction is new
+                        setHasNewUpdate(true); 
                     } else {
-                        setHasNewLetters(false);
+                        setHasNewUpdate(false);
                     }
                 } else {
-                    setHasNewLetters(false);
+                    setHasNewUpdate(false);
                 }
             });
         }
@@ -109,9 +109,10 @@ export default function DashboardPage() {
 
     return () => {
         unsubscribeUser();
-        unsubscribeLetters();
+        unsubscribeTransactions();
     };
-}, [user]);
+  }, [user]);
+
 
   // Effect for counting unused Hidden codes
     useEffect(() => {
@@ -170,15 +171,15 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
         
-        {hasNewLetters && (
+        {hasNewUpdate && (
             <Link href="/dashboard/letters?tab=inbox" className="block">
-                <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors animate-in fade-in slide-in-from-bottom-5 duration-500 animate-highlight-pulse">
+                <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors animate-highlight-pulse">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">새로운 소식</CardTitle>
                     <Mail className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-xl font-bold text-primary">확인하지 않은 편지가 있어요!</div>
+                    <div className="text-xl font-bold text-primary">확인하지 않은 새로운 소식이 있어요!</div>
                     <p className="text-xs text-primary/80">
                       지금 바로 받은 편지함을 확인해보세요.
                     </p>

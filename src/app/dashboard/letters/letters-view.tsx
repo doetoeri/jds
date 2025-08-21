@@ -190,10 +190,14 @@ export default function LettersView() {
       if (value === 'inbox') {
           const updateTimestamp = async () => {
               if (user) {
-                  const userDocRef = doc(db, 'users', user.uid);
-                  await updateDoc(userDocRef, {
-                      lastLetterCheckTimestamp: Timestamp.now()
-                  });
+                  try {
+                    const userDocRef = doc(db, 'users', user.uid);
+                    await updateDoc(userDocRef, {
+                        lastLetterCheckTimestamp: Timestamp.now()
+                    });
+                  } catch (error) {
+                    console.error("Failed to update lastLetterCheckTimestamp", error)
+                  }
               }
           };
           updateTimestamp();
