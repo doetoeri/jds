@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Mail, QrCode } from 'lucide-react';
+import { Coins, Mail, QrCode, Gift } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [hasNewLetters, setHasNewLetters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
+  const [unusedJongdalCodeCount, setUnusedJongdalCodeCount] = useState<number | null>(null);
 
 
   // Effect for user data (lak, mateCode)
@@ -112,6 +113,24 @@ export default function DashboardPage() {
     };
 }, [user]);
 
+  // Effect for counting unused Jongdal codes
+    useEffect(() => {
+        const q = query(
+            collection(db, "codes"),
+            where("type", "==", "종달코드"),
+            where("used", "==", false)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setUnusedJongdalCodeCount(snapshot.size);
+        }, (error) => {
+            console.error("Error fetching unused code count:", error);
+            setUnusedJongdalCodeCount(0);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
 
   return (
     <div>
@@ -132,6 +151,23 @@ export default function DashboardPage() {
               (1 라크 = 500원)
             </p>
           </CardContent>
+        </Card>
+        
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">종달새의 선물</CardTitle>
+                <Gift className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                {unusedJongdalCodeCount === null ? (
+                    <Skeleton className="h-8 w-20" />
+                ) : (
+                    <div className="text-2xl font-bold">{unusedJongdalCodeCount} 개</div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                    학교 어딘가에 숨겨진 코드를 찾아보세요!
+                </p>
+            </CardContent>
         </Card>
         
         {hasNewLetters && (
