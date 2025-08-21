@@ -276,9 +276,8 @@ export default function AdminCodesPage() {
     setIsDownloading(true);
 
     try {
-      // Standard A4 dimensions in pixels at 300 DPI (for high quality)
-      const a4Width = 3508;
-      const a4Height = 2480;
+      const a4Width = 2480; 
+      const a4Height = 3508;
 
       const canvas = document.createElement('canvas');
       canvas.width = a4Width;
@@ -291,20 +290,26 @@ export default function AdminCodesPage() {
       
       const codesToRender = codes.filter(c => selectedCodes.includes(c.id));
       
-      const couponWidth = 480; 
-      const couponHeight = 300;
+      const couponWidth = 360; 
+      const couponHeight = 225;
       
       const columns = 4;
-      const rows = 2;
-      const slotWidth = a4Width / columns;
-      const slotHeight = a4Height / rows;
+      const rows = 4;
+      const marginX = 40;
+      const marginY = 40;
+      
+      const contentWidth = a4Width - (marginX * 2);
+      const contentHeight = a4Height - (marginY * 2);
 
-      const scale = Math.min(slotWidth / couponWidth, slotHeight / couponHeight) * 0.95; // Add some padding
+      const cellWidth = contentWidth / columns;
+      const cellHeight = contentHeight / rows;
+      
+      const scale = Math.min(cellWidth / couponWidth, cellHeight / couponHeight);
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
       for (let i = 0; i < codesToRender.length; i++) {
-        if (i >= 8) break; 
+        if (i >= 16) break; 
 
         const code = codesToRender[i];
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
@@ -314,7 +319,7 @@ export default function AdminCodesPage() {
             pixelRatio: 2,
             width: couponWidth,
             height: couponHeight,
-            cacheBust: true
+            cacheBust: true,
         });
 
         const img = new Image();
@@ -323,8 +328,8 @@ export default function AdminCodesPage() {
             img.onload = () => {
                 const row = Math.floor(i / columns);
                 const col = i % columns;
-                const x = (col * slotWidth) + (slotWidth - scaledWidth) / 2;
-                const y = (row * slotHeight) + (slotHeight - scaledHeight) / 2;
+                const x = marginX + (col * cellWidth) + (cellWidth - scaledWidth) / 2;
+                const y = marginY + (row * cellHeight) + (cellHeight - scaledHeight) / 2;
                 ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
                 resolve();
             };
@@ -639,9 +644,9 @@ export default function AdminCodesPage() {
       <div ref={a4ContainerRef} className="absolute -left-[9999px] top-0">
           {codes
             .filter(c => selectedCodes.includes(c.id))
-            .slice(0, 8)
+            .slice(0, 16)
             .map(c => (
-              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 480, height: 300 }}>
+              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 360, height: 225 }}>
                 <CouponTicket code={c.code} value={c.value} type={c.type} />
               </div>
           ))}
