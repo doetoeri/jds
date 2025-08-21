@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, type ReactNode, useEffect } from 'react';
@@ -34,7 +35,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Check user role
+    // Check user role to prevent unauthorized access and redirect if necessary
     const checkRole = async () => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
@@ -42,15 +43,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             const role = userDoc.data().role;
             if (role === 'admin') {
                 router.push('/admin');
+                return; // Redirect and stop further execution
             } else if (role === 'council') {
                 router.push('/council');
+                return; // Redirect and stop further execution
+            } else if (role === 'teacher') {
+                router.push('/teacher/rewards');
+                return;
             }
-            else {
-                setIsAuthorized(true);
-            }
-        } else {
-             setIsAuthorized(true); // Let it render and handle no-doc case on page
         }
+        // If user is not admin, council, or teacher, they can access the dashboard.
+        setIsAuthorized(true);
     };
     checkRole();
 

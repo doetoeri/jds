@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -16,9 +17,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { signIn } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { signIn, db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,37 +40,31 @@ export default function LoginPage() {
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
+      let userRole = '';
       if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.role === 'admin') {
-          router.push('/admin');
-        } else if (userData.role === 'council') {
-          router.push('/council');
-        } else if (userData.role === 'teacher') {
-          router.push('/teacher/rewards');
-        } else if (userData.role === 'pending_teacher') {
-            toast({
-                title: '승인 대기중',
-                description: '관리자 승인 후 로그인할 수 있습니다.',
-                variant: 'default',
-            });
-            setIsLoading(false);
-        }
-        else {
-          router.push('/dashboard');
-        }
-      } else {
-         // This could happen if the user was created in auth but not firestore
-         // For special accounts like admin, we can create the doc here
-         if (email === 'admin@jongdalsem.com') {
-             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
-             router.push('/admin');
-         } else if (email === 'studentcouncil@jongdalsem.com') {
-             await setDoc(userDocRef, { email, role: 'council', name: '학생회', displayName: '학생회' });
-             router.push('/council');
-         } else {
-            throw new Error("사용자 데이터가 존재하지 않습니다.");
-         }
+        userRole = userDoc.data().role;
+      } else if (email === 'admin@jongdalsem.com') {
+        // Create admin doc on the fly if it doesn't exist
+        await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
+        userRole = 'admin';
+      }
+
+      if (userRole === 'admin') {
+        router.push('/admin');
+      } else if (userRole === 'council') {
+        router.push('/council');
+      } else if (userRole === 'teacher') {
+        router.push('/teacher/rewards');
+      } else if (userRole === 'pending_teacher') {
+          toast({
+              title: '승인 대기중',
+              description: '관리자 승인 후 로그인할 수 있습니다.',
+              variant: 'default',
+          });
+          setIsLoading(false);
+      }
+      else {
+        router.push('/dashboard');
       }
 
     } catch (error: any) {
