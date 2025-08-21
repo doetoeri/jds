@@ -293,6 +293,10 @@ export default function AdminCodesPage() {
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
+      const fontEmbedCSS = `
+        @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&display=swap');
+      `;
+
       for (let i = 0; i < codesToRender.length; i++) {
         if (i >= 8) break; // Limit to 8 coupons per A4 page
 
@@ -300,7 +304,7 @@ export default function AdminCodesPage() {
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
         if (!couponNode) continue;
 
-        const dataUrl = await toPng(couponNode, { pixelRatio: 2 });
+        const dataUrl = await toPng(couponNode, { pixelRatio: 2, fontEmbedCSS: fontEmbedCSS });
         const img = new Image();
         
         await new Promise<void>((resolve, reject) => {
