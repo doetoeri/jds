@@ -448,4 +448,32 @@ export const updateUserProfile = async (
   }
 };
 
+
+export const adjustUserLak = async (userId: string, amount: number, reason: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error("User does not exist.");
+    }
+
+    // Update Lak balance using increment for safety
+    transaction.update(userRef, { lak: increment(amount) });
+
+    // Create a transaction history record
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+      date: Timestamp.now(),
+      description: `관리자 조정: ${reason}`,
+      amount: amount,
+      type: amount > 0 ? 'credit' : 'debit',
+    });
+  }).catch((error: any) => {
+    console.error("Lak adjustment error:", error);
+    throw new Error(error.message || "Failed to adjust Lak points.");
+  });
+};
+
+
 export { auth, db, storage };
