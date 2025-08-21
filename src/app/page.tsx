@@ -1,10 +1,13 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Bird } from 'lucide-react';
+import { Bird, Gift } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // A single ripple wave
 class Ripple {
@@ -194,11 +197,33 @@ const ParticleCanvas = () => {
 
 
 export default function LandingPage() {
+  const [unusedCodeCount, setUnusedCodeCount] = useState<number | null>(null);
 
   const FADE_IN_ANIMATION_VARIANTS = {
     hidden: { opacity: 0, y: 10 },
     show: { opacity: 1, y: 0, transition: { type: 'spring' } },
   };
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'codes'),
+      where('type', '==', '종달코드'),
+      where('used', '==', false)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      snapshot => {
+        setUnusedCodeCount(snapshot.size);
+      },
+      error => {
+        console.error('Error fetching unused code count:', error);
+        setUnusedCodeCount(0);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-transparent isolate">
@@ -235,6 +260,24 @@ export default function LandingPage() {
           고촌중학교 학생자치회 종달샘에 오신 것을 환영합니다. 포인트를
           관리하고 다양한 활동에 참여해보세요.
         </motion.p>
+        
+        <motion.div
+          variants={FADE_IN_ANIMATION_VARIANTS}
+          className="mt-6 -mb-2"
+        >
+          {unusedCodeCount === null ? (
+            <Skeleton className="h-10 w-64 rounded-lg" />
+          ) : (
+            <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm">
+              <Gift className="h-5 w-5" />
+              <span>
+                찾아보세요! 학교에 숨겨진 종달새의 선물{' '}
+                <span className="font-bold text-base">{unusedCodeCount}</span>개
+              </span>
+            </div>
+          )}
+        </motion.div>
+
         <motion.div 
           variants={FADE_IN_ANIMATION_VARIANTS}
           className="mt-8 flex w-full flex-col gap-4 sm:flex-row sm:justify-center">
