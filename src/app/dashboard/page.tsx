@@ -98,7 +98,7 @@ export default function DashboardPage() {
             );
             
             unsubFriends = onSnapshot(friendsQuery, (friendsSnapshot) => {
-                const newFriendActivities = friendsSnapshot.docs.filter(doc => doc.data().lastUsedAt > lastCheckTimestamp);
+                const newFriendActivities = friendsSnapshot.docs.filter(doc => (doc.data().lastUsedAt.seconds > lastCheckTimestamp.seconds));
                 
                 if (newFriendActivities.length > 0) {
                     setNewUpdate({
