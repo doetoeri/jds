@@ -133,11 +133,11 @@ export default function AdminCodesPage() {
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
-        usedBy: newCodeType === '메이트코드' ? [] : null,
+        usedBy: null, // Simplified, participants field handles mate codes now
         createdAt: Timestamp.now(),
       };
 
-      if (newCodeType === '메이트코드') {
+       if (newCodeType === '메이트코드') {
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('studentId', '==', newCodeOwnerStudentId));
         const userSnapshot = await getDocs(q);
@@ -153,6 +153,7 @@ export default function AdminCodesPage() {
             participants: [newCodeOwnerStudentId]
         };
       }
+
 
       await addDoc(collection(db, 'codes'), codeData);
 
@@ -202,7 +203,7 @@ export default function AdminCodesPage() {
           type: bulkCodeType,
           value: value,
           used: false,
-          usedBy: bulkCodeType === '메이트코드' ? [] : null,
+          usedBy: null,
           createdAt: Timestamp.now(),
         };
 
@@ -275,8 +276,10 @@ export default function AdminCodesPage() {
     setIsDownloading(true);
 
     try {
-      const a4Width = 297 * 4; // A4 Landscape
-      const a4Height = 210 * 4;
+      // Standard A4 dimensions in pixels at 300 DPI (for high quality)
+      const a4Width = 3508;
+      const a4Height = 2480;
+
       const canvas = document.createElement('canvas');
       canvas.width = a4Width;
       canvas.height = a4Height;
@@ -288,20 +291,19 @@ export default function AdminCodesPage() {
       
       const codesToRender = codes.filter(c => selectedCodes.includes(c.id));
       
-      // A7 is 105 x 74 mm. CouponTicket is 480x300px
+      // CouponTicket's base size
       const couponWidth = 480; 
       const couponHeight = 300;
       
-      const slotWidth = a4Width / 4; // 4 columns
-      const slotHeight = a4Height / 2; // 2 rows
+      const columns = 4;
+      const rows = 2;
+      const slotWidth = a4Width / columns;
+      const slotHeight = a4Height / rows;
 
+      // Calculate the best scale to fit the coupon inside the slot without cropping
       const scale = Math.min(slotWidth / couponWidth, slotHeight / couponHeight);
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
-
-      const fontEmbedCSS = `
-        @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&display=swap');
-      `;
 
       for (let i = 0; i < codesToRender.length; i++) {
         if (i >= 8) break; // Limit to 8 coupons per A4 page
@@ -311,8 +313,7 @@ export default function AdminCodesPage() {
         if (!couponNode) continue;
         
         const dataUrl = await toPng(couponNode, { 
-            pixelRatio: 2,
-            fontEmbedCSS: fontEmbedCSS,
+            pixelRatio: 2, // Generate a higher resolution image from the component
             width: couponWidth,
             height: couponHeight,
         });
@@ -321,8 +322,9 @@ export default function AdminCodesPage() {
         
         await new Promise<void>((resolve, reject) => {
             img.onload = () => {
-                const row = Math.floor(i / 4); // 2 rows
-                const col = i % 4; // 4 columns
+                const row = Math.floor(i / columns);
+                const col = i % columns;
+                // Center the scaled image within its slot
                 const x = (col * slotWidth) + (slotWidth - scaledWidth) / 2;
                 const y = (row * slotHeight) + (slotHeight - scaledHeight) / 2;
                 ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
@@ -352,9 +354,11 @@ export default function AdminCodesPage() {
 
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
-      const participants = Array.isArray(code.usedBy) ? code.usedBy : [];
-      const count = participants.length;
-      return <Badge variant={count > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{count}회 사용</Badge>;
+        const participants = Array.isArray(code.usedBy) ? code.usedBy : [];
+        // In the new logic, usedBy is not the primary source of truth for mate codes, `participants` is.
+        const participantsList = Array.isArray(code.participants) ? code.participants : [];
+        const useCount = participantsList.length -1; // Owner doesn't count as a "use"
+        return <Badge variant={useCount > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{useCount > 0 ? `${useCount}회 사용` : '미사용'}</Badge>;
     }
     return <Badge variant={code.used ? 'outline' : 'default'}>{code.used ? '사용됨' : '미사용'}</Badge>;
   };
