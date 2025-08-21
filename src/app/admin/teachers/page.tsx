@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Card,
@@ -39,7 +39,11 @@ export default function AdminTeachersPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', '==', 'pending_teacher'));
+    const q = query(
+        collection(db, 'users'), 
+        where('role', '==', 'pending_teacher'),
+        orderBy('createdAt', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const teachers = querySnapshot.docs.map(

@@ -37,9 +37,11 @@ import { Label } from '@/components/ui/label';
 
 interface User {
   id: string;
-  studentId: string;
+  studentId?: string;
+  name?: string;
   email: string;
   lak: number;
+  role: 'student' | 'teacher' | 'admin' | 'pending_teacher';
 }
 
 export default function AdminUsersPage() {
@@ -55,10 +57,15 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
-    const q = query(usersCollection, orderBy('studentId'));
+    // Order by creation date as studentId might not exist for all roles
+    const q = query(usersCollection, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const userList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      const userList = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as User))
+        // Filter out users without a specific role (like pending) to avoid showing incomplete accounts
+        .filter(user => user.role === 'student' || user.role === 'teacher' || user.role === 'admin');
+      
       setUsers(userList);
       setIsLoading(false);
     }, (error) => {
@@ -95,10 +102,11 @@ export default function AdminUsersPage() {
 
     setIsAdjusting(true);
     try {
+        const displayName = selectedUser.role === 'student' ? selectedUser.studentId : selectedUser.name;
         await adjustUserLak(selectedUser.id, amount, adjustmentReason);
         toast({
             title: '성공',
-            description: `${selectedUser.studentId} 학생의 Lak을 성공적으로 조정했습니다.`
+            description: `${displayName} 님의 Lak을 성공적으로 조정했습니다.`
         });
         setIsAdjustDialogOpen(false);
     } catch (error: any) {
@@ -112,6 +120,13 @@ export default function AdminUsersPage() {
     }
   }
 
+  const renderIdentifier = (user: User) => {
+    if (user.role === 'student') return user.studentId;
+    if (user.role === 'teacher') return user.name;
+    if (user.email === 'admin@jongdalsem.com') return '관리자';
+    return 'N/A';
+  }
+
   return (
     <>
       <Card>
@@ -123,7 +138,7 @@ export default function AdminUsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>학번</TableHead>
+                <TableHead>학번/성함</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead className="text-right">보유 Lak</TableHead>
                 <TableHead className="text-right">작업</TableHead>
@@ -142,11 +157,11 @@ export default function AdminUsersPage() {
               ) : (
                 users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.studentId}</TableCell>
+                    <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} Lak</TableCell>
                     <TableCell className="text-right">
-                       <Button variant="outline" size="sm" onClick={() => openAdjustDialog(user)}>
+                       <Button variant="outline" size="sm" onClick={() => openAdjustDialog(user)} disabled={user.role === 'admin'}>
                          <Coins className="mr-2 h-3.5 w-3.5"/>
                          Lak 조정
                        </Button>
@@ -162,7 +177,7 @@ export default function AdminUsersPage() {
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Lak 조정: {selectedUser?.studentId}</DialogTitle>
+            <DialogTitle>Lak 조정: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
             <DialogDescription>
               사용자의 Lak을 직접 추가하거나 차감합니다. 모든 내역은 기록됩니다.
             </DialogDescription>
