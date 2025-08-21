@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { resetAllData } from '@/lib/firebase';
+import { CommunicationChannel } from '@/components/communication-channel';
 
 
 export default function AdminDashboardPage() {
@@ -54,93 +55,98 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight font-headline">관리자 대시보드</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 사용자</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers.toLocaleString()} 명</div>
-            <p className="text-xs text-muted-foreground">
-              현재 시스템에 등록된 총 사용자 수
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 코드 수</CardTitle>
-            <QrCode className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCodes.toLocaleString()} 개</div>
-            <p className="text-xs text-muted-foreground">
-              발급된 모든 코드의 수
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 사용된 Lak</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalLakRedeemed.toLocaleString()} Lak</div>
-            <p className="text-xs text-muted-foreground">
-              코드를 통해 적립된 총 Lak
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight font-headline">관리자 대시보드</h1>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 사용자</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{totalUsers.toLocaleString()} 명</div>
+                    <p className="text-xs text-muted-foreground">
+                    현재 시스템에 등록된 총 사용자 수
+                    </p>
+                </CardContent>
+                </Card>
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 코드 수</CardTitle>
+                    <QrCode className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{totalCodes.toLocaleString()} 개</div>
+                    <p className="text-xs text-muted-foreground">
+                    발급된 모든 코드의 수
+                    </p>
+                </CardContent>
+                </Card>
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 사용된 Lak</CardTitle>
+                    <Coins className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{totalLakRedeemed.toLocaleString()} Lak</div>
+                    <p className="text-xs text-muted-foreground">
+                    코드를 통해 적립된 총 Lak
+                    </p>
+                </CardContent>
+                </Card>
+            </div>
 
-       <Card className="mt-8 border-destructive/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle />
-            위험 구역
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            아래 버튼은 시스템의 모든 활동 데이터를 영구적으로 삭제하고 초기화합니다.
-            사용자 계정 정보는 유지되지만, 모든 포인트, 거래 내역, 코드, 편지, 구매 내역이 사라집니다.
-            이 작업은 되돌릴 수 없으므로 신중하게 사용하세요.
-          </p>
-           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isResetting}>
-                {isResetting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <Trash2 className="mr-2 h-4 w-4" />
-                )}
-                전체 활동 데이터 초기화
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  이 작업은 모든 사용자의 Lak, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>취소</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive hover:bg-destructive/90"
-                  onClick={handleReset}
-                  disabled={isResetting}
-                >
-                  {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  네, 모든 활동 내역을 초기화합니다.
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
+            <Card className="border-destructive/50">
+                <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle />
+                    위험 구역
+                </CardTitle>
+                </CardHeader>
+                <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                    아래 버튼은 시스템의 모든 활동 데이터를 영구적으로 삭제하고 초기화합니다.
+                    사용자 계정 정보는 유지되지만, 모든 포인트, 거래 내역, 코드, 편지, 구매 내역이 사라집니다.
+                    이 작업은 되돌릴 수 없으므로 신중하게 사용하세요.
+                </p>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isResetting}>
+                        {isResetting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        전체 활동 데이터 초기화
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                        이 작업은 모든 사용자의 Lak, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                        className="bg-destructive hover:bg-destructive/90"
+                        onClick={handleReset}
+                        disabled={isResetting}
+                        >
+                        {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        네, 모든 활동 내역을 초기화합니다.
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                </CardContent>
+            </Card>
+        </div>
+        <div className="lg:col-span-1">
+            <CommunicationChannel />
+        </div>
     </div>
   );
 }

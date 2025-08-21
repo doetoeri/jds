@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -42,7 +40,7 @@ export const signUp = async (
   }
 
   try {
-    if (email === 'admin@jongdalsem.com' || email === 'studentcouncil@jongdalsem.com') {
+    if (email === 'admin@jongdalsem.com') {
         throw new Error("해당 이메일은 사용할 수 없습니다.");
     }
 
@@ -63,11 +61,11 @@ export const signUp = async (
         const teacherQuery = query(
           collection(db, "users"),
           where("email", "==", email),
-          where("role", "in", ["teacher", "pending_teacher"])
+          where("role", "in", ["teacher", "pending_teacher", "council"])
         );
         const teacherSnapshot = await getDocs(teacherQuery);
         if (!teacherSnapshot.empty) {
-            throw new Error("이미 가입 신청되었거나 등록된 교직원 이메일입니다.");
+            throw new Error("이미 가입 신청되었거나 등록된 이메일입니다.");
         }
     }
 
@@ -158,8 +156,6 @@ export const signIn = async (email: string, password: string) => {
         // We create the doc on the fly for special accounts.
         if (email === 'admin@jongdalsem.com') {
              await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
-        } else if (email === 'studentcouncil@jongdalsem.com') {
-             await setDoc(userDocRef, { email, role: 'council', name: '학생회', displayName: '학생회' });
         } else {
             await signOut(auth);
             throw new Error('사용자 데이터가 존재하지 않습니다. 관리자에게 문의하세요.');
@@ -217,6 +213,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         throw "코드를 찾을 수 없습니다.";
     }
     
+    // This check is now placed before the switch for all non-Mate codes
     if (freshCodeData.used && freshCodeData.type !== '메이트코드') {
       throw "이미 사용된 코드입니다.";
     }
@@ -225,9 +222,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     // 4. Handle different code types
     switch (freshCodeData.type) {
       case '히든코드':
-        if (freshCodeData.used) {
-          throw "이미 사용된 코드입니다.";
-        }
+        // The used check is already done above.
         if (!partnerStudentId) {
           throw "파트너의 학번이 필요합니다.";
         }
@@ -313,9 +308,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} Lak을, 코드 주인도 ${freshCodeData.value} Lak을 받았습니다!` };
 
       default: // '종달코드', '온라인 특수코드'
-        if (freshCodeData.used) {
-          throw "이미 사용된 코드입니다.";
-        }
+        // The used check is already done above.
         // Update user's Lak balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 
@@ -484,6 +477,20 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
     console.error("Lak adjustment error:", error);
     throw new Error(error.message || "Failed to adjust Lak points.");
   });
+};
+
+export const updateUserRole = async (userId: string, newRole: 'student' | 'council') => {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  if (!userDoc.exists()) {
+    throw new Error("User does not exist.");
+  }
+  const userData = userDoc.data();
+  if (userData.role === 'admin') {
+      throw new Error("Cannot change the role of an admin.");
+  }
+  
+  await updateDoc(userRef, { role: newRole });
 };
 
 
