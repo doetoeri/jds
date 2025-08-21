@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,7 @@ interface Code {
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
+  participants?: string[];
 }
 
 export default function AdminCodesPage() {
@@ -133,7 +135,6 @@ export default function AdminCodesPage() {
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
-        usedBy: null, // Simplified, participants field handles mate codes now
         createdAt: Timestamp.now(),
       };
 
@@ -203,7 +204,6 @@ export default function AdminCodesPage() {
           type: bulkCodeType,
           value: value,
           used: false,
-          usedBy: null,
           createdAt: Timestamp.now(),
         };
 
@@ -291,7 +291,6 @@ export default function AdminCodesPage() {
       
       const codesToRender = codes.filter(c => selectedCodes.includes(c.id));
       
-      // CouponTicket's base size
       const couponWidth = 480; 
       const couponHeight = 300;
       
@@ -300,20 +299,19 @@ export default function AdminCodesPage() {
       const slotWidth = a4Width / columns;
       const slotHeight = a4Height / rows;
 
-      // Calculate the best scale to fit the coupon inside the slot without cropping
-      const scale = Math.min(slotWidth / couponWidth, slotHeight / couponHeight);
+      const scale = Math.min(slotWidth / couponWidth, slotHeight / couponHeight) * 0.95; // Add some padding
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
       for (let i = 0; i < codesToRender.length; i++) {
-        if (i >= 8) break; // Limit to 8 coupons per A4 page
+        if (i >= 8) break; 
 
         const code = codesToRender[i];
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
         if (!couponNode) continue;
         
         const dataUrl = await toPng(couponNode, { 
-            pixelRatio: 2, // Generate a higher resolution image from the component
+            pixelRatio: 2,
             width: couponWidth,
             height: couponHeight,
         });
@@ -324,7 +322,6 @@ export default function AdminCodesPage() {
             img.onload = () => {
                 const row = Math.floor(i / columns);
                 const col = i % columns;
-                // Center the scaled image within its slot
                 const x = (col * slotWidth) + (slotWidth - scaledWidth) / 2;
                 const y = (row * slotHeight) + (slotHeight - scaledHeight) / 2;
                 ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
@@ -354,10 +351,8 @@ export default function AdminCodesPage() {
 
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
-        const participants = Array.isArray(code.usedBy) ? code.usedBy : [];
-        // In the new logic, usedBy is not the primary source of truth for mate codes, `participants` is.
         const participantsList = Array.isArray(code.participants) ? code.participants : [];
-        const useCount = participantsList.length -1; // Owner doesn't count as a "use"
+        const useCount = Math.max(0, participantsList.length -1); 
         return <Badge variant={useCount > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{useCount > 0 ? `${useCount}회 사용` : '미사용'}</Badge>;
     }
     return <Badge variant={code.used ? 'outline' : 'default'}>{code.used ? '사용됨' : '미사용'}</Badge>;
@@ -645,7 +640,7 @@ export default function AdminCodesPage() {
             .filter(c => selectedCodes.includes(c.id))
             .slice(0, 8)
             .map(c => (
-              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`}>
+              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 480, height: 300 }}>
                 <CouponTicket code={c.code} value={c.value} type={c.type} />
               </div>
           ))}
@@ -653,3 +648,4 @@ export default function AdminCodesPage() {
     </>
   );
 }
+

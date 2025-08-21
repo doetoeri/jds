@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -508,3 +509,4 @@ export const deleteUser = async (userId: string) => {
 
 
 export { auth, db, storage };
+
