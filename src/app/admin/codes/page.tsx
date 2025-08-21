@@ -275,8 +275,8 @@ export default function AdminCodesPage() {
     setIsDownloading(true);
 
     try {
-      const a4Width = 210 * 4; // mm to pixels (approx)
-      const a4Height = 297 * 4;
+      const a4Width = 297 * 4; // A4 Landscape
+      const a4Height = 210 * 4;
       const canvas = document.createElement('canvas');
       canvas.width = a4Width;
       canvas.height = a4Height;
@@ -287,9 +287,15 @@ export default function AdminCodesPage() {
       ctx.fillRect(0, 0, a4Width, a4Height);
       
       const codesToRender = codes.filter(c => selectedCodes.includes(c.id));
-      const couponWidth = 300; 
-      const couponHeight = 480;
-      const scale = (a4Width / 2) / couponWidth;
+      
+      // A7 is 105 x 74 mm. CouponTicket is 480x300px
+      const couponWidth = 480; 
+      const couponHeight = 300;
+      
+      const slotWidth = a4Width / 4; // 4 columns
+      const slotHeight = a4Height / 2; // 2 rows
+
+      const scale = Math.min(slotWidth / couponWidth, slotHeight / couponHeight);
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
@@ -303,16 +309,22 @@ export default function AdminCodesPage() {
         const code = codesToRender[i];
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
         if (!couponNode) continue;
+        
+        const dataUrl = await toPng(couponNode, { 
+            pixelRatio: 2,
+            fontEmbedCSS: fontEmbedCSS,
+            width: couponWidth,
+            height: couponHeight,
+        });
 
-        const dataUrl = await toPng(couponNode, { pixelRatio: 2, fontEmbedCSS: fontEmbedCSS });
         const img = new Image();
         
         await new Promise<void>((resolve, reject) => {
             img.onload = () => {
-                const row = Math.floor(i / 2);
-                const col = i % 2;
-                const x = col * scaledWidth;
-                const y = row * scaledHeight;
+                const row = Math.floor(i / 4); // 2 rows
+                const col = i % 4; // 4 columns
+                const x = (col * slotWidth) + (slotWidth - scaledWidth) / 2;
+                const y = (row * slotHeight) + (slotHeight - scaledHeight) / 2;
                 ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
                 resolve();
             };
@@ -592,8 +604,8 @@ export default function AdminCodesPage() {
 
       {/* Coupon Display Dialog */}
       <Dialog open={!!generatedCouponInfo} onOpenChange={(isOpen) => !isOpen && setGeneratedCouponInfo(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md bg-transparent border-none shadow-none">
+          <DialogHeader className="sr-only">
             <DialogTitle>쿠폰 생성 완료</DialogTitle>
             <DialogDescription>
               아래 쿠폰 이미지를 다운로드하여 사용하세요.
