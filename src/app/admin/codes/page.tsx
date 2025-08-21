@@ -276,8 +276,9 @@ export default function AdminCodesPage() {
     setIsDownloading(true);
 
     try {
-      const a4Width = 2480; 
-      const a4Height = 3508;
+      // A4 Landscape: 297mm x 210mm. At 300 DPI: 3508 x 2480 pixels
+      const a4Width = 3508; 
+      const a4Height = 2480;
 
       const canvas = document.createElement('canvas');
       canvas.width = a4Width;
@@ -296,15 +297,17 @@ export default function AdminCodesPage() {
       const columns = 4;
       const rows = 4;
       
+      // Calculate cell dimensions
       const cellWidth = a4Width / columns;
       const cellHeight = a4Height / rows;
       
+      // Calculate scale to fit coupon within cell, maintaining aspect ratio
       const scale = Math.min(cellWidth / couponWidth, cellHeight / couponHeight);
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
       for (let i = 0; i < codesToRender.length; i++) {
-        if (i >= 16) break; 
+        if (i >= 16) break; // Limit to 16 coupons per page
 
         const code = codesToRender[i];
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
@@ -332,10 +335,33 @@ export default function AdminCodesPage() {
             img.src = dataUrl;
         });
       }
+       
+      // Draw cutting lines
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([15, 15]); // Dashed line style
+
+      // Horizontal lines
+      for (let i = 1; i < rows; i++) {
+          const y = i * cellHeight;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(a4Width, y);
+          ctx.stroke();
+      }
+
+      // Vertical lines
+      for (let i = 1; i < columns; i++) {
+          const x = i * cellWidth;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, a4Height);
+          ctx.stroke();
+      }
       
       const finalImage = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
-      link.download = 'A4_Coupons.png';
+      link.download = 'A4_Coupons_Landscape.png';
       link.href = finalImage;
       link.click();
       
@@ -649,3 +675,5 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
+    
