@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 
 interface UserData {
   studentId?: string;
-  name?: string; // For teachers
+  name?: string; // For teachers, admin, council
   displayName?: string; // Nickname for all users
   email?: string;
   role?: string;
@@ -43,26 +43,18 @@ export function UserNav() {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
-        if (user.email === 'admin@jongdalsem.com') {
-            setUserData({ email: user.email, name: '관리자', role: 'admin' });
-            return;
-        }
-        
         const userDocRef = doc(db, 'users', user.uid);
         const unsubDoc = onSnapshot(userDocRef, (userDoc) => {
           if (userDoc.exists()) {
             setUserData(userDoc.data() as UserData);
           } else {
-            setUserData(null);
+            setUserData({email: user.email}); // Fallback for special accounts not yet in firestore
           }
         }, (error) => {
           console.error("Error fetching user document:", error);
           setUserData(null);
         });
-
-        // Detach listener when user logs out
         return () => unsubDoc();
-
       } else {
         setUserData(null);
       }
@@ -73,6 +65,7 @@ export function UserNav() {
 
   const getInitials = () => {
     if (userData?.role === 'admin') return '관리';
+    if (userData?.role === 'council') return '학생';
     if (userData?.displayName) return userData.displayName.substring(0, 1).toUpperCase();
     if (userData?.role === 'teacher') return userData.name?.substring(0, 1) || '교';
     if (userData?.role === 'student') return userData.studentId?.substring(userData.studentId.length - 2) || '학생';
@@ -81,6 +74,7 @@ export function UserNav() {
 
   const getDisplayName = () => {
      if (userData?.role === 'admin') return '관리자';
+     if (userData?.role === 'council') return '학생회';
      if (userData?.displayName) return userData.displayName;
      if (userData?.role === 'teacher') return `${userData.name} 선생님`;
      if (userData?.role === 'student') return `학생 (${userData.studentId})`;
@@ -89,6 +83,7 @@ export function UserNav() {
   
   const getDashboardLink = () => {
       if (userData?.role === 'admin') return '/admin';
+      if (userData?.role === 'council') return '/council';
       if (userData?.role === 'teacher') return '/teacher/rewards';
       return '/dashboard';
   }

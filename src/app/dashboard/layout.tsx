@@ -8,17 +8,19 @@ import { DashboardNav } from '@/components/dashboard-nav';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/logo';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { ParticleBackground } from '@/components/particle-background';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
   const { toast } = useToast();
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
     if (loading) return; // Wait until auth state is loaded
@@ -29,14 +31,32 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         variant: 'destructive',
       });
       router.push('/login');
-    } else if (user.email === 'admin@jongdalsem.com') {
-      // If admin tries to access user dashboard, redirect them to admin page
-      router.push('/admin');
+      return;
     }
+    
+    // Check user role
+    const checkRole = async () => {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            const role = userDoc.data().role;
+            if (role === 'admin') {
+                router.push('/admin');
+            } else if (role === 'council') {
+                router.push('/council');
+            }
+            else {
+                setIsAuthorized(true);
+            }
+        } else {
+             setIsAuthorized(true); // Let it render and handle no-doc case on page
+        }
+    };
+    checkRole();
+
   }, [user, loading, router, toast]);
 
-  // Show a loader while auth state is resolving or if user is not a regular user
-  if (loading || !user || user.email === 'admin@jongdalsem.com') {
+  if (loading || !isAuthorized) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

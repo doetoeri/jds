@@ -19,8 +19,6 @@ import { useToast } from '@/hooks/use-toast';
 import { signIn } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getAuth } from 'firebase/auth';
-
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -35,26 +33,19 @@ export default function LoginPage() {
     try {
       const user = await signIn(email, password);
       
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
-
-      if (!currentUser) {
+      if (!user) {
           throw new Error("사용자를 찾을 수 없습니다.");
       }
       
-      // Master admin account check
-      if (email === 'admin@jongdalsem.com') {
-         router.push('/admin');
-         return; // Stop further execution
-      }
-
-      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
         if (userData.role === 'admin') {
           router.push('/admin');
+        } else if (userData.role === 'council') {
+          router.push('/council');
         } else if (userData.role === 'teacher') {
           router.push('/teacher/rewards');
         } else if (userData.role === 'pending_teacher') {
@@ -69,7 +60,17 @@ export default function LoginPage() {
           router.push('/dashboard');
         }
       } else {
-         throw new Error("사용자 데이터가 존재하지 않습니다.");
+         // This could happen if the user was created in auth but not firestore
+         // For special accounts like admin, we can create the doc here
+         if (email === 'admin@jongdalsem.com') {
+             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
+             router.push('/admin');
+         } else if (email === 'studentcouncil@jongdalsem.com') {
+             await setDoc(userDocRef, { email, role: 'council', name: '학생회', displayName: '학생회' });
+             router.push('/council');
+         } else {
+            throw new Error("사용자 데이터가 존재하지 않습니다.");
+         }
       }
 
     } catch (error: any) {

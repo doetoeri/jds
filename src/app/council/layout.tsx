@@ -2,32 +2,28 @@
 
 import { useState, type ReactNode, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu } from 'lucide-react';
+import { Menu, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { AdminNav } from '@/components/admin-nav';
+import { CouncilNav } from '@/components/council-nav';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
+import { motion } from 'framer-motion';
 
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default function CouncilLayout({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const [user, loading] = useAuthState(auth);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
-
   useEffect(() => {
     const checkAuthorization = async () => {
-      if (loading) {
-        return;
-      }
-      
+      if (loading) return;
       if (!user) {
         toast({
           title: '로그인 필요',
@@ -37,20 +33,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         router.push('/login');
         return;
       }
-      
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-          setIsAuthorized(true);
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists() && userDocSnap.data().role === 'council') {
+        setIsAuthorized(true);
       } else {
         toast({
           title: '접근 권한 없음',
-          description: '관리자만 접근할 수 있는 페이지입니다.',
+          description: '학생회만 접근할 수 있는 페이지입니다.',
           variant: 'destructive',
         });
         router.push('/dashboard');
-        return;
       }
     };
     checkAuthorization();
@@ -69,11 +64,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <aside className="hidden border-r bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Logo isAdmin />
+            <Logo isCouncil />
           </div>
           <div className="flex-1">
             <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-              <AdminNav />
+              <CouncilNav />
             </nav>
           </div>
         </div>
@@ -93,9 +88,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </SheetHeader>
               <nav className="grid gap-2 text-lg font-medium">
                 <div className="mb-4">
-                  <Logo isAdmin />
+                  <Logo isCouncil />
                 </div>
-                <AdminNav />
+                <CouncilNav />
               </nav>
             </SheetContent>
           </Sheet>
@@ -103,10 +98,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <UserNav />
         </header>
         <motion.main 
-           className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent"
-           initial={{ opacity: 0, y: -10 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ type: "spring", stiffness: 100, damping: 10, duration: 0.3 }}
+          className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 100, damping: 10, duration: 0.3 }}
         >
           {children}
         </motion.main>

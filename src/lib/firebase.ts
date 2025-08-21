@@ -42,8 +42,8 @@ export const signUp = async (
   }
 
   try {
-    if (email === 'admin@jongdalsem.com') {
-        throw new Error("관리자 계정은 여기서 생성할 수 없습니다.");
+    if (email === 'admin@jongdalsem.com' || email === 'studentcouncil@jongdalsem.com') {
+        throw new Error("해당 이메일은 사용할 수 없습니다.");
     }
 
     if (userType === 'student') {
@@ -143,11 +143,6 @@ export const signIn = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Master admin account bypass
-    if (user.email === 'admin@jongdalsem.com') {
-        return user;
-    }
-
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
 
@@ -160,8 +155,15 @@ export const signIn = async (email: string, password: string) => {
     } else {
         // This case can happen if a user is created in Auth but their Firestore doc fails.
         // Or if they were deleted from Firestore but not Auth.
-        await signOut(auth);
-        throw new Error('사용자 데이터가 존재하지 않습니다. 관리자에게 문의하세요.');
+        // We create the doc on the fly for special accounts.
+        if (email === 'admin@jongdalsem.com') {
+             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
+        } else if (email === 'studentcouncil@jongdalsem.com') {
+             await setDoc(userDocRef, { email, role: 'council', name: '학생회', displayName: '학생회' });
+        } else {
+            await signOut(auth);
+            throw new Error('사용자 데이터가 존재하지 않습니다. 관리자에게 문의하세요.');
+        }
     }
 
     return userCredential.user;
@@ -207,20 +209,23 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
-    const codeData = codeDoc.data();
-
+    
     // 3. Check if used (re-fetch inside transaction for consistent read)
     const freshCodeDoc = await transaction.get(codeRef);
     const freshCodeData = freshCodeDoc.data();
-    if (freshCodeData?.used && freshCodeData.type !== '메이트코드') {
+    if (!freshCodeData) {
+        throw "코드를 찾을 수 없습니다.";
+    }
+    
+    if (freshCodeData.used && freshCodeData.type !== '메이트코드') {
       throw "이미 사용된 코드입니다.";
     }
 
 
     // 4. Handle different code types
-    switch (freshCodeData?.type) {
+    switch (freshCodeData.type) {
       case '히든코드':
-         if (freshCodeData.used) {
+        if (freshCodeData.used) {
           throw "이미 사용된 코드입니다.";
         }
         if (!partnerStudentId) {
@@ -339,9 +344,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
   });
 };
 
-export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number }[], totalCost: number) => {
+export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number, id: string }[], totalCost: number) => {
   return await runTransaction(db, async (transaction) => {
-    // 1. Get user data
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists()) {
@@ -349,17 +353,24 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     }
     const userData = userDoc.data();
 
-    // 2. Check if user has enough Lak
-    if (userData.lak < totalCost) {
-      throw new Error(`Lak이 부족합니다. 현재 보유 Lak: ${userData.lak}, 필요 Lak: ${totalCost}`);
+    if ((userData.lak || 0) < totalCost) {
+      throw new Error(`Lak이 부족합니다. 현재 보유 Lak: ${userData.lak || 0}, 필요 Lak: ${totalCost}`);
     }
 
-    // 3. Deduct Lak from user
-    transaction.update(userRef, { lak: userData.lak - totalCost });
+    // Check stock and deduct it
+    for (const item of cart) {
+        const productRef = doc(db, 'products', item.id);
+        const productDoc = await transaction.get(productRef);
+        if (!productDoc.exists() || productDoc.data().stock < item.quantity) {
+            throw new Error(`'${item.name}' 상품의 재고가 부족합니다.`);
+        }
+        transaction.update(productRef, { stock: increment(-item.quantity) });
+    }
+
+    transaction.update(userRef, { lak: increment(-totalCost) });
 
     const cartItemsDescription = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
 
-    // 4. Create a single transaction history for the purchase
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
       date: Timestamp.now(),
@@ -368,18 +379,18 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
       type: 'debit',
     });
 
-    // 5. Create a record in the global 'purchases' collection for admin viewing
     const purchaseRef = doc(collection(db, 'purchases'));
     transaction.set(purchaseRef, {
         userId: userId,
         studentId: userData.studentId,
-        items: cart, // Save the detailed cart
+        items: cart,
         totalCost: totalCost,
         createdAt: Timestamp.now(),
+        status: 'pending' // 'pending', 'completed'
     });
 
 
-    return { success: true, message: `총 ${totalCost} Lak으로 상품을 구매했습니다!` };
+    return { success: true, message: `총 ${totalCost} Lak으로 상품을 구매했습니다! 학생회에 알려 상품을 받아가세요.` };
   }).catch((error: any) => {
     console.error("Purchase error: ", error);
     return { success: false, message: error.message || "구매 중 오류가 발생했습니다." };
@@ -414,7 +425,7 @@ export const resetAllData = async () => {
             const userRef = userDoc.ref;
             const batch = writeBatch(db);
             // Reset lak to 0, but keep user data
-            if (userDoc.data().role !== 'admin') {
+            if (userDoc.data().role !== 'admin' && userDoc.data().role !== 'council') {
                 batch.update(userRef, { lak: 0 });
             }
             await batch.commit();
