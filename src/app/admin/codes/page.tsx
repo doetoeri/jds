@@ -39,7 +39,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toPng } from 'html-to-image';
 import { CouponTicket } from '@/components/coupon-ticket';
-import { Textarea } from '@/components/ui/textarea';
 
 
 interface Code {
@@ -72,7 +71,7 @@ export default function AdminCodesPage() {
 
   const [bulkCodeType, setBulkCodeType] = useState<Code['type'] | ''>('');
   const [bulkCodeValue, setBulkCodeValue] = useState('');
-  const [bulkCodeForStudentIds, setBulkCodeForStudentIds] = useState('');
+  const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
 
 
   const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number, type: Code['type']} | null>(null);
@@ -123,9 +122,9 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
       return;
     }
-    if (newCodeType === '히든코드' && !newCodeForStudentId) {
-      toast({ title: "입력 오류", description: "히든코드는 대상 학생 학번이 필요합니다.", variant: "destructive" });
-      return;
+    if (newCodeType === '히든코드' && newCodeForStudentId) {
+       console.warn("히든코드는 더 이상 특정 학생에게 할당되지 않습니다. '대상 학번' 입력은 무시됩니다.")
+       setNewCodeForStudentId(''); // Clear the field to avoid confusion
     }
 
 
@@ -155,13 +154,9 @@ export default function AdminCodesPage() {
             ...codeData,
             ownerUid: userDoc.id,
             ownerStudentId: newCodeOwnerStudentId,
+            participants: [newCodeOwnerStudentId]
         };
       }
-
-      if (newCodeType === '히든코드') {
-         codeData.forStudentId = newCodeForStudentId;
-      }
-
 
       await addDoc(collection(db, 'codes'), codeData);
 
@@ -184,20 +179,13 @@ export default function AdminCodesPage() {
 
   const handleBulkCreateCodes = async () => {
     const value = Number(bulkCodeValue);
-    const studentIds = bulkCodeForStudentIds.split(/[\s,]+/).filter(id => id.trim() !== '');
-    const quantity = studentIds.length;
+    const quantity = Number(bulkCodeQuantity);
 
-    if (!bulkCodeType || !value || value <= 0) {
-      toast({ title: "입력 오류", description: "유효한 코드 유형과 Lak 값을 입력해주세요.", variant: "destructive" });
+    if (!bulkCodeType || !value || value <= 0 || !quantity || quantity <= 0) {
+      toast({ title: "입력 오류", description: "유효한 코드 유형, Lak 값, 수량을 입력해주세요.", variant: "destructive" });
       return;
     }
-
-    if (bulkCodeType === '히든코드' && studentIds.length === 0) {
-       toast({ title: "입력 오류", description: "히든코드를 생성하려면 대상 학생 학번을 한 명 이상 입력해야 합니다.", variant: "destructive" });
-       return;
-    }
-
-
+    
     if (quantity > 500) {
         toast({ title: "입력 오류", description: "한 번에 500개 이상의 코드를 생성할 수 없습니다.", variant: "destructive" });
         return;
@@ -209,7 +197,7 @@ export default function AdminCodesPage() {
       const codesCollection = collection(db, 'codes');
       let lastGeneratedCode: string | null = null;
 
-      for (const studentId of studentIds) {
+      for (let i = 0; i < quantity; i++) {
         const newCodeRef = doc(codesCollection);
         const codeValue = generateRandomCode(6);
         lastGeneratedCode = codeValue;
@@ -223,10 +211,6 @@ export default function AdminCodesPage() {
           createdAt: Timestamp.now(),
         };
 
-        if (bulkCodeType === '히든코드') {
-           codeData.forStudentId = studentId;
-        }
-
         batch.set(newCodeRef, codeData);
       }
 
@@ -239,7 +223,7 @@ export default function AdminCodesPage() {
       }
 
       setBulkCodeValue('');
-      setBulkCodeForStudentIds('');
+      setBulkCodeQuantity('');
       setBulkCodeType('');
       setIsBulkCreateDialogOpen(false);
       fetchCodes();
@@ -290,7 +274,8 @@ export default function AdminCodesPage() {
 
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
-      const count = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
+      const participants = Array.isArray(code.usedBy) ? code.usedBy : [];
+      const count = participants.length;
       return <Badge variant={count > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{count}회 사용</Badge>;
     }
     return <Badge variant={code.used ? 'outline' : 'default'}>{code.used ? '사용됨' : '미사용'}</Badge>;
@@ -298,16 +283,17 @@ export default function AdminCodesPage() {
 
   const renderUsedBy = (code: Code) => {
     if (code.type === '메이트코드') {
-      return `소유자: ${code.ownerStudentId}`;
+        return `소유자: ${code.ownerStudentId}`;
     }
-    if (code.type === '히든코드' && code.used) {
-       return `${code.usedBy} -> ${code.forStudentId}`;
+    if (code.type === '히든코드' && code.used && Array.isArray(code.usedBy)) {
+        return code.usedBy.join(', ');
     }
     if (code.giftedTo) {
-      return `${code.usedBy} -> ${code.giftedTo}`;
+        return `${code.usedBy} -> ${code.giftedTo}`;
     }
-    return code.usedBy || 'N/A';
+    return Array.isArray(code.usedBy) ? code.usedBy.join(', ') : code.usedBy || 'N/A';
   }
+
 
   return (
     <>
@@ -346,26 +332,16 @@ export default function AdminCodesPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="종달코드">종달코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
+                        <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {bulkCodeType === '히든코드' && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="bulk-student-ids" className="text-right">
-                        대상 학번
-                      </Label>
-                       <Textarea
-                          id="bulk-student-ids"
-                          placeholder="학번을 쉼표, 공백, 또는 줄바꿈으로 구분하여 입력하세요. (예: 10101, 10102)"
-                          className="col-span-3"
-                          value={bulkCodeForStudentIds}
-                          onChange={(e) => setBulkCodeForStudentIds(e.target.value)}
-                          disabled={isCreating}
-                          rows={3}
-                        />
-                    </div>
-                  )}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="bulk-quantity" className="text-right">
+                      수량
+                    </Label>
+                    <Input id="bulk-quantity" type="number" placeholder="예: 50" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
+                  </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="bulk-lak-value" className="text-right">
                       Lak 값
@@ -421,7 +397,7 @@ export default function AdminCodesPage() {
                         <SelectItem value="종달코드">종달코드</SelectItem>
                         <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                         <SelectItem value="메이트코드">메이트코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드 (선물하기)</SelectItem>
+                        <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -438,21 +414,6 @@ export default function AdminCodesPage() {
                         onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
                         disabled={isCreating}
                         />
-                    </div>
-                  )}
-                  {newCodeType === '히든코드' && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="for-student-id" className="text-right">
-                        대상 학번
-                      </Label>
-                      <Input
-                        id="for-student-id"
-                        placeholder="선물받을 학생의 학번"
-                        className="col-span-3"
-                        value={newCodeForStudentId}
-                        onChange={(e) => setNewCodeForStudentId(e.target.value)}
-                        disabled={isCreating}
-                      />
                     </div>
                   )}
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -480,12 +441,12 @@ export default function AdminCodesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>코드</TableHead>
-                <TableHead>쿠폰</TableHead>
+                <TableHead className="hidden sm:table-cell">쿠폰</TableHead>
                 <TableHead>유형</TableHead>
                 <TableHead>Lak 값</TableHead>
                 <TableHead>상태</TableHead>
-                <TableHead>사용자/대상</TableHead>
-                <TableHead>생성일</TableHead>
+                <TableHead className="hidden sm:table-cell">사용자/대상</TableHead>
+                <TableHead className="hidden md:table-cell">생성일</TableHead>
                 <TableHead className="text-right">작업</TableHead>
               </TableRow>
             </TableHeader>
@@ -504,7 +465,7 @@ export default function AdminCodesPage() {
                 codes.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono font-medium">{c.code}</TableCell>
-                    <TableCell>
+                     <TableCell className="hidden sm:table-cell">
                       <Button variant="ghost" size="icon" onClick={() => handleShowCoupon(c)}>
                         <Ticket className="h-5 w-5" />
                       </Button>
@@ -512,8 +473,8 @@ export default function AdminCodesPage() {
                     <TableCell>{c.type}</TableCell>
                     <TableCell>{c.value} Lak</TableCell>
                     <TableCell>{renderStatus(c)}</TableCell>
-                    <TableCell>{renderUsedBy(c)}</TableCell>
-                     <TableCell>{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{renderUsedBy(c)}</TableCell>
+                     <TableCell className="hidden md:table-cell">{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                        <Button
                         size="icon"
@@ -572,3 +533,4 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
