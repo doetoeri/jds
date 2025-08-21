@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const [hasNewLetters, setHasNewLetters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
-  const [unusedJongdalCodeCount, setUnusedJongdalCodeCount] = useState<number | null>(null);
+  const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
 
 
   // Effect for user data (lak, mateCode)
@@ -113,19 +113,19 @@ export default function DashboardPage() {
     };
 }, [user]);
 
-  // Effect for counting unused Jongdal codes
+  // Effect for counting unused Hidden codes
     useEffect(() => {
         const q = query(
             collection(db, "codes"),
-            where("type", "==", "종달코드"),
+            where("type", "==", "히든코드"),
             where("used", "==", false)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setUnusedJongdalCodeCount(snapshot.size);
+            setUnusedHiddenCodeCount(snapshot.size);
         }, (error) => {
             console.error("Error fetching unused code count:", error);
-            setUnusedJongdalCodeCount(0);
+            setUnusedHiddenCodeCount(0);
         });
 
         return () => unsubscribe();
@@ -159,10 +159,10 @@ export default function DashboardPage() {
                 <Gift className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {unusedJongdalCodeCount === null ? (
+                {unusedHiddenCodeCount === null ? (
                     <Skeleton className="h-8 w-20" />
                 ) : (
-                    <div className="text-2xl font-bold">{unusedJongdalCodeCount} 개</div>
+                    <div className="text-2xl font-bold">{unusedHiddenCodeCount} 개</div>
                 )}
                 <p className="text-xs text-muted-foreground">
                     학교 어딘가에 숨겨진 코드를 찾아보세요!
@@ -171,8 +171,8 @@ export default function DashboardPage() {
         </Card>
         
         {hasNewLetters && (
-            <Link href="/dashboard/letters?tab=inbox" className="block animate-in fade-in slide-in-from-bottom-5 duration-500">
-                <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors animate-highlight-pulse">
+            <Link href="/dashboard/letters?tab=inbox" className="block">
+                <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors animate-in fade-in slide-in-from-bottom-5 duration-500 animate-highlight-pulse">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">새로운 소식</CardTitle>
                     <Mail className="h-4 w-4 text-primary" />

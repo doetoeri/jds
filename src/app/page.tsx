@@ -21,7 +21,7 @@ export default function LandingPage() {
   useEffect(() => {
     const q = query(
       collection(db, 'codes'),
-      where('type', '==', '종달코드'),
+      where('type', '==', '히든코드'),
       where('used', '==', false)
     );
 
@@ -80,7 +80,7 @@ export default function LandingPage() {
             <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm animate-highlight-pulse">
               <Gift className="h-5 w-5" />
               <span>
-                학교 곳곳에 숨겨진 종달새의 선물! 현재{' '}
+                학교 곳곳에 숨겨진 히든코드! 현재{' '}
                 <span className="font-bold text-base">{unusedCodeCount}</span>개의 코드가 남아있어요.
               </span>
             </div>
