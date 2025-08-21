@@ -314,11 +314,7 @@ export default function AdminCodesPage() {
             pixelRatio: 2,
             width: couponWidth,
             height: couponHeight,
-            // @ts-ignore
-            fetchRequestInit: {
-                mode: 'no-cors',
-                credentials: 'anonymous'
-            }
+            cacheBust: true
         });
 
         const img = new Image();
