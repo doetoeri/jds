@@ -155,7 +155,7 @@ export const signIn = async (email: string, password: string) => {
         // Or if they were deleted from Firestore but not Auth.
         // We create the doc on the fly for special accounts.
         if (email === 'admin@jongdalsem.com') {
-             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
+             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자', createdAt: Timestamp.now() });
         } else {
             await signOut(auth);
             throw new Error('사용자 데이터가 존재하지 않습니다. 관리자에게 문의하세요.');
@@ -491,6 +491,20 @@ export const updateUserRole = async (userId: string, newRole: 'student' | 'counc
   }
   
   await updateDoc(userRef, { role: newRole });
+};
+
+export const deleteUser = async (userId: string) => {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+        throw new Error("User does not exist in Firestore.");
+    }
+    if (userDoc.data().role === 'admin') {
+        throw new Error("Cannot delete an admin account through this action.");
+    }
+    // Note: This does NOT delete the Firebase Auth user.
+    // That must be done manually in the Firebase console for security.
+    await deleteDoc(userRef);
 };
 
 

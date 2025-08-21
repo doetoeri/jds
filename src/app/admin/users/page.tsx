@@ -15,23 +15,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2 } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  AlertDialogClose,
+  AlertDialogAction,
+  AlertDialogCancel
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +56,8 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [newRole, setNewRole] = useState<'student' | 'council' | ''>('');
@@ -96,6 +100,12 @@ export default function AdminUsersPage() {
     setNewRole('');
     setIsRoleDialogOpen(true);
   };
+  
+  const openDeleteDialog = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+
 
   const handleAdjustLak = async () => {
     if (!selectedUser || !adjustmentAmount || !adjustmentReason) {
@@ -143,6 +153,24 @@ export default function AdminUsersPage() {
          toast({ title: "오류", description: error.message || '역할 변경 중 오류가 발생했습니다.', variant: "destructive" });
     } finally {
         setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    
+    setIsProcessing(true);
+    try {
+      await deleteUser(selectedUser.id);
+      toast({
+        title: "사용자 삭제 완료",
+        description: `${renderIdentifier(selectedUser)}님의 Firestore 데이터가 삭제되었습니다. Firebase 콘솔에서 인증 정보를 마저 삭제해주세요.`
+      });
+      setIsDeleteDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "오류", description: error.message || "사용자 삭제 중 오류가 발생했습니다.", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -200,14 +228,18 @@ export default function AdminUsersPage() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
                     <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} Lak</TableCell>
-                    <TableCell className="text-right space-x-2">
+                    <TableCell className="text-right space-x-1">
                        <Button variant="outline" size="sm" onClick={() => openAdjustDialog(user)} disabled={user.role === 'admin'}>
                          <Coins className="mr-1 h-3.5 w-3.5"/>
-                         Lak 조정
+                         Lak
                        </Button>
                        <Button variant="outline" size="sm" onClick={() => openRoleDialog(user)} disabled={user.role === 'admin'}>
                          <UserCog className="mr-1 h-3.5 w-3.5"/>
-                         역할 변경
+                         역할
+                       </Button>
+                       <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(user)} disabled={user.role === 'admin'}>
+                           <Trash2 className="h-4 w-4" />
+                           <span className="sr-only">Delete User</span>
                        </Button>
                     </TableCell>
                   </TableRow>
@@ -218,6 +250,7 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
+      {/* Lak Adjust Dialog */}
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -267,6 +300,7 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
       
+      {/* Role Change Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -302,6 +336,33 @@ export default function AdminUsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete User Dialog */}
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>정말로 이 사용자를 삭제하시겠습니까?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이 작업은 <strong className="text-destructive">되돌릴 수 없습니다.</strong> 
+                  사용자의 Firestore 데이터(Lak, 프로필, 거래내역 등)가 영구적으로 삭제됩니다.
+                  <br/><br/>
+                  <strong className="text-destructive uppercase">중요:</strong> 이 작업은 데이터베이스 기록만 삭제합니다. 
+                  사용자를 완전히 제거하려면, 작업 완료 후 Firebase 콘솔의 'Authentication' 탭에서 해당 사용자의 이메일을 수동으로 삭제해야 합니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isProcessing}>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive hover:bg-destructive/90"
+                  onClick={handleDeleteUser}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  네, 사용자를 삭제합니다
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
