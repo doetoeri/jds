@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -66,66 +66,67 @@ export default function LettersView() {
   }, [initialReceiver]);
 
 
-  useEffect(() => {
-    const fetchAndProcessLetters = async () => {
-      if (user) {
-        setIsInboxLoading(true);
-        try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDocSnap = await getDoc(userDocRef);
+  const fetchAndProcessLetters = useCallback(async () => {
+    if (user) {
+      setIsInboxLoading(true);
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
 
-          if (!userDocSnap.exists()) {
-              throw new Error("User data not found.");
-          }
-          const userData = userDocSnap.data();
-          const currentUserStudentId = userData.studentId;
-
-          // 1. Fetch letters with a simple query
-          const q = query(
-            collection(db, 'letters'),
-            where('receiverStudentId', '==', currentUserStudentId),
-            where('status', '==', 'approved')
-          );
-          const querySnapshot = await getDocs(q);
-          const letters = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as ReceivedLetter[];
-          
-          // 2. Sort letters by approvedAt descending on the client-side
-          letters.sort((a, b) => {
-            const dateA = a.approvedAt?.toMillis() || 0;
-            const dateB = b.approvedAt?.toMillis() || 0;
-            return dateB - dateA;
-          });
-
-          setReceivedLetters(letters);
-
-          // 3. Update last check timestamp after fetching
-          await updateDoc(userDocRef, {
-            lastLetterCheckTimestamp: Timestamp.now()
-          });
-          
-        } catch (error) {
-          console.error('Error fetching/processing received letters:', error);
-          toast({
-            title: '오류',
-            description: '받은 편지를 불러오는 데 실패했습니다.',
-            variant: 'destructive',
-          });
-        } finally {
-          setIsInboxLoading(false);
+        if (!userDocSnap.exists()) {
+            throw new Error("User data not found.");
         }
+        const userData = userDocSnap.data();
+        const currentUserStudentId = userData.studentId;
+
+        // 1. Fetch letters without ordering on the server
+        const q = query(
+          collection(db, 'letters'),
+          where('receiverStudentId', '==', currentUserStudentId),
+          where('status', '==', 'approved')
+        );
+        const querySnapshot = await getDocs(q);
+        const letters = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as ReceivedLetter[];
+        
+        // 2. Sort letters by approvedAt descending on the client-side
+        letters.sort((a, b) => {
+          const dateA = a.approvedAt?.toMillis() || 0;
+          const dateB = b.approvedAt?.toMillis() || 0;
+          return dateB - dateA;
+        });
+
+        setReceivedLetters(letters);
+
+        // 3. Update last check timestamp after fetching
+        await updateDoc(userDocRef, {
+          lastLetterCheckTimestamp: Timestamp.now()
+        });
+        
+      } catch (error) {
+        console.error('Error fetching/processing received letters:', error);
+        toast({
+          title: '오류',
+          description: '받은 편지를 불러오는 데 실패했습니다.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsInboxLoading(false);
       }
-    };
-    
-    // Only fetch letters when the inbox tab is active
+    }
+  }, [user, toast]);
+
+
+  useEffect(() => {
+    // Only fetch letters when the component mounts and the inbox tab is active
     if (initialTab === 'inbox') {
       fetchAndProcessLetters();
     } else {
       setIsInboxLoading(false);
     }
-  }, [user, toast, initialTab]);
+  }, [initialTab, fetchAndProcessLetters]);
 
   const handleSendLetter = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,19 +197,7 @@ export default function LettersView() {
   // This function is called when the user clicks on the inbox tab.
   const handleTabChange = (value: string) => {
       if (value === 'inbox') {
-          const updateTimestamp = async () => {
-              if (user) {
-                  try {
-                    const userDocRef = doc(db, 'users', user.uid);
-                    await updateDoc(userDocRef, {
-                        lastLetterCheckTimestamp: Timestamp.now()
-                    });
-                  } catch (error) {
-                    console.error("Failed to update lastLetterCheckTimestamp", error)
-                  }
-              }
-          };
-          updateTimestamp();
+          fetchAndProcessLetters();
       }
   }
 
