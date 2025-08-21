@@ -77,14 +77,12 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) return;
 
-        let unsubUser: () => void = () => {};
-        let unsubFriends: () => void = () => {};
-        let unsubLetters: () => void = () => {};
-
         const userDocRef = doc(db, 'users', user.uid);
-
-        unsubUser = onSnapshot(userDocRef, (userDocSnap) => {
-            if (!userDocSnap.exists()) return;
+        const unsubscribe = onSnapshot(userDocRef, async (userDocSnap) => {
+            if (!userDocSnap.exists()) {
+                setNewUpdate(null);
+                return;
+            }
 
             const userData = userDocSnap.data();
             const studentId = userData.studentId;
@@ -94,14 +92,15 @@ export default function DashboardPage() {
             const friendsQuery = query(
                 collection(db, 'codes'),
                 where('type', '==', '메이트코드'),
-                where('participants', 'array-contains', studentId)
+                where('participants', 'array-contains', studentId),
+                where('lastUsedAt', '>', lastCheckTimestamp)
             );
             
-            unsubFriends = onSnapshot(friendsQuery, (friendsSnapshot) => {
+            const friendsSnapshot = await getDocs(friendsQuery);
+            if (!friendsSnapshot.empty) {
                 const newFriendActivities = friendsSnapshot.docs.filter(doc => (doc.data().lastUsedAt.seconds > lastCheckTimestamp.seconds));
-                
                 if (newFriendActivities.length > 0) {
-                    setNewUpdate({
+                     setNewUpdate({
                         type: 'friend',
                         message: '새로운 친구가 생겼어요!',
                         link: '/dashboard/friends',
@@ -109,36 +108,34 @@ export default function DashboardPage() {
                     });
                     return; // New friend found, stop checking for other updates
                 }
-
-                // 2. If no new friends, check for new letters
-                const lettersQuery = query(
-                    collection(db, 'letters'),
-                    where('receiverStudentId', '==', studentId),
-                    where('status', '==', 'approved'),
-                    where('approvedAt', '>', lastCheckTimestamp)
-                );
-
-                unsubLetters = onSnapshot(lettersQuery, (lettersSnapshot) => {
-                    if (!lettersSnapshot.empty) {
-                        setNewUpdate({
-                            type: 'letter',
-                            message: '새로운 편지가 도착했어요!',
-                            link: '/dashboard/letters?tab=inbox',
-                            icon: Mail
-                        });
-                    } else {
-                        // No new friends or letters
-                        setNewUpdate(null);
-                    }
-                });
+            }
+            
+            // 2. If no new friends, check for new letters
+            const lettersQuery = query(
+                collection(db, 'letters'),
+                where('receiverStudentId', '==', studentId),
+                where('status', '==', 'approved')
+            );
+            
+            const lettersSnapshot = await getDocs(lettersQuery);
+            const newLetters = lettersSnapshot.docs.filter(doc => {
+                 const approvedAt = doc.data().approvedAt as Timestamp;
+                 return approvedAt && approvedAt.toMillis() > lastCheckTimestamp.toMillis();
             });
+
+            if (newLetters.length > 0) {
+                setNewUpdate({
+                    type: 'letter',
+                    message: '새로운 편지가 도착했어요!',
+                    link: '/dashboard/letters?tab=inbox',
+                    icon: Mail
+                });
+            } else {
+                setNewUpdate(null);
+            }
         });
 
-        return () => {
-            unsubUser();
-            unsubFriends();
-            unsubLetters();
-        };
+        return () => unsubscribe();
     }, [user]);
 
 
