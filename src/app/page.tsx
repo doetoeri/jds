@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRef, useEffect, useCallback, useState } from 'react';
@@ -268,7 +269,7 @@ export default function LandingPage() {
           {unusedCodeCount === null ? (
             <Skeleton className="h-10 w-64 rounded-lg" />
           ) : (
-            <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm">
+            <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm animate-highlight-pulse">
               <Gift className="h-5 w-5" />
               <span>
                 찾아보세요! 학교에 숨겨진 종달새의 선물{' '}
