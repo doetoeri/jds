@@ -27,6 +27,8 @@ export default function RootLayout({
         </style>
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
         <meta name="theme-color" content="#FF781F" />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8017235617839629"
+     crossorigin="anonymous"></script>
       </head>
       <body className="font-body antialiased">
         <Script async src="https://www.googletagmanager.com/gtag/js?id=G-0B6DFH42ML"></Script>
