@@ -245,35 +245,10 @@ export default function AdminUsersPage() {
                          <UserCog className="mr-1 h-3.5 w-3.5"/>
                          역할
                        </Button>
-                       <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                             <Button variant="destructive" size="icon" disabled={user.role === 'admin'}>
-                               <Trash2 className="h-4 w-4" />
-                               <span className="sr-only">Delete User</span>
-                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>정말로 이 사용자를 삭제하시겠습니까?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                이 작업은 <strong className="text-destructive">되돌릴 수 없습니다.</strong> 
-                                사용자의 Firestore 데이터(Lak, 프로필, 거래내역 등)가 영구적으로 삭제됩니다.
-                                <br/><br/>
-                                <strong className="text-destructive uppercase">중요:</strong> 이 작업은 데이터베이스 기록만 삭제합니다. 
-                                사용자를 완전히 제거하려면, 작업 완료 후 Firebase 콘솔의 'Authentication' 탭에서 해당 사용자의 이메일을 수동으로 삭제해야 합니다.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>취소</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive hover:bg-destructive/90"
-                                onClick={() => handleDeleteUser()}
-                              >
-                                네, 사용자를 삭제합니다
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                       </AlertDialog>
+                       <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(user)} disabled={user.role === 'admin'}>
+                         <Trash2 className="h-4 w-4" />
+                         <span className="sr-only">Delete User</span>
+                       </Button>
                     </TableCell>
                   </TableRow>
                 ))
