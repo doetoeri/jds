@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -39,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toPng } from 'html-to-image';
 import { CouponTicket } from '@/components/coupon-ticket';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 interface Code {
@@ -70,9 +70,13 @@ export default function AdminCodesPage() {
   const [bulkCodeValue, setBulkCodeValue] = useState('');
   const [bulkCodeQuantity, setBulkCodeQuantity] = useState('');
 
+  const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+  const [isDownloading, setIsDownloading] = useState(false);
+
 
   const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number, type: Code['type']} | null>(null);
   const couponRef = useRef<HTMLDivElement>(null);
+  const a4ContainerRef = useRef<HTMLDivElement>(null);
 
 
   const { toast } = useToast();
@@ -263,6 +267,73 @@ export default function AdminCodesPage() {
       });
   }, [generatedCouponInfo, toast]);
 
+  const handleDownloadSelected = async () => {
+    if (selectedCodes.length === 0) {
+      toast({ title: "오류", description: "다운로드할 코드를 선택해주세요.", variant: "destructive" });
+      return;
+    }
+    setIsDownloading(true);
+
+    try {
+      const a4Width = 210 * 4; // mm to pixels (approx)
+      const a4Height = 297 * 4;
+      const canvas = document.createElement('canvas');
+      canvas.width = a4Width;
+      canvas.height = a4Height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error("Canvas context not available");
+
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, a4Width, a4Height);
+      
+      const codesToRender = codes.filter(c => selectedCodes.includes(c.id));
+      const couponWidth = 300; 
+      const couponHeight = 480;
+      const scale = (a4Width / 2) / couponWidth;
+      const scaledWidth = couponWidth * scale;
+      const scaledHeight = couponHeight * scale;
+
+      for (let i = 0; i < codesToRender.length; i++) {
+        if (i >= 8) break; // Limit to 8 coupons per A4 page
+
+        const code = codesToRender[i];
+        const couponNode = document.getElementById(`coupon-render-${code.id}`);
+        if (!couponNode) continue;
+
+        const dataUrl = await toPng(couponNode, { pixelRatio: 2 });
+        const img = new Image();
+        
+        await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+                const row = Math.floor(i / 2);
+                const col = i % 2;
+                const x = col * scaledWidth;
+                const y = row * scaledHeight;
+                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                resolve();
+            };
+            img.onerror = reject;
+            img.src = dataUrl;
+        });
+      }
+      
+      const finalImage = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.download = 'A4_Coupons.png';
+      link.href = finalImage;
+      link.click();
+      
+      setSelectedCodes([]);
+
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "이미지 생성 오류", description: err.message || "쿠폰 이미지 생성에 실패했습니다.", variant: "destructive" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
       const participants = Array.isArray(code.usedBy) ? code.usedBy : [];
@@ -282,6 +353,15 @@ export default function AdminCodesPage() {
     return Array.isArray(code.usedBy) ? code.usedBy.join(', ') : code.usedBy || 'N/A';
   }
 
+  const handleSelectCode = (codeId: string, checked: boolean) => {
+    setSelectedCodes(prev => 
+      checked ? [...prev, codeId] : prev.filter(id => id !== codeId)
+    );
+  };
+  
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedCodes(checked ? codes.map(c => c.id) : []);
+  }
 
   return (
     <>
@@ -292,6 +372,12 @@ export default function AdminCodesPage() {
             <CardDescription>발급된 모든 코드를 관리합니다.</CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={handleDownloadSelected} disabled={isDownloading || selectedCodes.length === 0}>
+                {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    선택 항목 다운로드
+                </span>
+            </Button>
             {/* Bulk Create Dialog */}
             <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -428,6 +514,13 @@ export default function AdminCodesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox 
+                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                    checked={selectedCodes.length === codes.length && codes.length > 0}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead>코드</TableHead>
                 <TableHead className="hidden sm:table-cell">쿠폰</TableHead>
                 <TableHead>유형</TableHead>
@@ -442,16 +535,23 @@ export default function AdminCodesPage() {
                {isLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={8}><Skeleton className="h-8 w-full" /></TableCell>
+                    <TableCell colSpan={9}><Skeleton className="h-8 w-full" /></TableCell>
                   </TableRow>
                 ))
               ) : codes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">생성된 코드가 없습니다.</TableCell>
+                  <TableCell colSpan={9} className="text-center">생성된 코드가 없습니다.</TableCell>
                 </TableRow>
               ) : (
                 codes.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} data-state={selectedCodes.includes(c.id) && "selected"}>
+                    <TableCell>
+                      <Checkbox
+                        onCheckedChange={(checked) => handleSelectCode(c.id, checked as boolean)}
+                        checked={selectedCodes.includes(c.id)}
+                        aria-label={`Select code ${c.code}`}
+                       />
+                    </TableCell>
                     <TableCell className="font-mono font-medium">{c.code}</TableCell>
                      <TableCell className="hidden sm:table-cell">
                       <Button variant="ghost" size="icon" onClick={() => handleShowCoupon(c)}>
@@ -518,7 +618,18 @@ export default function AdminCodesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Hidden container for rendering coupons for A4 download */}
+      <div ref={a4ContainerRef} className="absolute -left-[9999px] top-0">
+          {codes
+            .filter(c => selectedCodes.includes(c.id))
+            .slice(0, 8)
+            .map(c => (
+              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`}>
+                <CouponTicket code={c.code} value={c.value} type={c.type} />
+              </div>
+          ))}
+      </div>
     </>
   );
 }
-

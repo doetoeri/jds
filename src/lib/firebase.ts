@@ -96,7 +96,6 @@ export const signUp = async (
                 value: 1,
                 ownerUid: user.uid,
                 ownerStudentId: studentId,
-                usedBy: [], // Now deprecated in favor of participants
                 participants: [studentId], // Start with the owner
                 createdAt: Timestamp.now(),
                 lastUsedAt: Timestamp.now(),
