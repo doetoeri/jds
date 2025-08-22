@@ -84,7 +84,7 @@ export default function LoginPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
     >
-      <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md bg-gradient-to-b from-white to-orange-50">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-headline text-primary">로그인</CardTitle>
           <CardDescription>

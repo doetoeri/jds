@@ -102,7 +102,7 @@ export default function SignupPage() {
   const progressValue = (step / 3) * 100;
 
   return (
-    <Card className="w-full max-w-md overflow-hidden bg-card/80 backdrop-blur-sm">
+    <Card className="w-full max-w-md overflow-hidden bg-gradient-to-b from-white to-orange-50">
       <CardHeader>
         <Progress value={progressValue} className="w-full h-2 mb-4" />
         <CardTitle className="text-2xl font-headline text-primary text-center">회원가입</CardTitle>
