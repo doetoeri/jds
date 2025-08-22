@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from "react";
@@ -6,16 +7,11 @@ import { ParticleBackground } from '@/components/particle-background';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-transparent isolate">
+    <div className="relative min-h-screen w-full overflow-hidden bg-transparent isolate flex items-center justify-center p-4">
       <ParticleBackground />
-      <motion.main 
-        className="relative z-10 flex min-h-screen w-full items-center justify-center bg-transparent p-4"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 100, damping: 10, duration: 0.3 }}
-      >
+      <div className="relative z-10 w-full max-w-md">
         {children}
-      </motion.main>
+      </div>
     </div>
   );
 }
