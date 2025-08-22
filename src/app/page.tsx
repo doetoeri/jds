@@ -40,7 +40,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-orange-50 via-white to-blue-50 isolate">
+    <main className="relative min-h-screen w-full overflow-hidden isolate">
       
       <motion.div 
         className="relative z-10 flex min-h-screen flex-col items-center justify-center text-center p-4 font-batang"
