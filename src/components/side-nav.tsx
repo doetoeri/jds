@@ -96,14 +96,14 @@ export function SideNav({ role }: { role: Role }) {
   return (
     <TooltipProvider>
       <motion.aside
-        className="fixed left-0 top-0 h-full z-40 flex flex-col justify-between py-4 pl-3 pr-2 border-r bg-background/80 backdrop-blur-sm"
+        className="fixed left-0 top-0 h-full z-40 flex flex-col py-4 pl-3 pr-2 border-r bg-background/80 backdrop-blur-sm"
         initial={{ width: 56 }}
         animate={{ width: isExpanded ? 220 : 56 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         onHoverStart={() => setIsExpanded(true)}
         onHoverEnd={() => setIsExpanded(false)}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 my-auto">
             {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} isExpanded={isExpanded}/>
             ))}
