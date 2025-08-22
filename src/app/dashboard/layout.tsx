@@ -13,7 +13,6 @@ import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
-import { ParticleBackground } from '@/components/particle-background';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -69,9 +68,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-[-1]">
-        <ParticleBackground />
-      </div>
       <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
         <aside className="hidden border-r bg-muted/40 md:block">
           <div className="flex h-full max-h-screen flex-col gap-2">
