@@ -25,6 +25,17 @@ import { Progress } from '@/components/ui/progress';
 type UserType = 'student' | 'teacher';
 type Step = 1 | 2 | 3;
 
+const FADE_IN_VARIANTS = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' } },
+};
+
+const formVariants = {
+    hidden: { opacity: 0, x: 50 },
+    visible: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -50 },
+};
+
 export default function SignupPage() {
   const [step, setStep] = useState<Step>(1);
   const [userType, setUserType] = useState<UserType | null>(null);
@@ -92,133 +103,146 @@ export default function SignupPage() {
        setIsLoading(false);
     }
   };
-
-  const formVariants = {
-    hidden: { opacity: 0, x: 300 },
-    visible: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -300 },
-  };
   
   const progressValue = (step / 3) * 100;
 
   return (
-    <Card className="w-full max-w-md overflow-hidden bg-gradient-to-b from-white to-orange-50">
-      <CardHeader>
-        <Progress value={progressValue} className="w-full h-2 mb-4" />
-        <CardTitle className="text-2xl font-headline text-primary text-center">회원가입</CardTitle>
-        <CardDescription className="text-center">
-          {step === 1 && "가입 유형을 선택해주세요."}
-          {step === 2 && "기본 정보를 입력해주세요."}
-          {step === 3 && "로그인에 사용할 계정 정보를 생성합니다."}
-        </CardDescription>
-      </CardHeader>
-      
-      <div className="relative h-[380px]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            variants={formVariants}
+    <Card className="bg-transparent border-none shadow-none">
+        <motion.div
             initial="hidden"
-            animate="visible"
-            exit="exit"
-            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.4 }}
-            className="absolute w-full"
-          >
-            {step === 1 && (
-              <CardContent className="space-y-4">
-                <Button variant="outline" className="w-full h-24 text-lg flex flex-col" onClick={() => handleUserTypeSelect('student')}>
-                  <User className="h-8 w-8 mb-2"/>
-                  학생
-                </Button>
-                <Button variant="outline" className="w-full h-24 text-lg flex flex-col" onClick={() => handleUserTypeSelect('teacher')}>
-                  <Briefcase className="h-8 w-8 mb-2"/>
-                  교직원
-                </Button>
-              </CardContent>
-            )}
-
-            {step === 2 && (
-              <CardContent className="space-y-4">
-                {userType === 'student' ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="studentId">학번 (5자리)</Label>
-                    <Input id="studentId" placeholder="예: 10203 (1학년 2반 3번)" required value={studentId} onChange={(e) => setStudentId(e.target.value)} />
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="teacherName">성함</Label>
-                      <Input id="teacherName" placeholder="예: 홍길동" required value={teacherName} onChange={(e) => setTeacherName(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="officeFloor">교무실 층수</Label>
-                      <Input id="officeFloor" placeholder="예: 2층" required value={officeFloor} onChange={(e) => setOfficeFloor(e.target.value)} />
-                    </div>
-                  </>
-                )}
-                 <CardFooter className="px-0 pt-6 flex justify-between">
-                    <Button type="button" variant="ghost" onClick={prevStep}>
-                      <ArrowLeft className="mr-2"/> 이전
-                    </Button>
-                    <Button type="button" onClick={nextStep}>
-                      다음 <ArrowRight className="ml-2"/>
-                    </Button>
-                </CardFooter>
-              </CardContent>
-            )}
-
-            {step === 3 && (
-              <form onSubmit={handleSignup}>
+            animate="show"
+            viewport={{ once: true }}
+             variants={{
+                hidden: {},
+                show: {
+                    transition: {
+                    staggerChildren: 0.15,
+                    },
+                },
+            }}
+        >
+        <CardHeader className="text-center">
+            <motion.div variants={FADE_IN_VARIANTS}>
+            <Progress value={progressValue} className="w-full h-1.5 mb-4" />
+            <CardTitle className="text-4xl font-headline font-bold text-primary tracking-tighter">회원가입</CardTitle>
+            </motion.div>
+            <motion.div variants={FADE_IN_VARIANTS}>
+            <CardDescription className="text-lg text-muted-foreground mt-2">
+            {step === 1 && "가입 유형을 선택해주세요."}
+            {step === 2 && "기본 정보를 입력해주세요."}
+            {step === 3 && "마지막 단계입니다. 계정을 생성하세요."}
+            </CardDescription>
+            </motion.div>
+        </CardHeader>
+        
+        <div className="relative min-h-[380px] mt-4">
+            <AnimatePresence mode="wait">
+            <motion.div
+                key={step}
+                variants={formVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ type: 'tween', ease: 'easeInOut', duration: 0.4 }}
+                className="absolute w-full"
+            >
+                {step === 1 && (
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">이메일</Label>
-                    <Input id="email" type="email" autoComplete="email" placeholder="hello@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">비밀번호</Label>
-                    <Input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">비밀번호 확인</Label>
-                    <Input id="confirm-password" type="password" autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} />
-                  </div>
+                    <Button variant="outline" className="w-full h-28 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => handleUserTypeSelect('student')}>
+                        <User className="h-10 w-10 text-primary"/>
+                        학생
+                    </Button>
+                    <Button variant="outline" className="w-full h-28 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => handleUserTypeSelect('teacher')}>
+                        <Briefcase className="h-10 w-10 text-primary"/>
+                        교직원
+                    </Button>
                 </CardContent>
-                 <CardFooter className="flex-col gap-4">
-                    <div className="w-full flex justify-between">
-                      <Button type="button" variant="ghost" onClick={prevStep} disabled={isLoading}>
-                         <ArrowLeft className="mr-2"/> 이전
-                      </Button>
-                      <Button type="submit" className="font-bold" disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        <KeyRound className="mr-2"/>
-                        회원가입
-                      </Button>
+                )}
+
+                {step === 2 && (
+                <CardContent className="space-y-4">
+                    {userType === 'student' ? (
+                    <div className="space-y-2">
+                        <Label htmlFor="studentId">학번 (5자리)</Label>
+                        <Input id="studentId" placeholder="예: 10203 (1학년 2반 3번)" required value={studentId} onChange={(e) => setStudentId(e.target.value)} className="h-12 text-base" />
                     </div>
-                  </CardFooter>
-              </form>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+                    ) : (
+                    <>
+                        <div className="space-y-2">
+                        <Label htmlFor="teacherName">성함</Label>
+                        <Input id="teacherName" placeholder="예: 홍길동" required value={teacherName} onChange={(e) => setTeacherName(e.target.value)} className="h-12 text-base" />
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="officeFloor">교무실 층수</Label>
+                        <Input id="officeFloor" placeholder="예: 2층" required value={officeFloor} onChange={(e) => setOfficeFloor(e.target.value)} className="h-12 text-base" />
+                        </div>
+                    </>
+                    )}
+                    <CardFooter className="px-0 pt-6 flex justify-between">
+                        <Button type="button" variant="ghost" onClick={prevStep}>
+                        <ArrowLeft className="mr-2"/> 이전
+                        </Button>
+                        <Button type="button" onClick={nextStep}>
+                        다음 <ArrowRight className="ml-2"/>
+                        </Button>
+                    </CardFooter>
+                </CardContent>
+                )}
 
-       <div className="px-6 pb-6 text-center text-sm">
-        {step === 3 ? (
-            <Alert variant="destructive" className="mt-4 text-xs">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                계정 도용이 의심되는 경우, 즉시 <a href="mailto:doe0kim@gmail.com" className="underline">doe0kim@gmail.com</a> 또는 <a href="tel:010-4838-8264" className="underline">010-4838-8264</a>로 신고해주세요.
-              </AlertDescription>
-            </Alert>
-        ) : (
-            <>
-              이미 계정이 있으신가요?{' '}
-              <Link href="/login" className={`font-semibold text-primary underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
-                로그인
-              </Link>
-            </>
-        )}
-      </div>
+                {step === 3 && (
+                <form onSubmit={handleSignup}>
+                    <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="email">이메일</Label>
+                        <Input id="email" type="email" autoComplete="email" placeholder="hello@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} className="h-12 text-base" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="password">비밀번호</Label>
+                        <Input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} className="h-12 text-base" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="confirm-password">비밀번호 확인</Label>
+                        <Input id="confirm-password" type="password" autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} className="h-12 text-base"/>
+                    </div>
+                    </CardContent>
+                    <CardFooter className="flex-col gap-4">
+                        <div className="w-full flex justify-between">
+                        <Button type="button" variant="ghost" onClick={prevStep} disabled={isLoading}>
+                            <ArrowLeft className="mr-2"/> 이전
+                        </Button>
+                        <Button type="submit" className="font-bold" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <KeyRound className="mr-2"/>
+                            회원가입
+                        </Button>
+                        </div>
+                    </CardFooter>
+                </form>
+                )}
+            </motion.div>
+            </AnimatePresence>
+        </div>
 
+        <CardFooter className="flex-col gap-4 pt-4">
+            <motion.div variants={FADE_IN_VARIANTS}>
+                {step === 3 ? (
+                    <Alert variant="destructive" className="mt-4 text-xs bg-background/50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                        계정 도용이 의심되는 경우, 즉시 <a href="mailto:doe0kim@gmail.com" className="underline">doe0kim@gmail.com</a> 또는 <a href="tel:010-4838-8264" className="underline">010-4838-8264</a>로 신고해주세요.
+                    </AlertDescription>
+                    </Alert>
+                ) : (
+                    <div className="text-center text-sm text-muted-foreground">
+                        이미 계정이 있으신가요?{' '}
+                        <Link href="/login" className={`font-semibold text-primary underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
+                            로그인
+                        </Link>
+                    </div>
+                )}
+            </motion.div>
+        </CardFooter>
+      </motion.div>
     </Card>
   );
 }

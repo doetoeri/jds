@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,7 +9,6 @@ import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ParticleBackground } from '@/components/particle-background';
 
 export default function LandingPage() {
   const [unusedCodeCount, setUnusedCodeCount] = useState<number | null>(null);
@@ -40,9 +40,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-transparent isolate">
-      
-      <ParticleBackground />
+    <main className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-orange-50 via-white to-blue-50 isolate">
       
       <motion.div 
         className="relative z-10 flex min-h-screen flex-col items-center justify-center text-center p-4 font-batang"
@@ -77,7 +75,7 @@ export default function LandingPage() {
           {unusedCodeCount === null ? (
             <Skeleton className="h-10 w-64 rounded-lg" />
           ) : (
-            <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm animate-highlight-pulse">
+            <div className="flex items-center justify-center gap-3 rounded-full border border-primary/20 bg-white/50 px-4 py-2 text-sm font-semibold text-primary backdrop-blur-sm animate-highlight-pulse">
               <Gift className="h-5 w-5" />
               <span>
                 학교 곳곳에 숨겨진 히든코드! 현재{' '}
