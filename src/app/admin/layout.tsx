@@ -11,7 +11,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import { FloatingNav } from '@/components/floating-nav';
+import { SideNav } from '@/components/side-nav';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -62,10 +62,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen w-full">
-      <FloatingNav role="admin" />
-      <div className="flex flex-col">
-         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+     <div className="min-h-screen w-full">
+      <SideNav role="admin" />
+      <div className="flex flex-col pl-14">
+         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <Logo isAdmin />
           <div className="w-full flex-1" />
           <UserNav />
