@@ -73,7 +73,7 @@ const NavLink = ({ link, pathname, isExpanded }: { link: (typeof studentLinks)[0
             <motion.span
               animate={{ opacity: isExpanded ? 1 : 0, width: isExpanded ? 'auto' : 0, marginLeft: isExpanded ? '0.75rem' : 0 }}
               transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden font-medium"
+              className="overflow-hidden font-medium whitespace-nowrap"
             >
               {link.name}
             </motion.span>
@@ -96,63 +96,63 @@ export function SideNav({ role }: { role: Role }) {
   return (
     <TooltipProvider>
       <motion.aside
-        className="fixed left-0 top-0 h-full z-40 flex flex-col justify-between py-4 pl-3 pr-2 border-r bg-background/80 backdrop-blur-sm"
-        initial={{ width: 56 }}
-        animate={{ width: isExpanded ? 220 : 56 }}
+        className="fixed left-0 top-0 h-full z-40 flex flex-col border-r bg-background/80 backdrop-blur-sm"
+        initial={{ x: '-100%' }}
+        animate={{ x: isExpanded ? 0 : 'calc(-100% + 40px)' }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
-        <div className="flex flex-col gap-2 my-auto">
-            {links.map((link) => (
-                <NavLink key={link.href} link={link} pathname={pathname} isExpanded={isExpanded}/>
-            ))}
-        </div>
+        <div className="flex flex-col h-full p-3 w-56">
+            <div className="flex-grow flex flex-col gap-2 my-auto">
+                {links.map((link) => (
+                    <NavLink key={link.href} link={link} pathname={pathname} isExpanded={true}/>
+                ))}
+            </div>
 
-        <div className="flex flex-col gap-2">
-           {settingsLink && (
-             <>
-                <Separator />
-                <NavLink link={settingsLink} pathname={pathname} isExpanded={isExpanded}/>
-             </>
-           )}
+            <div className="flex flex-col gap-2">
+               {settingsLink && (
+                 <>
+                    <Separator />
+                    <NavLink link={settingsLink} pathname={pathname} isExpanded={true}/>
+                 </>
+               )}
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <motion.div
-                className="flex items-center h-10 px-3 rounded-lg cursor-pointer text-destructive hover:bg-destructive/10"
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={handleLogout}
-              >
-                  <Power className="h-5 w-5 shrink-0" />
-                  <motion.span
-                    animate={{ opacity: isExpanded ? 1 : 0, width: isExpanded ? 'auto' : 0, marginLeft: isExpanded ? '0.75rem' : 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="overflow-hidden font-medium"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.div
+                    className="flex items-center h-10 px-3 rounded-lg cursor-pointer text-destructive hover:bg-destructive/10"
+                     whileHover={{ scale: 1.05 }}
+                     whileTap={{ scale: 0.95 }}
+                     onClick={handleLogout}
                   >
-                    {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-                  </motion.span>
-              </motion.div>
-            </TooltipTrigger>
-            {!isExpanded && <TooltipContent side="right">로그아웃</TooltipContent>}
-          </Tooltip>
+                      <Power className="h-5 w-5 shrink-0" />
+                      <span
+                        className="overflow-hidden font-medium ml-3 whitespace-nowrap"
+                      >
+                        {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
+                      </span>
+                  </motion.div>
+                </TooltipTrigger>
+                {!isExpanded && <TooltipContent side="right">로그아웃</TooltipContent>}
+              </Tooltip>
+            </div>
         </div>
-
-        <motion.button
+      </motion.aside>
+      
+      <motion.button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 bg-background hover:bg-muted border rounded-full p-0.5"
+            className="fixed top-1/2 -translate-y-1/2 z-50 bg-background hover:bg-muted border-y border-r rounded-r-lg p-1"
+            animate={{ left: isExpanded ? 224 : 40 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
         >
             <motion.div
                 animate={{ rotate: isExpanded ? 180 : 0 }}
                 transition={{ duration: 0.3 }}
             >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-6 w-6" />
             </motion.div>
         </motion.button>
-      </motion.aside>
     </TooltipProvider>
   );
 }
-

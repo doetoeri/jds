@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <>
       <div className="min-h-screen w-full">
          <SideNav role="student" />
-        <div className="flex flex-col pl-14">
+        <div className="flex flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
             <Logo />
             <div className="w-full flex-1" />
@@ -79,10 +79,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
              <AnimatePresence mode="wait">
                 <motion.div
                   key={pathname}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 30 }}
                 >
                   {children}
                 </motion.div>
