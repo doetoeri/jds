@@ -1,17 +1,34 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Home, Users, QrCode, History, Mail, ShoppingCart, 
-  HelpCircle, Cog, Award, ListOrdered, UserCheck, Power,
-  ChevronRight,
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Button } from './ui/button';
+import {
+  Menu,
+  Home,
+  Users,
+  QrCode,
+  History,
+  Mail,
+  ShoppingCart,
+  HelpCircle,
+  Cog,
+  Award,
+  ListOrdered,
+  UserCheck,
+  Power,
+  Bird,
 } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useLogout } from '@/hooks/use-logout';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Separator } from './ui/separator';
 
 const studentLinks = [
@@ -53,122 +70,61 @@ const navConfig = {
 };
 
 type Role = 'student' | 'admin' | 'council' | 'teacher';
-type NavLinkInfo = { name: string; href: string; icon: React.ElementType };
-
-const NavLink = ({ 
-    link, 
-    pathname, 
-    isExpanded, 
-    onClick 
-}: { 
-    link: NavLinkInfo, 
-    pathname: string, 
-    isExpanded: boolean,
-    onClick: (href: string) => void
-}) => {
-  const isActive = pathname.startsWith(link.href) && (link.href.length > (link.href.startsWith('/admin') ? '/admin' : link.href.startsWith('/council') ? '/council' : '/dashboard').length || pathname === link.href);
-  
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <motion.div
-            onClick={() => onClick(link.href)}
-            className={cn(
-              "flex items-center h-10 px-3 rounded-lg cursor-pointer transition-colors",
-              isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-            )}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-        >
-          <link.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-          <AnimatePresence>
-            {isExpanded && (
-              <motion.span
-                initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-                animate={{ opacity: 1, width: 'auto', marginLeft: '0.75rem' }}
-                exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="overflow-hidden font-medium whitespace-nowrap"
-              >
-                {link.name}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </TooltipTrigger>
-      <TooltipContent side="right">{link.name}</TooltipContent>
-    </Tooltip>
-  )
-};
 
 export function SideNav({ role }: { role: Role }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { handleLogout, isLoggingOut } = useLogout();
-  const [isExpanded, setIsExpanded] = useState(false);
   const links = navConfig[role];
-  const settingsLink = role === 'student' ? { name: '프로필 설정', href: '/dashboard/settings', icon: Cog } : null;
-
-  const handleNavigation = (href: string) => {
-    // This gives the exit animation time to play
-    setTimeout(() => {
-        router.push(href);
-    }, 300);
-  };
+  const settingsLink = { name: '프로필 설정', href: '/dashboard/settings', icon: Cog };
+  
+  const NavLink = ({ name, href, icon: Icon }: { name: string; href: string; icon: React.ElementType }) => {
+    const isActive = pathname === href;
+    return (
+        <Link href={href} className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+            isActive && "bg-muted text-primary"
+        )}>
+            <Icon className="h-4 w-4" />
+            {name}
+        </Link>
+    )
+  }
 
   return (
-    <TooltipProvider>
-      <motion.aside
-        className="fixed left-0 top-0 h-full z-40 flex flex-col border-r bg-background/80 backdrop-blur-sm"
-        animate={{ width: isExpanded ? '14rem' : '3.5rem' }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        onHoverStart={() => setIsExpanded(true)}
-        onHoverEnd={() => setIsExpanded(false)}
-      >
-        <div className="flex flex-col h-full p-3">
-            <div className="flex-grow flex flex-col gap-2 my-auto">
-                {links.map((link) => (
-                    <NavLink key={link.href} link={link} pathname={pathname} isExpanded={isExpanded} onClick={handleNavigation}/>
-                ))}
-            </div>
-
-            <div className="flex flex-col gap-2">
-               {settingsLink && (
-                 <>
-                    <Separator />
-                    <NavLink link={settingsLink} pathname={pathname} isExpanded={isExpanded} onClick={handleNavigation}/>
-                 </>
-               )}
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.div
-                    className="flex items-center h-10 px-3 rounded-lg cursor-pointer text-destructive hover:bg-destructive/10"
-                     whileHover={{ scale: 1.05 }}
-                     whileTap={{ scale: 0.95 }}
-                     onClick={handleLogout}
-                  >
-                      <Power className="h-5 w-5 shrink-0" />
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.span
-                            initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-                            animate={{ opacity: 1, width: 'auto', marginLeft: '0.75rem' }}
-                            exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                            transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="overflow-hidden font-medium whitespace-nowrap"
-                          >
-                            {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                  </motion.div>
-                </TooltipTrigger>
-                <TooltipContent side="right">로그아웃</TooltipContent>
-              </Tooltip>
-            </div>
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Toggle navigation menu</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="flex flex-col">
+         <SheetHeader>
+            <SheetTitle>
+                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                    <Bird className="h-6 w-6 text-primary" />
+                    <span>종달샘 허브</span>
+                </Link>
+            </SheetTitle>
+        </SheetHeader>
+        <nav className="grid gap-2 text-lg font-medium flex-1 py-4">
+          {links.map((link) => (
+            <NavLink key={link.href} {...link} />
+          ))}
+          {role === 'student' && (
+              <>
+                <Separator className="my-2" />
+                <NavLink {...settingsLink} />
+              </>
+          )}
+        </nav>
+        <div className="mt-auto">
+            <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut} className="w-full justify-start gap-3 px-3 py-2 text-muted-foreground">
+                <Power className="h-4 w-4" />
+                로그아웃
+            </Button>
         </div>
-      </motion.aside>
-    </TooltipProvider>
+      </SheetContent>
+    </Sheet>
   );
 }
