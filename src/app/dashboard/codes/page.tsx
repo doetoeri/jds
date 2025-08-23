@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -138,7 +139,7 @@ export default function CodesPage() {
     // 3. If it's any other code type, use it directly
     await confirmAndUseCode(scannedCode);
 
-  }, [user, toast]);
+  }, [user, toast, closeScanner]);
 
   const tick = useCallback(() => {
     if (isLoading || isPartnerDialogVisible) return; // Pause scanning if dialog is open
@@ -208,8 +209,8 @@ export default function CodesPage() {
 
   return (
     <>
-      <div className="flex justify-center items-start pt-8">
-        <Card className="w-full max-w-lg">
+      <div className="container mx-auto max-w-4xl p-0 sm:p-4">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle className="font-headline text-2xl">코드 사용하기</CardTitle>
             <CardDescription>
@@ -268,9 +269,10 @@ export default function CodesPage() {
             </>
           )}
         </Card>
+        </div>
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         <audio ref={audioRef} src="https://cdn.pixabay.com/audio/2021/08/04/audio_c668156e54.mp3" preload="auto" />
-      </div>
+      
 
        {/* Partner Selection Dialog for Hidden Codes */}
       <AlertDialog open={isPartnerDialogVisible} onOpenChange={setIsPartnerDialogVisible}>
@@ -311,5 +313,3 @@ export default function CodesPage() {
     </>
   );
 }
-
-    

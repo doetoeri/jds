@@ -2,9 +2,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { useRouter, usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, Users, QrCode, History, Mail, ShoppingCart, 
   HelpCircle, Cog, Award, ListOrdered, UserCheck, Power,
@@ -54,55 +53,82 @@ const navConfig = {
 };
 
 type Role = 'student' | 'admin' | 'council' | 'teacher';
+type NavLinkInfo = { name: string; href: string; icon: React.ElementType };
 
-const NavLink = ({ link, pathname }: { link: (typeof studentLinks)[0], pathname: string }) => {
+const NavLink = ({ 
+    link, 
+    pathname, 
+    isExpanded, 
+    onClick 
+}: { 
+    link: NavLinkInfo, 
+    pathname: string, 
+    isExpanded: boolean,
+    onClick: (href: string) => void
+}) => {
   const isActive = pathname.startsWith(link.href) && (link.href.length > (link.href.startsWith('/admin') ? '/admin' : link.href.startsWith('/council') ? '/council' : '/dashboard').length || pathname === link.href);
+  
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Link href={link.href}>
-          <motion.div
+        <motion.div
+            onClick={() => onClick(link.href)}
             className={cn(
               "flex items-center h-10 px-3 rounded-lg cursor-pointer transition-colors",
               isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
             )}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-          >
-            <link.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-            <span
-              className="overflow-hidden font-medium ml-3 whitespace-nowrap"
-            >
-              {link.name}
-            </span>
-          </motion.div>
-        </Link>
+        >
+          <link.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.span
+                initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                animate={{ opacity: 1, width: 'auto', marginLeft: '0.75rem' }}
+                exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="overflow-hidden font-medium whitespace-nowrap"
+              >
+                {link.name}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </TooltipTrigger>
       <TooltipContent side="right">{link.name}</TooltipContent>
     </Tooltip>
   )
 };
 
-
 export function SideNav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { handleLogout, isLoggingOut } = useLogout();
   const [isExpanded, setIsExpanded] = useState(false);
   const links = navConfig[role];
   const settingsLink = role === 'student' ? { name: '프로필 설정', href: '/dashboard/settings', icon: Cog } : null;
 
+  const handleNavigation = (href: string) => {
+    // This gives the exit animation time to play
+    setTimeout(() => {
+        router.push(href);
+    }, 300);
+  };
+
   return (
     <TooltipProvider>
       <motion.aside
         className="fixed left-0 top-0 h-full z-40 flex flex-col border-r bg-background/80 backdrop-blur-sm"
-        initial={{ x: '-100%' }}
-        animate={{ x: isExpanded ? 0 : 'calc(-100% - 40px)' }}
+        animate={{ width: isExpanded ? '14rem' : '3.5rem' }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        onHoverStart={() => setIsExpanded(true)}
+        onHoverEnd={() => setIsExpanded(false)}
       >
-        <div className="flex flex-col h-full p-3 w-56">
+        <div className="flex flex-col h-full p-3">
             <div className="flex-grow flex flex-col gap-2 my-auto">
                 {links.map((link) => (
-                    <NavLink key={link.href} link={link} pathname={pathname}/>
+                    <NavLink key={link.href} link={link} pathname={pathname} isExpanded={isExpanded} onClick={handleNavigation}/>
                 ))}
             </div>
 
@@ -110,7 +136,7 @@ export function SideNav({ role }: { role: Role }) {
                {settingsLink && (
                  <>
                     <Separator />
-                    <NavLink link={settingsLink} pathname={pathname}/>
+                    <NavLink link={settingsLink} pathname={pathname} isExpanded={isExpanded} onClick={handleNavigation}/>
                  </>
                )}
 
@@ -123,11 +149,19 @@ export function SideNav({ role }: { role: Role }) {
                      onClick={handleLogout}
                   >
                       <Power className="h-5 w-5 shrink-0" />
-                      <span
-                        className="overflow-hidden font-medium ml-3 whitespace-nowrap"
-                      >
-                        {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-                      </span>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.span
+                            initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                            animate={{ opacity: 1, width: 'auto', marginLeft: '0.75rem' }}
+                            exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                            transition={{ duration: 0.2, ease: "easeInOut" }}
+                            className="overflow-hidden font-medium whitespace-nowrap"
+                          >
+                            {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
                   </motion.div>
                 </TooltipTrigger>
                 <TooltipContent side="right">로그아웃</TooltipContent>
@@ -135,22 +169,6 @@ export function SideNav({ role }: { role: Role }) {
             </div>
         </div>
       </motion.aside>
-      
-      <motion.button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="fixed top-1/2 -translate-y-1/2 z-50 bg-background hover:bg-muted border-y border-r rounded-r-lg p-2"
-            animate={{ left: isExpanded ? 224 : 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-        >
-            <motion.div
-                animate={{ rotate: isExpanded ? 180 : 0 }}
-                transition={{ duration: 0.3 }}
-            >
-                <ChevronRight className="h-6 w-6" />
-            </motion.div>
-        </motion.button>
     </TooltipProvider>
   );
 }

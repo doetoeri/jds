@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -124,57 +125,59 @@ export default function FriendsPage() {
 
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="font-headline text-2xl flex items-center">
-          <Users className="mr-2 h-6 w-6" />
-          내 친구 목록
-        </CardTitle>
-        <CardDescription>
-          나의 메이트 코드를 사용했거나, 내가 메이트 코드를 사용한 친구들입니다.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
+     <div className="container mx-auto max-w-4xl p-0 sm:p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl flex items-center">
+            <Users className="mr-2 h-6 w-6" />
+            내 친구 목록
+          </CardTitle>
+          <CardDescription>
+            나의 메이트 코드를 사용했거나, 내가 메이트 코드를 사용한 친구들입니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                      <Card key={i} className="p-4 flex flex-col items-center justify-center gap-3">
+                          <Skeleton className="w-20 h-20 rounded-full" />
+                          <Skeleton className="h-5 w-24" />
+                          <Skeleton className="h-4 w-16" />
+                      </Card>
+                  ))}
+              </div>
+          ) : friends.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <Card key={i} className="p-4 flex flex-col items-center justify-center gap-3">
-                        <Skeleton className="w-20 h-20 rounded-full" />
-                        <Skeleton className="h-5 w-24" />
-                        <Skeleton className="h-4 w-16" />
-                    </Card>
-                ))}
+              {friends.map((friend) => (
+                <Card key={friend.id} className="p-4 flex flex-col items-center justify-center gap-2 transform transition-transform hover:scale-105">
+                  <Avatar className={cn('h-20 w-20', `gradient-${friend.avatarGradient}`)}>
+                      <AvatarFallback className="text-3xl text-white bg-transparent font-bold">
+                          {getInitials(friend.displayName, friend.studentId)}
+                      </AvatarFallback>
+                  </Avatar>
+                  <p className="font-bold text-center">{friend.displayName}</p>
+                  <p className="text-sm text-muted-foreground">{friend.studentId}</p>
+                  <CardFooter className="p-0 mt-2">
+                      <Button variant="outline" size="sm" onClick={() => handleSendLetter(friend.studentId)}>
+                          <Send className="mr-1 h-3.5 w-3.5" />
+                          편지 쓰기
+                      </Button>
+                  </CardFooter>
+                </Card>
+              ))}
             </div>
-        ) : friends.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {friends.map((friend) => (
-              <Card key={friend.id} className="p-4 flex flex-col items-center justify-center gap-2 transform transition-transform hover:scale-105">
-                <Avatar className={cn('h-20 w-20', `gradient-${friend.avatarGradient}`)}>
-                    <AvatarFallback className="text-3xl text-white bg-transparent font-bold">
-                        {getInitials(friend.displayName, friend.studentId)}
-                    </AvatarFallback>
-                </Avatar>
-                <p className="font-bold text-center">{friend.displayName}</p>
-                <p className="text-sm text-muted-foreground">{friend.studentId}</p>
-                <CardFooter className="p-0 mt-2">
-                    <Button variant="outline" size="sm" onClick={() => handleSendLetter(friend.studentId)}>
-                        <Send className="mr-1 h-3.5 w-3.5" />
-                        편지 쓰기
-                    </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
-             <Smile className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-medium text-muted-foreground">아직 친구가 없어요</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              대시보드에서 나의 메이트 코드 <strong className="text-primary font-mono">{mateCode || '...'}</strong>를 친구에게 공유하고 함께 Lak을 받아보세요!
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          ) : (
+            <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
+              <Smile className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-medium text-muted-foreground">아직 친구가 없어요</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                대시보드에서 나의 메이트 코드 <strong className="text-primary font-mono">{mateCode || '...'}</strong>를 친구에게 공유하고 함께 Lak을 받아보세요!
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

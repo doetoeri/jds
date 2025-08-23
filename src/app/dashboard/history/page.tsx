@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -64,6 +65,7 @@ export default function HistoryPage() {
   }, [user, toast]);
 
   return (
+    <div className="container mx-auto max-w-4xl p-0 sm:p-4">
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">사용 내역</CardTitle>
@@ -115,5 +117,6 @@ export default function HistoryPage() {
         </Table>
       </CardContent>
     </Card>
+    </div>
   );
 }

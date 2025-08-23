@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -112,7 +113,8 @@ export default function SettingsPage() {
 
   if (pageLoading || authLoading) {
       return (
-          <Card className="w-full max-w-2xl mx-auto">
+        <div className="container mx-auto max-w-4xl p-0 sm:p-4">
+          <Card>
               <CardHeader>
                   <Skeleton className="h-8 w-48" />
                   <Skeleton className="h-4 w-full" />
@@ -128,11 +130,13 @@ export default function SettingsPage() {
                   <Skeleton className="h-10 w-24 ml-auto" />
               </CardFooter>
           </Card>
+        </div>
       )
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <div className="container mx-auto max-w-4xl p-0 sm:p-4">
+    <Card>
       <CardHeader>
         <CardTitle className="font-headline text-2xl flex items-center">
           <User className="mr-2" /> 프로필 설정
@@ -188,5 +192,6 @@ export default function SettingsPage() {
         </CardFooter>
       </form>
     </Card>
+    </div>
   );
 }
