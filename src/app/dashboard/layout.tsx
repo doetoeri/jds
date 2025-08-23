@@ -10,8 +10,24 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import {
+  Loader2,
+  Home,
+  QrCode,
+  Users,
+  Mail,
+  ShoppingCart,
+  History,
+  HelpCircle,
+  Cog,
+  Power,
+} from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { useLogout } from '@/hooks/use-logout';
+import { Separator } from '@/components/ui/separator';
 
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -80,7 +96,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   key={pathname}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
                   transition={{ type: "spring", stiffness: 260, damping: 30, duration: 0.3 }}
                 >
                   {children}
