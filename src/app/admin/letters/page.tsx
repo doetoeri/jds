@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -196,122 +197,126 @@ export default function AdminLettersPage() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">편지 관리</CardTitle>
-        <CardDescription>
+    <div>
+      <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">편지 관리</h1>
+        <p className="text-muted-foreground">
           학생들이 보낸 편지를 관리하고 승인합니다.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>보낸 학생</TableHead>
-              <TableHead>받는 학생</TableHead>
-              <TableHead>내용</TableHead>
-              <TableHead>유형</TableHead>
-              <TableHead>상태</TableHead>
-              <TableHead>요청일</TableHead>
-              <TableHead className="text-right">작업</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={7}>
-                    <Skeleton className="h-8 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : letters.length === 0 ? (
+        </p>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-24">
-                  도착한 편지가 없습니다.
-                </TableCell>
+                <TableHead>보낸 학생</TableHead>
+                <TableHead>받는 학생</TableHead>
+                <TableHead>내용</TableHead>
+                <TableHead>유형</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>요청일</TableHead>
+                <TableHead className="text-right">작업</TableHead>
               </TableRow>
-            ) : (
-              letters.map(letter => (
-                <TableRow key={letter.id}>
-                  <TableCell>{letter.senderStudentId}</TableCell>
-                  <TableCell>{letter.receiverStudentId}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="link" className="p-0 h-auto" disabled={letter.status === 'approved' && letter.isOffline}>내용 보기</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                           <AlertDialogHeader>
-                              <AlertDialogTitle>편지 내용</AlertDialogTitle>
-                              <AlertDialogDescription className="whitespace-pre-wrap break-words">
-                                 {letter.content}
-                              </AlertDialogDescription>
-                           </AlertDialogHeader>
-                           <AlertDialogFooter>
-                              <AlertDialogCancel>닫기</AlertDialogCancel>
-                           </AlertDialogFooter>
-                        </AlertDialogContent>
-                     </AlertDialog>
-                  </TableCell>
-                  <TableCell>
-                    {letter.isOffline ? (
-                        <Badge variant="secondary"><Printer className="h-3 w-3 mr-1"/>오프라인</Badge>
-                    ) : (
-                        <Badge variant="outline">온라인</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        letter.status === 'approved'
-                          ? 'default'
-                          : letter.status === 'rejected'
-                          ? 'destructive'
-                          : 'secondary'
-                      }
-                    >
-                      {letter.status === 'pending' && '대기중'}
-                      {letter.status === 'approved' && '승인됨'}
-                      {letter.status === 'rejected' && '거절됨'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isProcessing === letter.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin ml-auto" />
-                    ) : letter.status === 'pending' ? (
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApproveLetter(letter)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          승인
-                        </Button>
-                         <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleRejectLetter(letter.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          거절
-                        </Button>
-                      </div>
-                    ) : (
-                      <span>완료</span>
-                    )}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={7}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : letters.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center h-24">
+                    도착한 편지가 없습니다.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+              ) : (
+                letters.map(letter => (
+                  <TableRow key={letter.id}>
+                    <TableCell>{letter.senderStudentId}</TableCell>
+                    <TableCell>{letter.receiverStudentId}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                       <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                             <Button variant="link" className="p-0 h-auto" disabled={letter.status === 'approved' && letter.isOffline}>내용 보기</Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                             <AlertDialogHeader>
+                                <AlertDialogTitle>편지 내용</AlertDialogTitle>
+                                <AlertDialogDescription className="whitespace-pre-wrap break-words">
+                                   {letter.content}
+                                </AlertDialogDescription>
+                             </AlertDialogHeader>
+                             <AlertDialogFooter>
+                                <AlertDialogCancel>닫기</AlertDialogCancel>
+                             </AlertDialogFooter>
+                          </AlertDialogContent>
+                       </AlertDialog>
+                    </TableCell>
+                    <TableCell>
+                      {letter.isOffline ? (
+                          <Badge variant="secondary"><Printer className="h-3 w-3 mr-1"/>오프라인</Badge>
+                      ) : (
+                          <Badge variant="outline">온라인</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          letter.status === 'approved'
+                            ? 'default'
+                            : letter.status === 'rejected'
+                            ? 'destructive'
+                            : 'secondary'
+                        }
+                      >
+                        {letter.status === 'pending' && '대기중'}
+                        {letter.status === 'approved' && '승인됨'}
+                        {letter.status === 'rejected' && '거절됨'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isProcessing === letter.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin ml-auto" />
+                      ) : letter.status === 'pending' ? (
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleApproveLetter(letter)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            승인
+                          </Button>
+                           <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleRejectLetter(letter.id)}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            거절
+                          </Button>
+                        </div>
+                      ) : (
+                        <span>완료</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
+    

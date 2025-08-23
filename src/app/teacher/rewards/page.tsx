@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -130,17 +131,17 @@ export default function TeacherRewardsPage() {
 
   return (
     <>
-      <Card className="w-full max-w-lg mx-auto">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl flex items-center">
-            <Award className="mr-2" /> 학생 보상 지급
-          </CardTitle>
-          <CardDescription>
+        <div className="space-y-1 mb-6">
+            <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
+                <Award className="mr-2" /> 학생 보상 지급
+            </h1>
+            <p className="text-muted-foreground">
             칭찬하고 싶은 학생에게 `Lak`을 지급할 수 있는 일회용 코드를 생성합니다.
-          </CardDescription>
-        </CardHeader>
+            </p>
+        </div>
+      <Card className="w-full max-w-lg mx-auto">
         <form onSubmit={handleGenerateCode}>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-6 space-y-4">
             <div>
               <Label htmlFor="studentId">대상 학생 학번 (5자리)</Label>
               <Input
@@ -208,4 +209,5 @@ export default function TeacherRewardsPage() {
     </>
   );
 }
+
     

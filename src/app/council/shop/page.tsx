@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -5,9 +6,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -201,20 +199,21 @@ export default function CouncilShopPage() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-headline">상점 관리</CardTitle>
-            <CardDescription>상품을 추가, 수정, 삭제하고 재고를 관리합니다.</CardDescription>
-          </div>
-          <Button size="sm" className="gap-1" onClick={() => handleOpenDialog()}>
+      <div className="flex items-center justify-between mb-6">
+        <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight font-headline">상점 관리</h1>
+            <p className="text-muted-foreground">상품을 추가, 수정, 삭제하고 재고를 관리합니다.</p>
+        </div>
+        <Button size="sm" className="gap-1" onClick={() => handleOpenDialog()}>
             <PlusCircle className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              상품 추가
+                상품 추가
             </span>
-          </Button>
-        </CardHeader>
-        <CardContent>
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -322,3 +321,5 @@ export default function CouncilShopPage() {
     </>
   );
 }
+
+    

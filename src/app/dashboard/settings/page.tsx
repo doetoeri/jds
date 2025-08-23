@@ -113,85 +113,87 @@ export default function SettingsPage() {
 
   if (pageLoading || authLoading) {
       return (
-        <div className="container mx-auto max-w-4xl p-0 sm:p-4">
-          <Card>
-              <CardHeader>
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-4 w-full" />
-              </CardHeader>
-              <CardContent className="space-y-6">
-                  <div className="flex items-center gap-4">
-                      <Skeleton className="h-24 w-24 rounded-full" />
-                  </div>
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-              </CardContent>
-              <CardFooter>
-                  <Skeleton className="h-10 w-24 ml-auto" />
-              </CardFooter>
-          </Card>
+        <div className="space-y-6">
+            <div className="space-y-1">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-full max-w-sm" />
+            </div>
+            <Card>
+                <CardContent className="pt-6 space-y-6">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-24 w-24 rounded-full" />
+                    </div>
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                </CardContent>
+                <CardFooter>
+                    <Skeleton className="h-10 w-24 ml-auto" />
+                </CardFooter>
+            </Card>
         </div>
       )
   }
 
   return (
-    <div className="container mx-auto max-w-4xl p-0 sm:p-4">
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline text-2xl flex items-center">
-          <User className="mr-2" /> 프로필 설정
-        </CardTitle>
-        <CardDescription>
-          프로필 스타일과 닉네임을 변경할 수 있습니다.
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <Label>프로필 스타일</Label>
-            <div className="flex items-center gap-6">
-                <Avatar className={cn("h-24 w-24", selectedGradient && `gradient-${selectedGradient}`)}>
-                    <AvatarFallback className="text-4xl text-white bg-transparent font-bold">{getInitials()}</AvatarFallback>
-                </Avatar>
-                <div className="grid grid-cols-2 gap-3">
-                    {gradientOptions.map((gradient) => (
-                        <button
-                          key={gradient.id}
-                          type="button"
-                          onClick={() => setSelectedGradient(gradient.id)}
-                          className={cn(
-                              "w-12 h-12 rounded-full cursor-pointer border-2 transition-all",
-                              gradient.className,
-                              selectedGradient === gradient.id ? 'border-ring' : 'border-transparent'
-                          )}
-                          aria-label={gradient.name}
-                        />
-                    ))}
+    <div className="space-y-6">
+        <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
+                <User className="mr-2" /> 프로필 설정
+            </h1>
+            <p className="text-muted-foreground">
+                프로필 스타일과 닉네임을 변경할 수 있습니다.
+            </p>
+        </div>
+        <Card>
+            <form onSubmit={handleSubmit(onSubmit)}>
+                <CardContent className="pt-6 space-y-6">
+                <div className="space-y-4">
+                    <Label>프로필 스타일</Label>
+                    <div className="flex items-center gap-6">
+                        <Avatar className={cn("h-24 w-24", selectedGradient && `gradient-${selectedGradient}`)}>
+                            <AvatarFallback className="text-4xl text-white bg-transparent font-bold">{getInitials()}</AvatarFallback>
+                        </Avatar>
+                        <div className="grid grid-cols-2 gap-3">
+                            {gradientOptions.map((gradient) => (
+                                <button
+                                key={gradient.id}
+                                type="button"
+                                onClick={() => setSelectedGradient(gradient.id)}
+                                className={cn(
+                                    "w-12 h-12 rounded-full cursor-pointer border-2 transition-all",
+                                    gradient.className,
+                                    selectedGradient === gradient.id ? 'border-ring' : 'border-transparent'
+                                )}
+                                aria-label={gradient.name}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2 pt-2">
+                        <Palette className="h-4 w-4"/>
+                        원하는 그라데이션을 선택하여 프로필 배경을 꾸며보세요.
+                    </p>
                 </div>
-            </div>
-             <p className="text-sm text-muted-foreground flex items-center gap-2 pt-2">
-                <Palette className="h-4 w-4"/>
-                원하는 그라데이션을 선택하여 프로필 배경을 꾸며보세요.
-             </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="displayName">닉네임</Label>
-            <Input
-              id="displayName"
-              {...register('displayName')}
-              disabled={isSubmitting}
-            />
-            {errors.displayName && <p className="text-sm text-destructive">{errors.displayName.message}</p>}
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button type="submit" className="ml-auto font-bold" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            저장하기
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+                <div className="space-y-2">
+                    <Label htmlFor="displayName">닉네임</Label>
+                    <Input
+                    id="displayName"
+                    {...register('displayName')}
+                    disabled={isSubmitting}
+                    />
+                    {errors.displayName && <p className="text-sm text-destructive">{errors.displayName.message}</p>}
+                </div>
+                </CardContent>
+                <CardFooter>
+                <Button type="submit" className="ml-auto font-bold" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    저장하기
+                </Button>
+                </CardFooter>
+            </form>
+        </Card>
     </div>
   );
 }
+
+    

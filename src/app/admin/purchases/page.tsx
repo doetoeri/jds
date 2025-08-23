@@ -1,12 +1,10 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -66,54 +64,58 @@ export default function AdminPurchasesPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">전체 주문 내역</CardTitle>
-        <CardDescription>시스템의 모든 상품 구매 내역입니다.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>주문자 학번</TableHead>
-              <TableHead>주문 시간</TableHead>
-              <TableHead>주문 내역</TableHead>
-              <TableHead className="text-right">총 사용 Lak</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-                Array.from({ length: 10 }).map((_, index) => (
-                  <TableRow key={index}>
-                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
+    <div>
+       <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">전체 주문 내역</h1>
+        <p className="text-muted-foreground">시스템의 모든 상품 구매 내역입니다.</p>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>주문자 학번</TableHead>
+                <TableHead>주문 시간</TableHead>
+                <TableHead>주문 내역</TableHead>
+                <TableHead className="text-right">총 사용 Lak</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                  Array.from({ length: 10 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
+                    </TableRow>
+                  ))
+              ) : purchases.length === 0 ? (
+                   <TableRow>
+                    <TableCell colSpan={4} className="text-center h-24">
+                      주문 내역이 없습니다.
+                    </TableCell>
+                  </TableRow>
+              ) : (
+                purchases.map((purchase) => (
+                  <TableRow key={purchase.id}>
+                    <TableCell className="font-medium">{purchase.studentId}</TableCell>
+                    <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
+                    <TableCell className="max-w-[300px] truncate">{formatItems(purchase.items)}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="destructive">
+                        {purchase.totalCost} Lak
+                      </Badge>
+                    </TableCell>
                   </TableRow>
                 ))
-            ) : purchases.length === 0 ? (
-                 <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24">
-                    주문 내역이 없습니다.
-                  </TableCell>
-                </TableRow>
-            ) : (
-              purchases.map((purchase) => (
-                <TableRow key={purchase.id}>
-                  <TableCell className="font-medium">{purchase.studentId}</TableCell>
-                  <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">{formatItems(purchase.items)}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="destructive">
-                      {purchase.totalCost} Lak
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
+    

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,9 +7,6 @@ import { db } from '@/lib/firebase';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import {
   Table,
@@ -100,79 +98,83 @@ export default function AdminTeachersPage() {
 
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">교직원 승인 관리</CardTitle>
-        <CardDescription>
+    <div>
+       <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">교직원 승인 관리</h1>
+        <p className="text-muted-foreground">
           교직원으로 가입을 신청한 사용자 목록입니다. 확인 후 승인 또는 거절해주세요.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>성함</TableHead>
-              <TableHead>이메일</TableHead>
-              <TableHead>교무실 층수</TableHead>
-              <TableHead>요청일</TableHead>
-              <TableHead className="text-right">작업</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={5}>
-                    <Skeleton className="h-8 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : pendingTeachers.length === 0 ? (
+        </p>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
-                  승인을 기다리는 교직원이 없습니다.
-                </TableCell>
+                <TableHead>성함</TableHead>
+                <TableHead>이메일</TableHead>
+                <TableHead>교무실 층수</TableHead>
+                <TableHead>요청일</TableHead>
+                <TableHead className="text-right">작업</TableHead>
               </TableRow>
-            ) : (
-              pendingTeachers.map(teacher => (
-                <TableRow key={teacher.id}>
-                  <TableCell>{teacher.name}</TableCell>
-                  <TableCell>{teacher.email}</TableCell>
-                  <TableCell>{teacher.officeFloor}</TableCell>
-                   <TableCell>
-                    {teacher.createdAt?.toDate ? teacher.createdAt.toDate().toLocaleDateString() : 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isProcessing === teacher.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin ml-auto" />
-                    ) : (
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApproval(teacher.id, true)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          승인
-                        </Button>
-                         <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleApproval(teacher.id, false)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          거절
-                        </Button>
-                      </div>
-                    )}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={5}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : pendingTeachers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-24">
+                    승인을 기다리는 교직원이 없습니다.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+              ) : (
+                pendingTeachers.map(teacher => (
+                  <TableRow key={teacher.id}>
+                    <TableCell>{teacher.name}</TableCell>
+                    <TableCell>{teacher.email}</TableCell>
+                    <TableCell>{teacher.officeFloor}</TableCell>
+                     <TableCell>
+                      {teacher.createdAt?.toDate ? teacher.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isProcessing === teacher.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin ml-auto" />
+                      ) : (
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleApproval(teacher.id, true)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            승인
+                          </Button>
+                           <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleApproval(teacher.id, false)}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            거절
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
+    

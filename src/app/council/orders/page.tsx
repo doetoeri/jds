@@ -1,12 +1,10 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -80,72 +78,76 @@ export default function CouncilOrdersPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">주문 내역 (실시간)</CardTitle>
-        <CardDescription>학생들의 상품 주문 내역입니다. 상품 전달 후 '처리 완료'를 눌러주세요.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>주문자 학번</TableHead>
-              <TableHead>주문 시간</TableHead>
-              <TableHead>주문 내역</TableHead>
-              <TableHead>총 사용 Lak</TableHead>
-              <TableHead className="text-right">상태</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <TableRow key={index}>
-                    <TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell>
+    <div>
+      <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">주문 내역 (실시간)</h1>
+        <p className="text-muted-foreground">학생들의 상품 주문 내역입니다. 상품 전달 후 '처리 완료'를 눌러주세요.</p>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>주문자 학번</TableHead>
+                <TableHead>주문 시간</TableHead>
+                <TableHead>주문 내역</TableHead>
+                <TableHead>총 사용 Lak</TableHead>
+                <TableHead className="text-right">상태</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell>
+                    </TableRow>
+                  ))
+              ) : purchases.length === 0 ? (
+                   <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                      주문 내역이 없습니다.
+                    </TableCell>
+                  </TableRow>
+              ) : (
+                purchases.map((purchase) => (
+                  <TableRow key={purchase.id} className={purchase.status === 'completed' ? 'bg-muted/50' : ''}>
+                    <TableCell className="font-medium">{purchase.studentId}</TableCell>
+                    <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
+                    <TableCell className="max-w-[250px] truncate">{formatItems(purchase.items)}</TableCell>
+                    <TableCell>
+                      <Badge variant="destructive">
+                        {purchase.totalCost} Lak
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {purchase.status === 'pending' ? (
+                         <Button 
+                          size="sm" 
+                          variant="default"
+                          onClick={() => handleCompleteOrder(purchase.id)} 
+                          disabled={isProcessing === purchase.id}
+                          className="bg-green-600 hover:bg-green-700"
+                          >
+                          {isProcessing === purchase.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin"/>
+                          ) : (
+                              <CheckCircle className="h-4 w-4"/>
+                          )}
+                          <span className="ml-2">처리 완료</span>
+                         </Button>
+                      ) : (
+                          <Badge variant="secondary">완료</Badge>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
-            ) : purchases.length === 0 ? (
-                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
-                    주문 내역이 없습니다.
-                  </TableCell>
-                </TableRow>
-            ) : (
-              purchases.map((purchase) => (
-                <TableRow key={purchase.id} className={purchase.status === 'completed' ? 'bg-muted/50' : ''}>
-                  <TableCell className="font-medium">{purchase.studentId}</TableCell>
-                  <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
-                  <TableCell className="max-w-[250px] truncate">{formatItems(purchase.items)}</TableCell>
-                  <TableCell>
-                    <Badge variant="destructive">
-                      {purchase.totalCost} Lak
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {purchase.status === 'pending' ? (
-                       <Button 
-                        size="sm" 
-                        variant="default"
-                        onClick={() => handleCompleteOrder(purchase.id)} 
-                        disabled={isProcessing === purchase.id}
-                        className="bg-green-600 hover:bg-green-700"
-                        >
-                        {isProcessing === purchase.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin"/>
-                        ) : (
-                            <CheckCircle className="h-4 w-4"/>
-                        )}
-                        <span className="ml-2">처리 완료</span>
-                       </Button>
-                    ) : (
-                        <Badge variant="secondary">완료</Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
+    

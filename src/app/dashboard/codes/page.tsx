@@ -209,12 +209,17 @@ export default function CodesPage() {
 
   return (
     <>
-      <div className="container mx-auto max-w-4xl p-0 sm:p-4">
+      <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">코드 사용하기</h1>
+        <p className="text-muted-foreground">코드를 직접 입력하거나, QR/바코드를 스캔하여 Lak을 적립하세요.</p>
+      </div>
+
+      <div className="max-w-md mx-auto">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="font-headline text-2xl">코드 사용하기</CardTitle>
+            <CardTitle>코드 입력</CardTitle>
             <CardDescription>
-              코드를 직접 입력하거나, QR/바코드를 스캔하여 Lak을 적립하세요.
+                {isScannerOpen ? "QR 코드를 중앙에 맞춰주세요." : "코드를 입력하거나 스캔하세요."}
             </CardDescription>
           </CardHeader>
 
@@ -269,7 +274,8 @@ export default function CodesPage() {
             </>
           )}
         </Card>
-        </div>
+      </div>
+
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         <audio ref={audioRef} src="https://cdn.pixabay.com/audio/2021/08/04/audio_c668156e54.mp3" preload="auto" />
       
@@ -313,3 +319,5 @@ export default function CodesPage() {
     </>
   );
 }
+
+    

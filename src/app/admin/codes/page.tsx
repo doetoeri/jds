@@ -407,13 +407,12 @@ export default function AdminCodesPage() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-headline">코드 관리</CardTitle>
-            <CardDescription>발급된 모든 코드를 관리합니다.</CardDescription>
-          </div>
-          <div className="flex gap-2">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight font-headline">코드 관리</h1>
+          <p className="text-muted-foreground">발급된 모든 코드를 관리합니다.</p>
+        </div>
+        <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={handleDownloadSelected} disabled={isDownloading || selectedCodes.length === 0}>
                 {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
@@ -551,8 +550,9 @@ export default function AdminCodesPage() {
               </DialogContent>
             </Dialog>
           </div>
-        </CardHeader>
-        <CardContent>
+      </div>
+      <Card className="mt-6">
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -582,7 +582,7 @@ export default function AdminCodesPage() {
                 ))
               ) : codes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center">생성된 코드가 없습니다.</TableCell>
+                  <TableCell colSpan={9} className="text-center h-24">생성된 코드가 없습니다.</TableCell>
                 </TableRow>
               ) : (
                 codes.map((c) => (
@@ -675,5 +675,7 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
+    
 
     

@@ -9,10 +9,12 @@ import { Card } from '@/components/ui/card';
 // to handle the `useSearchParams` hook correctly.
 export default function LettersPage() {
   return (
-    <div className="container mx-auto max-w-4xl p-0 sm:p-4">
+    <div>
       <Suspense fallback={<div>Loading...</div>}>
         <LettersView />
       </Suspense>
     </div>
   );
 }
+
+    

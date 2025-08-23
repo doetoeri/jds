@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -112,19 +113,22 @@ export default function ShopPage() {
   };
 
   return (
-    <div className="container mx-auto pb-24">
-       <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                <ShoppingCart className="h-8 w-8"/>
+    <div className="pb-24">
+       <div className="space-y-1 mb-6">
+            <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2">
+                <ShoppingCart className="h-6 w-6"/>
                 종달 상점
             </h1>
+            <p className="text-muted-foreground">
+                모은 Lak으로 원하는 상품을 구매해보세요!
+            </p>
         </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
         ) : products.length === 0 ? (
-            <p className="col-span-full text-center text-muted-foreground">판매중인 상품이 없습니다.</p>
+            <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
         ) : (
             products.map((product) => (
               <Card key={product.id} className="flex flex-col overflow-hidden">
@@ -154,7 +158,7 @@ export default function ShopPage() {
 
        {cart.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm border-t p-4 shadow-lg">
-          <div className="container mx-auto">
+          <div className="container mx-auto max-w-4xl">
             <h3 className="text-lg font-semibold mb-2">장바구니</h3>
             <div className="max-h-32 overflow-y-auto pr-2">
                 {cart.map(item => (
@@ -179,3 +183,5 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    

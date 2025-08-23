@@ -1,11 +1,9 @@
+
 'use client';
 
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -202,12 +200,12 @@ export default function AdminUsersPage() {
 
   return (
     <>
+      <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">사용자 관리</h1>
+        <p className="text-muted-foreground">시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</p>
+      </div>
       <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">사용자 관리</CardTitle>
-          <CardDescription>시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -374,3 +372,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    

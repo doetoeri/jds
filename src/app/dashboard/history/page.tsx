@@ -5,9 +5,6 @@ import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -65,58 +62,60 @@ export default function HistoryPage() {
   }, [user, toast]);
 
   return (
-    <div className="container mx-auto max-w-4xl p-0 sm:p-4">
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">사용 내역</CardTitle>
-        <CardDescription>나의 Lak 사용 및 적립 내역입니다.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>날짜</TableHead>
-              <TableHead>내용</TableHead>
-              <TableHead className="text-right">금액</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
-                </TableRow>
-              ))
-            ) : transactions.length === 0 ? (
-               <TableRow>
-                  <TableCell colSpan={3} className="text-center h-24">
-                    거래 내역이 없습니다.
-                  </TableCell>
-                </TableRow>
-            ) : (
-              transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="font-medium">
-                     {transaction.date?.toDate ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}
-                  </TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge
-                      variant={transaction.type === 'credit' ? 'default' : 'destructive'}
-                    >
-                      {transaction.type === 'credit' ? '+' : ''}
-                      {transaction.amount} Lak
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div>
+      <div className="space-y-1 mb-6">
+        <h1 className="text-2xl font-bold tracking-tight font-headline">사용 내역</h1>
+        <p className="text-muted-foreground">나의 Lak 사용 및 적립 내역입니다.</p>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>날짜</TableHead>
+                <TableHead>내용</TableHead>
+                <TableHead className="text-right">금액</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-7 w-16" /></TableCell>
+                  </TableRow>
+                ))
+              ) : transactions.length === 0 ? (
+                 <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24">
+                      거래 내역이 없습니다.
+                    </TableCell>
+                  </TableRow>
+              ) : (
+                transactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell className="font-medium">
+                       {transaction.date?.toDate ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}
+                    </TableCell>
+                    <TableCell>{transaction.description}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge
+                        variant={transaction.type === 'credit' ? 'default' : 'destructive'}
+                      >
+                        {transaction.type === 'credit' ? '+' : ''}
+                        {transaction.amount} Lak
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
+    
