@@ -55,7 +55,7 @@ const navConfig = {
 
 type Role = 'student' | 'admin' | 'council' | 'teacher';
 
-const NavLink = ({ link, pathname, isExpanded }: { link: (typeof studentLinks)[0], pathname: string, isExpanded: boolean }) => {
+const NavLink = ({ link, pathname }: { link: (typeof studentLinks)[0], pathname: string }) => {
   const isActive = pathname.startsWith(link.href) && (link.href.length > (link.href.startsWith('/admin') ? '/admin' : link.href.startsWith('/council') ? '/council' : '/dashboard').length || pathname === link.href);
   return (
     <Tooltip>
@@ -70,17 +70,15 @@ const NavLink = ({ link, pathname, isExpanded }: { link: (typeof studentLinks)[0
             whileTap={{ scale: 0.95 }}
           >
             <link.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-            <motion.span
-              animate={{ opacity: isExpanded ? 1 : 0, width: isExpanded ? 'auto' : 0, marginLeft: isExpanded ? '0.75rem' : 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden font-medium whitespace-nowrap"
+            <span
+              className="overflow-hidden font-medium ml-3 whitespace-nowrap"
             >
               {link.name}
-            </motion.span>
+            </span>
           </motion.div>
         </Link>
       </TooltipTrigger>
-      {!isExpanded && <TooltipContent side="right">{link.name}</TooltipContent>}
+      <TooltipContent side="right">{link.name}</TooltipContent>
     </Tooltip>
   )
 };
@@ -98,13 +96,13 @@ export function SideNav({ role }: { role: Role }) {
       <motion.aside
         className="fixed left-0 top-0 h-full z-40 flex flex-col border-r bg-background/80 backdrop-blur-sm"
         initial={{ x: '-100%' }}
-        animate={{ x: isExpanded ? 0 : 'calc(-100% + 40px)' }}
+        animate={{ x: isExpanded ? 0 : 'calc(-100% - 40px)' }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <div className="flex flex-col h-full p-3 w-56">
             <div className="flex-grow flex flex-col gap-2 my-auto">
                 {links.map((link) => (
-                    <NavLink key={link.href} link={link} pathname={pathname} isExpanded={true}/>
+                    <NavLink key={link.href} link={link} pathname={pathname}/>
                 ))}
             </div>
 
@@ -112,7 +110,7 @@ export function SideNav({ role }: { role: Role }) {
                {settingsLink && (
                  <>
                     <Separator />
-                    <NavLink link={settingsLink} pathname={pathname} isExpanded={true}/>
+                    <NavLink link={settingsLink} pathname={pathname}/>
                  </>
                )}
 
@@ -132,7 +130,7 @@ export function SideNav({ role }: { role: Role }) {
                       </span>
                   </motion.div>
                 </TooltipTrigger>
-                {!isExpanded && <TooltipContent side="right">로그아웃</TooltipContent>}
+                <TooltipContent side="right">로그아웃</TooltipContent>
               </Tooltip>
             </div>
         </div>
@@ -140,8 +138,8 @@ export function SideNav({ role }: { role: Role }) {
       
       <motion.button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="fixed top-1/2 -translate-y-1/2 z-50 bg-background hover:bg-muted border-y border-r rounded-r-lg p-1"
-            animate={{ left: isExpanded ? 224 : 40 }}
+            className="fixed top-1/2 -translate-y-1/2 z-50 bg-background hover:bg-muted border-y border-r rounded-r-lg p-2"
+            animate={{ left: isExpanded ? 224 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
