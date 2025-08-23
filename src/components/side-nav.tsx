@@ -4,10 +4,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion, PanInfo } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Home, Users, QrCode, History, Mail, ShoppingCart, 
-  HelpCircle, Cog, Award, ListOrdered, UserCheck, Power
+  HelpCircle, Cog, Award, ListOrdered, UserCheck, Power,
+  ChevronRight,
 } from 'lucide-react';
 import { useLogout } from '@/hooks/use-logout';
 import { cn } from '@/lib/utils';
@@ -92,37 +93,14 @@ export function SideNav({ role }: { role: Role }) {
   const links = navConfig[role];
   const settingsLink = role === 'student' ? { name: '프로필 설정', href: '/dashboard/settings', icon: Cog } : null;
 
-  const handlePan = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Only handle horizontal pans
-    if (Math.abs(info.offset.y) > Math.abs(info.offset.x)) return;
-
-    const threshold = 50;
-    if (info.offset.x > threshold && !isExpanded) {
-      setIsExpanded(true);
-    } else if (info.offset.x < -threshold && isExpanded) {
-      setIsExpanded(false);
-    }
-  };
-
-
   return (
     <TooltipProvider>
       <motion.aside
-        className="fixed left-0 top-0 h-full z-40 flex flex-col py-4 pl-3 pr-2 border-r bg-background/80 backdrop-blur-sm"
+        className="fixed left-0 top-0 h-full z-40 flex flex-col justify-between py-4 pl-3 pr-2 border-r bg-background/80 backdrop-blur-sm"
         initial={{ width: 56 }}
         animate={{ width: isExpanded ? 220 : 56 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        onHoverStart={() => setIsExpanded(true)}
-        onHoverEnd={() => setIsExpanded(false)}
-        onPan={handlePan}
       >
-        <div className="absolute top-1/2 -translate-y-1/2 right-0 h-24 w-1 cursor-ew-resize">
-            <motion.div 
-                className="h-full w-full bg-primary/20 rounded-full"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-             />
-        </div>
         <div className="flex flex-col gap-2 my-auto">
             {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} isExpanded={isExpanded}/>
@@ -158,6 +136,21 @@ export function SideNav({ role }: { role: Role }) {
             {!isExpanded && <TooltipContent side="right">로그아웃</TooltipContent>}
           </Tooltip>
         </div>
+
+        <motion.button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="absolute -right-3 top-1/2 -translate-y-1/2 bg-background hover:bg-muted border rounded-full p-0.5"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+        >
+            <motion.div
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
+            >
+                <ChevronRight className="h-4 w-4" />
+            </motion.div>
+        </motion.button>
       </motion.aside>
     </TooltipProvider>
   );
