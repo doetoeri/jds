@@ -4,9 +4,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, PanInfo } from 'framer-motion';
 import { 
-  Home, Users, QrCode, History, LogOut, Mail, ShoppingCart, 
+  Home, Users, QrCode, History, Mail, ShoppingCart, 
   HelpCircle, Cog, Award, ListOrdered, UserCheck, Power
 } from 'lucide-react';
 import { useLogout } from '@/hooks/use-logout';
@@ -92,6 +92,18 @@ export function SideNav({ role }: { role: Role }) {
   const links = navConfig[role];
   const settingsLink = role === 'student' ? { name: '프로필 설정', href: '/dashboard/settings', icon: Cog } : null;
 
+  const handlePan = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Only handle horizontal pans
+    if (Math.abs(info.offset.y) > Math.abs(info.offset.x)) return;
+
+    const threshold = 50;
+    if (info.offset.x > threshold && !isExpanded) {
+      setIsExpanded(true);
+    } else if (info.offset.x < -threshold && isExpanded) {
+      setIsExpanded(false);
+    }
+  };
+
 
   return (
     <TooltipProvider>
@@ -102,7 +114,15 @@ export function SideNav({ role }: { role: Role }) {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         onHoverStart={() => setIsExpanded(true)}
         onHoverEnd={() => setIsExpanded(false)}
+        onPan={handlePan}
       >
+        <div className="absolute top-1/2 -translate-y-1/2 right-0 h-24 w-1 cursor-ew-resize">
+            <motion.div 
+                className="h-full w-full bg-primary/20 rounded-full"
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+             />
+        </div>
         <div className="flex flex-col gap-2 my-auto">
             {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} isExpanded={isExpanded}/>
@@ -131,7 +151,7 @@ export function SideNav({ role }: { role: Role }) {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     className="overflow-hidden font-medium"
                   >
-                    로그아웃
+                    {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
                   </motion.span>
               </motion.div>
             </TooltipTrigger>
@@ -142,3 +162,4 @@ export function SideNav({ role }: { role: Role }) {
     </TooltipProvider>
   );
 }
+
