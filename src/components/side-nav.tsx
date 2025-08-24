@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -24,6 +25,7 @@ import {
   UserCheck,
   Power,
   Bird,
+  MessageSquareQuestion
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -41,12 +43,19 @@ const studentLinks = [
   { name: '사용 방법', href: '/dashboard/guide', icon: HelpCircle },
 ];
 
+const studentSettingsLinks = [
+  { name: '프로필 설정', href: '/dashboard/settings', icon: Cog },
+  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageSquareQuestion }
+];
+
+
 const adminLinks = [
   { name: '관리자 홈', href: '/admin', icon: Home },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
+  { name: '사용자 문의', href: '/admin/inquiries', icon: MessageSquareQuestion },
   { name: '주문 내역', href: '/admin/purchases', icon: ShoppingCart },
   { name: '전체 내역', href: '/admin/history', icon: History },
 ];
@@ -75,7 +84,6 @@ export function SideNav({ role }: { role: Role }) {
   const pathname = usePathname();
   const { handleLogout, isLoggingOut } = useLogout();
   const links = navConfig[role];
-  const settingsLink = { name: '프로필 설정', href: '/dashboard/settings', icon: Cog };
   
   const NavLink = ({ name, href, icon: Icon }: { name: string; href: string; icon: React.ElementType }) => {
     const isActive = pathname === href;
@@ -114,7 +122,9 @@ export function SideNav({ role }: { role: Role }) {
           {role === 'student' && (
               <>
                 <Separator className="my-2" />
-                <NavLink {...settingsLink} />
+                {studentSettingsLinks.map((link) => (
+                    <NavLink key={link.href} {...link} />
+                ))}
               </>
           )}
         </nav>

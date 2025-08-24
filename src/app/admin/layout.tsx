@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePathname, useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { Loader2, Home, Users, QrCode, Mail, ShoppingCart, History, UserCheck, Power } from 'lucide-react';
+import { Loader2, Home, Users, QrCode, Mail, ShoppingCart, History, UserCheck, Power, MessageSquareQuestion } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SideNav } from '@/components/side-nav';
@@ -142,6 +143,7 @@ const adminLinks = [
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
+  { name: '사용자 문의', href: '/admin/inquiries', icon: MessageSquareQuestion },
   { name: '주문 내역', href: '/admin/purchases', icon: ShoppingCart },
   { name: '전체 내역', href: '/admin/history', icon: History },
 ];

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -21,6 +22,7 @@ import {
   HelpCircle,
   Cog,
   Power,
+  MessageSquareQuestion
 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import Link from 'next/link';
@@ -113,7 +115,7 @@ function DesktopNav({ role }: { role: 'student' | 'admin' | 'council' | 'teacher
     const pathname = usePathname();
     const { handleLogout, isLoggingOut } = useLogout();
     const links = navConfig[role];
-    const settingsLink = { name: '프로필 설정', href: '/dashboard/settings', icon: Cog };
+    const settingsLinks = studentSettingsLinks;
 
     const NavLink = ({ name, href, icon: Icon }: { name: string; href: string; icon: React.ElementType }) => {
         const isActive = pathname === href;
@@ -142,7 +144,9 @@ function DesktopNav({ role }: { role: 'student' | 'admin' | 'council' | 'teacher
                          {role === 'student' && (
                           <>
                             <Separator className="my-2" />
-                            <NavLink {...settingsLink} />
+                            {settingsLinks.map((link) => (
+                                <NavLink key={link.href} {...link} />
+                            ))}
                           </>
                         )}
                     </nav>
@@ -167,6 +171,12 @@ const studentLinks = [
   { name: '사용 내역', href: '/dashboard/history', icon: History },
   { name: '사용 방법', href: '/dashboard/guide', icon: HelpCircle },
 ];
+
+const studentSettingsLinks = [
+  { name: '프로필 설정', href: '/dashboard/settings', icon: Cog },
+  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageSquareQuestion }
+];
+
 
 const navConfig = {
   student: studentLinks,

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -507,6 +508,25 @@ export const deleteUser = async (userId: string) => {
     await deleteDoc(userRef);
 };
 
+export const submitInquiry = async (userId: string, content: string) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error("User data not found.");
+    }
+    const userData = userDoc.data();
+    
+    const inquiryData = {
+        senderUid: userId,
+        senderStudentId: userData.studentId,
+        senderDisplayName: userData.displayName,
+        content,
+        createdAt: Timestamp.now(),
+        status: 'open' // 'open', 'closed'
+    };
+
+    await addDoc(collection(db, 'inquiries'), inquiryData);
+};
+
 
 export { auth, db, storage };
-
