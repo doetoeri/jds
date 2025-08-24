@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,6 +25,10 @@
     --input: 30 10% 90%;
     --ring: 19 100% 50%;
     --radius: 1rem;
+    
+    --announcement-bg: 210 100% 97%;
+    --announcement-fg: 210 100% 40%;
+    --announcement-border: 210 100% 85%;
   }
  
   .dark {
@@ -47,6 +52,10 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 19 100% 50%;
     --radius: 1rem;
+
+    --announcement-bg: 210 100% 10%;
+    --announcement-fg: 210 100% 70%;
+    --announcement-border: 210 100% 25%;
   }
 }
 

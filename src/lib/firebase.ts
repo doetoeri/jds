@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -9,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 
@@ -406,7 +405,7 @@ const deleteCollection = async (collectionRef: any) => {
 export const resetAllData = async () => {
     try {
         // 1. Reset 'codes', 'letters', 'purchases'
-        const collectionsToReset = ['codes', 'letters', 'purchases'];
+        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel'];
         for (const col of collectionsToReset) {
             const collectionRef = collection(db, col);
             await deleteCollection(collectionRef);
@@ -526,6 +525,22 @@ export const submitInquiry = async (userId: string, content: string) => {
     };
 
     await addDoc(collection(db, 'inquiries'), inquiryData);
+};
+
+export const postAnnouncement = async (adminId: string, text: string) => {
+  const adminRef = doc(db, 'users', adminId);
+  const adminDoc = await getDoc(adminRef);
+
+  if (!adminDoc.exists() || adminDoc.data()?.role !== 'admin') {
+    throw new Error('공지를 게시할 권한이 없습니다.');
+  }
+
+  await addDoc(collection(db, 'announcements'), {
+    text,
+    authorName: adminDoc.data()?.name || '관리자',
+    authorId: adminId,
+    createdAt: Timestamp.now(),
+  });
 };
 
 

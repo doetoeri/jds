@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -23,6 +24,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { resetAllData } from '@/lib/firebase';
 import { CommunicationChannel } from '@/components/communication-channel';
+import { AnnouncementPoster } from '@/components/announcement-poster';
 
 
 export default function AdminDashboardPage() {
@@ -96,6 +98,8 @@ export default function AdminDashboardPage() {
                 </CardContent>
                 </Card>
             </div>
+            
+            <AnnouncementPoster />
 
             <Card className="border-destructive/50">
                 <CardHeader>

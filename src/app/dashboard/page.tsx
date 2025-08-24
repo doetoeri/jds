@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import Image from 'next/image';
 import QRCode from 'qrcode';
+import { AnnouncementView } from '@/components/announcement-view';
 
 interface NewUpdate {
   type: 'friend' | 'letter';
@@ -160,9 +162,10 @@ export default function DashboardPage() {
 
 
   return (
-    <div>
+    <div className="space-y-6">
+      <AnnouncementView />
       <h1 className="text-3xl font-bold tracking-tight font-headline">대시보드</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">나의 Lak</CardTitle>
