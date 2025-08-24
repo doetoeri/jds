@@ -5,9 +5,6 @@ import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -19,22 +16,17 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
-import { collection, collectionGroup, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
+import { collectionGroup, getDocs, orderBy, query, Timestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Transaction {
   id: string;
-  studentId: string; // This will be added during processing
+  studentId: string; 
   date: Timestamp;
   description: string;
   amount: number;
   type: 'credit' | 'debit';
-}
-
-interface User {
-    id: string;
-    studentId: string;
 }
 
 export default function AdminHistoryPage() {
@@ -46,26 +38,28 @@ export default function AdminHistoryPage() {
     const fetchAllTransactions = async () => {
       setIsLoading(true);
       try {
-        // 1. Fetch all users to create a map from UID to studentId
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const studentIdMap = new Map(usersSnapshot.docs.map(doc => [doc.id, doc.data().studentId]));
-
-        // 2. Use a collection group query to get all transactions at once
         const transactionsGroupRef = collectionGroup(db, 'transactions');
         const q = query(transactionsGroupRef, orderBy('date', 'desc'));
         const querySnapshot = await getDocs(q);
 
-        const allTransactions = querySnapshot.docs.map(doc => {
+        const allTransactions = await Promise.all(querySnapshot.docs.map(async (doc) => {
           const data = doc.data();
-          const userPath = doc.ref.parent.parent; // Get the user document path
-          const userId = userPath?.id || '';
+          const userDocRef = doc.ref.parent.parent; 
+          
+          let studentId = '알 수 없음';
+          if(userDocRef) {
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              studentId = userDoc.data().studentId || '학번 없음';
+            }
+          }
           
           return {
             id: doc.id,
-            studentId: studentIdMap.get(userId) || '알 수 없음', // Look up studentId from map
+            studentId: studentId,
             ...data
           } as Transaction;
-        });
+        }));
 
         setTransactions(allTransactions);
 
@@ -136,5 +130,3 @@ export default function AdminHistoryPage() {
     </div>
   );
 }
-
-    

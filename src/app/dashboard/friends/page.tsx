@@ -45,7 +45,6 @@ export default function FriendsPage() {
     setIsLoading(true);
 
     try {
-      // 1. Get current user's studentId
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
       if (!userDocSnap.exists()) throw new Error('현재 사용자 정보를 찾을 수 없습니다.');
@@ -53,38 +52,30 @@ export default function FriendsPage() {
       const currentUserStudentId = userData.studentId;
       setMateCode(userData.mateCode);
 
-      // 2. Find all mate code documents where the current user is a participant
-      const friendsQuery = query(
+      const mateCodesQuery = query(
         collection(db, 'codes'),
         where('type', '==', '메이트코드'),
         where('participants', 'array-contains', currentUserStudentId)
       );
-      const friendsSnapshot = await getDocs(friendsQuery);
+      const mateCodesSnapshot = await getDocs(mateCodesQuery);
 
-      if (friendsSnapshot.empty) {
+      if (mateCodesSnapshot.empty) {
         setIsLoading(false);
         return;
       }
-
-      const friendStudentIdsSet = new Set<string>();
-      friendsSnapshot.forEach(doc => {
-          const participants = doc.data().participants as string[];
-          participants.forEach(pId => {
-              if (pId !== currentUserStudentId) {
-                  friendStudentIdsSet.add(pId);
-              }
-          });
-      });
       
-      const friendStudentIds = Array.from(friendStudentIdsSet);
-
-      if (friendStudentIds.length === 0) {
+      const friendStudentIds = mateCodesSnapshot.docs
+        .flatMap(doc => doc.data().participants as string[])
+        .filter(pId => pId !== currentUserStudentId);
+      
+      const uniqueFriendIds = [...new Set(friendStudentIds)];
+      
+      if (uniqueFriendIds.length === 0) {
           setIsLoading(false);
           return;
       }
 
-      // 3. Fetch user data for each friend
-      const usersQuery = query(collection(db, 'users'), where('studentId', 'in', friendStudentIds));
+      const usersQuery = query(collection(db, 'users'), where('studentId', 'in', uniqueFriendIds));
       const usersSnapshot = await getDocs(usersQuery);
 
       const friendsData = usersSnapshot.docs.map(doc => {
@@ -180,5 +171,3 @@ export default function FriendsPage() {
     </div>
   );
 }
-
-    

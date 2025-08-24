@@ -176,5 +176,3 @@ export default function AdminTeachersPage() {
     </div>
   );
 }
-
-    
