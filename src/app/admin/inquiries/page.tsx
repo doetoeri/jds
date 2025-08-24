@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, MessageCircleQuestion } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -103,7 +103,10 @@ export default function AdminInquiriesPage() {
   return (
     <div>
       <div className="space-y-1 mb-6">
-        <h1 className="text-2xl font-bold tracking-tight font-headline">사용자 문의 관리</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
+            <MessageCircleQuestion className="mr-2 h-6 w-6" />
+            사용자 문의 관리
+        </h1>
         <p className="text-muted-foreground">
           사용자가 보낸 버그 제보 및 문의사항 목록입니다.
         </p>

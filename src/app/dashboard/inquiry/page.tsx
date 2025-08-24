@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { auth, submitInquiry } from '@/lib/firebase';
-import { Loader2, MessageSquareQuestion, Send } from 'lucide-react';
+import { Loader2, MessageCircleQuestion, Send } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 
 export default function InquiryPage() {
@@ -59,7 +59,7 @@ export default function InquiryPage() {
     <>
         <div className="space-y-1 mb-6">
             <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
-                <MessageSquareQuestion className="mr-2 h-6 w-6" />
+                <MessageCircleQuestion className="mr-2 h-6 w-6" />
                 문의하기
             </h1>
             <p className="text-muted-foreground">

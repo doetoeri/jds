@@ -25,7 +25,7 @@ import {
   UserCheck,
   Power,
   Bird,
-  MessageSquareQuestion
+  MessageCircleQuestion,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -45,7 +45,7 @@ const studentLinks = [
 
 const studentSettingsLinks = [
   { name: '프로필 설정', href: '/dashboard/settings', icon: Cog },
-  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageSquareQuestion }
+  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageCircleQuestion },
 ];
 
 
@@ -55,7 +55,7 @@ const adminLinks = [
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
-  { name: '사용자 문의', href: '/admin/inquiries', icon: MessageSquareQuestion },
+  { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
   { name: '주문 내역', href: '/admin/purchases', icon: ShoppingCart },
   { name: '전체 내역', href: '/admin/history', icon: History },
 ];

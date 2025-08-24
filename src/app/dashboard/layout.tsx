@@ -22,7 +22,7 @@ import {
   HelpCircle,
   Cog,
   Power,
-  MessageSquareQuestion
+  MessageCircleQuestion,
 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import Link from 'next/link';
@@ -174,7 +174,7 @@ const studentLinks = [
 
 const studentSettingsLinks = [
   { name: '프로필 설정', href: '/dashboard/settings', icon: Cog },
-  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageSquareQuestion }
+  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageCircleQuestion },
 ];
 
 
