@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -40,35 +39,32 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    if (loading) return; // Wait until auth state is loaded
+    if (loading) return; 
     if (!user) {
       toast({
         title: '로그인 필요',
         description: '대시보드에 접근하려면 로그인이 필요합니다.',
         variant: 'destructive',
       });
-      router.push('/login');
+      setTimeout(() => router.push('/login'), 300);
       return;
     }
     
-    // Check user role to prevent unauthorized access and redirect if necessary
     const checkRole = async () => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
             const role = userDoc.data().role;
-            if (role === 'admin') {
-                router.push('/admin');
-                return; // Redirect and stop further execution
-            } else if (role === 'council') {
-                router.push('/council');
-                return; // Redirect and stop further execution
-            } else if (role === 'teacher') {
-                router.push('/teacher/rewards');
-                return;
+            if (role === 'admin' || role === 'council' || role === 'teacher') {
+                setIsAuthorized(false);
+                let redirectPath = '/dashboard';
+                if (role === 'admin') redirectPath = '/admin';
+                if (role === 'council') redirectPath = '/council';
+                if (role === 'teacher') redirectPath = '/teacher/rewards';
+                setTimeout(() => router.push(redirectPath), 300);
+                return; 
             }
         }
-        // If user is not admin, council, or teacher, they can access the dashboard.
         setIsAuthorized(true);
     };
     checkRole();
@@ -98,7 +94,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   key={pathname}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
+                  exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
                   transition={{ type: "spring", stiffness: 260, damping: 30 }}
                 >
                   {children}

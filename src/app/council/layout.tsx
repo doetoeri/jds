@@ -33,7 +33,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
           description: '로그인이 필요한 페이지입니다.',
           variant: 'destructive',
         });
-        router.push('/login');
+        setTimeout(() => router.push('/login'), 300);
         return;
       }
 
@@ -48,7 +48,8 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
           description: '학생회만 접근할 수 있는 페이지입니다.',
           variant: 'destructive',
         });
-        router.push('/dashboard');
+        setIsAuthorized(false);
+        setTimeout(() => router.push('/dashboard'), 300);
       }
     };
     checkAuthorization();
@@ -77,7 +78,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
               key={pathname}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
               transition={{ type: "spring", stiffness: 260, damping: 30 }}
             >
               {children}

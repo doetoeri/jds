@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -15,7 +16,7 @@ export function useLogout() {
     try {
       await handleSignOut();
       toast({ title: '로그아웃 되었습니다.' });
-      router.push('/');
+      setTimeout(() => router.push('/'), 300); // Add a delay to allow animation
     } catch (error: any) {
       toast({
         title: '로그아웃 실패',
