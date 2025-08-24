@@ -114,7 +114,7 @@ function DesktopNav({ role }: { role: 'teacher' }) {
                 <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
                     <Logo />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 overflow-y-auto">
                     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
                         {links.map((link) => (
                           <NavLink key={link.href} {...link} />

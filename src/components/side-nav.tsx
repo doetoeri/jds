@@ -115,7 +115,7 @@ export function SideNav({ role }: { role: Role }) {
                 </Link>
             </SheetTitle>
         </SheetHeader>
-        <nav className="grid gap-2 text-lg font-medium flex-1 py-4">
+        <nav className="grid gap-2 text-lg font-medium flex-1 py-4 overflow-y-auto">
           {links.map((link) => (
             <NavLink key={link.href} {...link} />
           ))}
