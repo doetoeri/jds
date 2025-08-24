@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -79,11 +80,11 @@ export default function LettersView() {
         const userData = userDocSnap.data();
         const currentUserStudentId = userData.studentId;
 
-        // 1. Fetch letters without ordering on the server
         const q = query(
           collection(db, 'letters'),
           where('receiverStudentId', '==', currentUserStudentId),
-          where('status', '==', 'approved')
+          where('status', '==', 'approved'),
+          orderBy('approvedAt', 'desc')
         );
         const querySnapshot = await getDocs(q);
         const letters = querySnapshot.docs.map(doc => ({
@@ -91,16 +92,8 @@ export default function LettersView() {
           ...doc.data(),
         })) as ReceivedLetter[];
         
-        // 2. Sort letters by approvedAt descending on the client-side
-        letters.sort((a, b) => {
-          const dateA = a.approvedAt?.toMillis() || 0;
-          const dateB = b.approvedAt?.toMillis() || 0;
-          return dateB - dateA;
-        });
-
         setReceivedLetters(letters);
 
-        // 3. Update last check timestamp after fetching
         await updateDoc(userDocRef, {
           lastLetterCheckTimestamp: Timestamp.now()
         });
@@ -317,3 +310,4 @@ export default function LettersView() {
     </Tabs>
   );
 }
+

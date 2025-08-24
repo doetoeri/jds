@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { db, adjustUserLak, updateUserRole, deleteUser } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -72,7 +72,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
-    const q = query(usersCollection, orderBy('createdAt', 'desc'));
+    const q = query(usersCollection);
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs

@@ -8,14 +8,12 @@ import { useToast } from '@/hooks/use-toast';
 import { usePathname, useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { Loader2, Home, Users, ShoppingCart, ListOrdered, Power } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SideNav } from '@/components/side-nav';
-import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { useLogout } from '@/hooks/use-logout';
+import { DesktopNav } from '@/components/desktop-nav';
+
 
 export default function CouncilLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -33,7 +31,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
           description: '로그인이 필요한 페이지입니다.',
           variant: 'destructive',
         });
-        setTimeout(() => router.push('/login'), 300);
+        setTimeout(() => router.push('/login'), 50);
         return;
       }
 
@@ -49,7 +47,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
           variant: 'destructive',
         });
         setIsAuthorized(false);
-        setTimeout(() => router.push('/dashboard'), 300);
+        setTimeout(() => router.push('/dashboard'), 50);
       }
     };
     checkAuthorization();
@@ -65,7 +63,12 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-        <DesktopNav role="council" />
+       <div className="hidden border-r bg-muted/40 md:flex flex-col">
+            <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+                <Logo isCouncil />
+            </div>
+            <DesktopNav role="council" />
+        </div>
         <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
           <SideNav role="council" />
@@ -78,7 +81,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
               key={pathname}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+              exit={{ opacity: 0, y: -20 }}
               transition={{ type: "spring", stiffness: 260, damping: 30 }}
             >
               {children}
@@ -89,52 +92,3 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-function DesktopNav({ role }: { role: 'council' }) {
-    const pathname = usePathname();
-    const { handleLogout, isLoggingOut } = useLogout();
-    const links = councilLinks;
-
-    const NavLink = ({ name, href, icon: Icon }: { name: string; href: string; icon: React.ElementType }) => {
-        const isActive = pathname === href;
-        return (
-            <Link href={href} className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                isActive && "bg-muted text-primary"
-            )}>
-                <Icon className="h-4 w-4" />
-                {name}
-            </Link>
-        )
-    }
-
-    return (
-        <div className="hidden border-r bg-muted/40 md:block">
-            <div className="flex h-full max-h-screen flex-col gap-2">
-                <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-                    <Logo isCouncil />
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-                        {links.map((link) => (
-                          <NavLink key={link.href} {...link} />
-                        ))}
-                    </nav>
-                </div>
-                 <div className="mt-auto p-4">
-                    <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut} className="w-full justify-start gap-3">
-                        <Power className="h-4 w-4" />
-                        로그아웃
-                    </Button>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-const councilLinks = [
-  { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
-  { name: '주문 내역', href: '/council/orders', icon: ListOrdered },
-  { name: '사용자 관리', href: '/council/users', icon: Users },
-];
