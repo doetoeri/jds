@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Gift } from 'lucide-react';
+import { Gift, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -98,6 +98,14 @@ export default function LandingPage() {
             className="font-bold w-full sm:w-auto bg-white/50"
           >
             <Link href="/signup">회원가입</Link>
+          </Button>
+           <Button
+            asChild
+            variant="secondary"
+            size="lg"
+            className="font-bold w-full sm:w-auto bg-white/50"
+          >
+            <Link href="/guide"><BookOpen className="mr-2 h-4 w-4"/>사용 방법 둘러보기</Link>
           </Button>
         </motion.div>
       </motion.div>

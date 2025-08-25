@@ -4,9 +4,6 @@
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from '@/components/ui/card';
 import {
   Accordion,
@@ -14,12 +11,20 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog } from 'lucide-react';
+import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function GuidePage() {
   return (
      <div>
         <div className="space-y-1 mb-6">
+            <Button asChild variant="ghost" className="mb-4">
+                <Link href="/">
+                    <ArrowLeft className="mr-2 h-4 w-4"/>
+                    홈으로 돌아가기
+                </Link>
+            </Button>
             <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
                 <HelpCircle className="mr-2 h-6 w-6" />
                 종달샘 허브 사용 방법

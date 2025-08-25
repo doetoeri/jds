@@ -40,7 +40,6 @@ const studentLinks = [
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
   { name: '쇼핑', href: '/dashboard/shop', icon: ShoppingCart },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
-  { name: '사용 방법', href: '/dashboard/guide', icon: HelpCircle },
 ];
 
 const studentSettingsLinks = [
