@@ -75,6 +75,10 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">학교 곳곳에 숨겨진 보물 같은 코드입니다! 이 코드를 찾아서 등록할 때 <strong className="text-primary">다른 친구의 학번을 함께 입력하면, 두 사람 모두에게 지정된 Lak이 지급됩니다.</strong></p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
+                        <h4 className="font-semibold text-md">선착순코드 (다회용)</h4>
+                        <p className="text-sm text-muted-foreground">관리자가 지정한 횟수만큼 여러명이 사용할 수 있는 코드입니다. 선착순으로 사용되며, 횟수가 모두 소진되면 더 이상 사용할 수 없습니다.</p>
+                      </li>
+                       <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">온라인 특수코드</h4>
                         <p className="text-sm text-muted-foreground">선생님이나 관리자가 특정 학생에게 보상을 지급하기 위해 생성하는 일회용 코드입니다. 해당 학생에게 코드를 전달받아 사용하면 됩니다.</p>
                       </li>
@@ -126,35 +130,6 @@ export default function GuidePage() {
                     </li>
                      <li>
                         '오프라인으로 전달하기'를 체크하면, 학생회에서 내용을 확인 후 직접 편지를 전달해드립니다. 이 경우 Lak 지급도 오프라인으로 이루어집니다.
-                    </li>
-                    </ul>
-                </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="item-4">
-                <AccordionTrigger className="text-lg font-semibold">
-                    <ShoppingCart className="mr-2 text-primary" />
-                    종달 상점은 어떻게 이용하나요?
-                </AccordionTrigger>
-                <AccordionContent className="text-base pl-8 space-y-2">
-                    <p>
-                    '쇼핑' 메뉴에서 내가 보유한 Lak으로 다양한 간식과 상품을 구매할 수 있습니다.
-                    </p>
-                    <ul className="list-disc pl-6 mt-2 space-y-2">
-                    <li>
-                        원하는 상품의 '+' 버튼을 눌러 수량을 조절하여 장바구니에 담습니다.
-                    </li>
-                    <li>
-                        구매할 상품을 모두 담았다면, 화면 하단에 나타나는 '구매하기' 버튼을 누릅니다.
-                    </li>
-                    <li>
-                        구매 내역을 최종 확인하면 Lak이 차감되고 주문이 완료됩니다.
-                    </li>
-                     <li>
-                        주문이 완료되면 학생회에 가서 상품을 직접 수령하면 됩니다.
-                    </li>
-                    <li className="text-sm text-destructive">
-                        ※ Lak 잔액이 부족하면 구매할 수 없으며, 구매 후에는 취소가 불가능하니 신중하게 선택해주세요.
                     </li>
                     </ul>
                 </AccordionContent>

@@ -40,7 +40,6 @@ const studentLinks = [
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '친구', href: '/dashboard/friends', icon: Users },
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
-  { name: '쇼핑', href: '/dashboard/shop', icon: ShoppingCart },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
 ];
 
@@ -57,14 +56,11 @@ const adminLinks = [
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
-  { name: '주문 내역', href: '/admin/purchases', icon: ShoppingCart },
   { name: '전체 내역', href: '/admin/history', icon: History },
 ];
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
-  { name: '주문 내역', href: '/council/orders', icon: ListOrdered },
   { name: '사용자 관리', href: '/council/users', icon: Users },
 ];
 
