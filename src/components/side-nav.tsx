@@ -26,6 +26,7 @@ import {
   Power,
   Bird,
   MessageCircleQuestion,
+  Megaphone,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -35,6 +36,7 @@ import { Separator } from './ui/separator';
 
 const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
+  { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '친구', href: '/dashboard/friends', icon: Users },
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },

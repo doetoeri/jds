@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Mail, QrCode, Gift, Users } from 'lucide-react';
+import { Coins, Mail, QrCode, Gift, Users, Megaphone } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -11,11 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { AnnouncementView } from '@/components/announcement-view';
 
 interface NewUpdate {
-  type: 'friend' | 'letter';
-  message: string;
+  title: string;
   link: string;
   icon: React.ElementType;
 }
@@ -75,68 +73,42 @@ export default function DashboardPage() {
     return () => unsubscribeUser();
   }, [user, currentMateCode]);
   
-  // Effect for checking new updates (friends, letters)
+  // Effect for checking new announcements
     useEffect(() => {
         if (!user) return;
 
         const userDocRef = doc(db, 'users', user.uid);
-        const unsubscribe = onSnapshot(userDocRef, async (userDocSnap) => {
-            if (!userDocSnap.exists()) {
-                setNewUpdate(null);
-                return;
-            }
+
+        const checkNewAnnouncements = async () => {
+            const userDocSnap = await getDoc(userDocRef);
+            if (!userDocSnap.exists()) return;
 
             const userData = userDocSnap.data();
-            const studentId = userData.studentId;
-            const lastCheckTimestamp = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
+            const lastCheck = userData.lastLetterCheckTimestamp || new Timestamp(0, 0);
 
-            // 1. Check for new friends (highest priority)
-            const friendsQuery = query(
-                collection(db, 'codes'),
-                where('type', '==', '메이트코드'),
-                where('participants', 'array-contains', studentId)
+            const announcementsQuery = query(
+                collection(db, 'announcements'),
+                orderBy('createdAt', 'desc'),
+                limit(1)
             );
-            
-            const friendsSnapshot = await getDocs(friendsQuery);
-            const newFriendActivities = friendsSnapshot.docs.filter(doc => {
-                 const lastUsedAt = doc.data().lastUsedAt as Timestamp;
-                 return lastUsedAt && lastUsedAt.toMillis() > lastCheckTimestamp.toMillis();
-            });
 
-            if (newFriendActivities.length > 0) {
-                 setNewUpdate({
-                    type: 'friend',
-                    message: '새로운 친구가 생겼어요!',
-                    link: '/dashboard/friends',
-                    icon: Users
-                });
-                return; // New friend found, stop checking for other updates
+            const announcementsSnapshot = await getDocs(announcementsQuery);
+            if (!announcementsSnapshot.empty) {
+                const latestAnnouncement = announcementsSnapshot.docs[0].data();
+                if (latestAnnouncement.createdAt.toMillis() > lastCheck.toMillis()) {
+                    setNewUpdate({
+                        title: `새로운 소식: ${latestAnnouncement.title}`,
+                        link: '/dashboard/releases',
+                        icon: Megaphone,
+                    });
+                } else {
+                    setNewUpdate(null);
+                }
             }
-            
-            // 2. If no new friends, check for new letters
-            const lettersQuery = query(
-                collection(db, 'letters'),
-                where('receiverStudentId', '==', studentId),
-                where('status', '==', 'approved')
-            );
-            
-            const lettersSnapshot = await getDocs(lettersQuery);
-            const newLetters = lettersSnapshot.docs.filter(doc => {
-                 const approvedAt = doc.data().approvedAt as Timestamp;
-                 return approvedAt && approvedAt.toMillis() > lastCheckTimestamp.toMillis();
-            });
+        };
 
-            if (newLetters.length > 0) {
-                setNewUpdate({
-                    type: 'letter',
-                    message: '새로운 편지가 도착했어요!',
-                    link: '/dashboard/letters?tab=inbox',
-                    icon: Mail
-                });
-            } else {
-                setNewUpdate(null);
-            }
-        });
+        checkNewAnnouncements();
+        const unsubscribe = onSnapshot(collection(db, 'announcements'), checkNewAnnouncements);
 
         return () => unsubscribe();
     }, [user]);
@@ -163,7 +135,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <AnnouncementView />
       <h1 className="text-3xl font-bold tracking-tight font-headline">대시보드</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -204,13 +175,13 @@ export default function DashboardPage() {
              <Link href={newUpdate.link} className="block">
                 <Card className="bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors animate-highlight-pulse">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-primary">새로운 소식</CardTitle>
+                    <CardTitle className="text-sm font-medium text-primary">알림</CardTitle>
                     <newUpdate.icon className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-xl font-bold text-primary">{newUpdate.message}</div>
+                    <div className="text-lg font-bold text-primary">{newUpdate.title}</div>
                     <p className="text-xs text-primary/80">
-                      지금 바로 확인해보세요.
+                      탭하여 자세히 보기
                     </p>
                 </CardContent>
                 </Card>

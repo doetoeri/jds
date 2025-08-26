@@ -1,30 +1,72 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, Megaphone } from 'lucide-react';
+import { Send, Loader2, Megaphone, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, postAnnouncement } from '@/lib/firebase';
+import { auth, postAnnouncement, storage } from '@/lib/firebase';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import Image from 'next/image';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 export function AnnouncementPoster() {
-  const [announcement, setAnnouncement] = useState('');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [user] = useAuthState(auth);
   const { toast } = useToast();
+  
+  const resetForm = () => {
+      setTitle('');
+      setContent('');
+      setImageFile(null);
+      setImagePreview(null);
+      if(fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSendAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!announcement.trim() || !user) return;
+    if (!title.trim() || !content.trim() || !user) {
+        toast({ title: '입력 오류', description: '제목과 내용은 필수입니다.', variant: 'destructive'});
+        return;
+    }
 
     setIsSending(true);
     try {
-      await postAnnouncement(user.uid, announcement);
-      toast({ title: '공지 완료', description: '모든 학생에게 공지가 전송되었습니다.' });
-      setAnnouncement('');
+        let imageUrl = '';
+        let imagePath = '';
+        if (imageFile) {
+            const newImagePath = `announcements/${Date.now()}_${imageFile.name}`;
+            const imageRef = ref(storage, newImagePath);
+            const snapshot = await uploadBytes(imageRef, imageFile);
+            imageUrl = await getDownloadURL(snapshot.ref);
+            imagePath = newImagePath;
+        }
+
+      await postAnnouncement(user.uid, title, content, imageUrl, imagePath);
+      toast({ title: '공지 완료', description: '모든 학생에게 새 소식이 전달됩니다.' });
+      resetForm();
     } catch (error: any) {
       toast({ title: '전송 실패', description: error.message, variant: 'destructive' });
     } finally {
@@ -37,26 +79,53 @@ export function AnnouncementPoster() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <Megaphone />
-            전체 공지 보내기
+            릴리즈 노트 / 공지 보내기
         </CardTitle>
         <CardDescription>
-            모든 학생의 대시보드에 표시될 공지사항을 작성합니다.
+            모든 학생의 '업데이트 소식' 페이지에 표시될 내용을 작성합니다.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSendAnnouncement}>
-        <CardContent>
-          <Textarea 
-            value={announcement}
-            onChange={(e) => setAnnouncement(e.target.value)}
-            placeholder="학생들에게 보낼 공지 내용을 입력하세요..." 
-            disabled={isSending}
-            rows={4}
-          />
+        <CardContent className="space-y-4">
+           <div>
+             <Label htmlFor="announcement-title">제목</Label>
+             <Input 
+                id="announcement-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="업데이트의 핵심 내용을 요약해주세요." 
+                disabled={isSending}
+              />
+           </div>
+          <div>
+            <Label htmlFor="announcement-content">내용</Label>
+            <Textarea 
+                id="announcement-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="학생들에게 보낼 상세 내용을 입력하세요..." 
+                disabled={isSending}
+                rows={4}
+            />
+          </div>
+          <div>
+            <Label>이미지 (선택)</Label>
+            <div className="flex items-center gap-4">
+                {imagePreview ? (
+                    <Image src={imagePreview} alt="preview" width={80} height={80} className="rounded-md object-cover"/>
+                ) : (
+                    <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center">
+                        <ImageIcon className="h-8 w-8 text-muted-foreground"/>
+                    </div>
+                )}
+                <Input id="picture" type="file" accept="image/*" onChange={handleImageChange} ref={fileInputRef} disabled={isSending} className="flex-1"/>
+            </div>
+          </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" disabled={isSending || !announcement.trim()} className="ml-auto">
+          <Button type="submit" disabled={isSending || !content.trim()} className="ml-auto">
             {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-            공지 전송
+            게시하기
           </Button>
         </CardFooter>
       </form>

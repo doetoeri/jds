@@ -527,17 +527,26 @@ export const submitInquiry = async (userId: string, content: string) => {
     await addDoc(collection(db, 'inquiries'), inquiryData);
 };
 
-export const postAnnouncement = async (adminId: string, text: string) => {
+export const postAnnouncement = async (
+    adminId: string, 
+    title: string, 
+    content: string, 
+    imageUrl: string, 
+    imagePath: string
+) => {
   const adminRef = doc(db, 'users', adminId);
   const adminDoc = await getDoc(adminRef);
 
-  if (!adminDoc.exists() || adminDoc.data()?.role !== 'admin') {
+  if (!adminDoc.exists() || (adminDoc.data()?.role !== 'admin' && adminDoc.data()?.role !== 'council')) {
     throw new Error('공지를 게시할 권한이 없습니다.');
   }
 
   await addDoc(collection(db, 'announcements'), {
-    text,
-    authorName: adminDoc.data()?.name || '관리자',
+    title,
+    content,
+    imageUrl,
+    imagePath,
+    authorName: adminDoc.data()?.displayName || '관리자',
     authorId: adminId,
     createdAt: Timestamp.now(),
   });
