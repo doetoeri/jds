@@ -104,6 +104,8 @@ export default function DashboardPage() {
                 } else {
                     setNewUpdate(null);
                 }
+            } else {
+                setNewUpdate(null);
             }
         };
 
