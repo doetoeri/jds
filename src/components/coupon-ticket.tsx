@@ -10,7 +10,7 @@ import { Bird } from 'lucide-react';
 interface CouponTicketProps {
   code: string;
   value: number;
-  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드';
+  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드' | '선착순코드';
 }
 
 export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
@@ -39,6 +39,17 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
       }
     }, [code]);
     
+    const getDescription = () => {
+        switch (type) {
+            case '히든코드':
+                return '파트너와 함께 코드를 사용하고 두 배의 라크를 받으세요!';
+            case '선착순코드':
+                return '선착순으로 사용 가능한 코드입니다. 서두르세요!';
+            default:
+                return 'jongdalsam.shop에서 라크를 사용해보세요.';
+        }
+    }
+    
     return (
       <div
         ref={ref}
@@ -53,7 +64,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
                       종달코드
                   </h2>
                   <p className="mt-1 text-xs text-primary/80">
-                      {type === '히든코드' ? '파트너와 함께 코드를 사용하고 두 배의 라크를 받으세요!' : 'jongdalsam.shop에서 라크를 사용해보세요.'}
+                      {getDescription()}
                   </p>
               </div>
 

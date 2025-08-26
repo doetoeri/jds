@@ -206,23 +206,20 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
     
-    // 3. Check if used (re-fetch inside transaction for consistent read)
+    // 3. Re-fetch inside transaction for consistent read and process
     const freshCodeDoc = await transaction.get(codeRef);
     const freshCodeData = freshCodeDoc.data();
     if (!freshCodeData) {
         throw "코드를 찾을 수 없습니다.";
     }
     
-    // This check is now placed before the switch for all non-Mate codes
-    if (freshCodeData.used && freshCodeData.type !== '메이트코드') {
-      throw "이미 사용된 코드입니다.";
-    }
-
 
     // 4. Handle different code types
     switch (freshCodeData.type) {
       case '히든코드':
-        // The used check is already done above.
+        if (freshCodeData.used) {
+            throw "이미 사용된 코드입니다.";
+        }
         if (!partnerStudentId) {
           throw "파트너의 학번이 필요합니다.";
         }
@@ -306,9 +303,39 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         });
 
         return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} Lak을, 코드 주인도 ${freshCodeData.value} Lak을 받았습니다!` };
+      
+      case '선착순코드':
+        const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
+        if (usedBy.includes(userStudentId)) {
+            throw "이미 이 코드를 사용했습니다.";
+        }
+        if (usedBy.length >= freshCodeData.limit) {
+            throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
+        }
+
+        // Update user's Lak balance
+        transaction.update(userRef, { lak: increment(freshCodeData.value) });
+
+        // Add user to usedBy list
+        transaction.update(codeRef, {
+          usedBy: arrayUnion(userStudentId)
+        });
+
+        // Create transaction history
+        const fcfcHistoryRef = doc(collection(userRef, 'transactions'));
+        transaction.set(fcfcHistoryRef, {
+          date: Timestamp.now(),
+          description: `선착순코드 "${freshCodeData.code}" 사용`,
+          amount: freshCodeData.value,
+          type: 'credit',
+        });
+        
+        return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} Lak을 적립했습니다!` };
 
       default: // '종달코드', '온라인 특수코드'
-        // The used check is already done above.
+        if (freshCodeData.used) {
+            throw "이미 사용된 코드입니다.";
+        }
         // Update user's Lak balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 

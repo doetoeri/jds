@@ -45,13 +45,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 interface Code {
   id: string;
   code: string;
-  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드';
+  type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드' | '선착순코드';
   value: number;
   used?: boolean;
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
   participants?: string[];
+  limit?: number;
 }
 
 export default function AdminCodesPage() {
@@ -66,6 +67,7 @@ export default function AdminCodesPage() {
   const [newCodeType, setNewCodeType] = useState<Code['type'] | ''>('');
   const [newCodeValue, setNewCodeValue] = useState('');
   const [newCodeOwnerStudentId, setNewCodeOwnerStudentId] = useState('');
+  const [newCodeLimit, setNewCodeLimit] = useState('');
 
 
   const [bulkCodeType, setBulkCodeType] = useState<Code['type'] | ''>('');
@@ -125,6 +127,10 @@ export default function AdminCodesPage() {
       toast({ title: "입력 오류", description: "메이트코드는 소유자 학번이 필요합니다.", variant: "destructive" });
       return;
     }
+    if (newCodeType === '선착순코드' && (!newCodeLimit || Number(newCodeLimit) <= 0)) {
+        toast({ title: "입력 오류", description: "선착순 코드는 유효한 사용 제한 인원이 필요합니다.", variant: "destructive" });
+        return;
+    }
 
     setIsCreating(true);
     try {
@@ -135,6 +141,7 @@ export default function AdminCodesPage() {
         type: newCodeType,
         value: Number(newCodeValue),
         used: false,
+        usedBy: [],
         createdAt: Timestamp.now(),
       };
 
@@ -153,6 +160,8 @@ export default function AdminCodesPage() {
             ownerStudentId: newCodeOwnerStudentId,
             participants: [newCodeOwnerStudentId]
         };
+      } else if (newCodeType === '선착순코드') {
+          codeData.limit = Number(newCodeLimit);
       }
 
 
@@ -165,6 +174,7 @@ export default function AdminCodesPage() {
       setNewCodeType('');
       setNewCodeValue('');
       setNewCodeOwnerStudentId('');
+      setNewCodeLimit('');
       setIsCreateDialogOpen(false);
       fetchCodes();
     } catch (error: any) {
@@ -382,6 +392,12 @@ export default function AdminCodesPage() {
         const useCount = Math.max(0, participantsList.length -1); 
         return <Badge variant={useCount > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{useCount > 0 ? `${useCount}회 사용` : '미사용'}</Badge>;
     }
+    if (code.type === '선착순코드') {
+        const usedCount = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
+        const limit = code.limit || 0;
+        const isFull = usedCount >= limit;
+        return <Badge variant={isFull ? 'outline' : 'default'}>{`${usedCount} / ${limit} 사용`}</Badge>;
+    }
     return <Badge variant={code.used ? 'outline' : 'default'}>{code.used ? '사용됨' : '미사용'}</Badge>;
   };
 
@@ -391,6 +407,12 @@ export default function AdminCodesPage() {
     }
     if (code.type === '히든코드' && code.used && Array.isArray(code.usedBy)) {
         return code.usedBy.join(', ');
+    }
+    if (code.type === '선착순코드') {
+        if (Array.isArray(code.usedBy) && code.usedBy.length > 0) {
+            return code.usedBy.join(', ');
+        }
+        return 'N/A';
     }
     return Array.isArray(code.usedBy) ? code.usedBy.join(', ') : code.usedBy || 'N/A';
   }
@@ -510,9 +532,10 @@ export default function AdminCodesPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="종달코드">종달코드</SelectItem>
-                        <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                         <SelectItem value="메이트코드">메이트코드</SelectItem>
                         <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
+                        <SelectItem value="선착순코드">선착순코드 (다회용)</SelectItem>
+                        <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -529,6 +552,22 @@ export default function AdminCodesPage() {
                         onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
                         disabled={isCreating}
                         />
+                    </div>
+                  )}
+                   {newCodeType === '선착순코드' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="limit" className="text-right">
+                        사용 제한 인원
+                      </Label>
+                      <Input
+                        id="limit"
+                        type="number"
+                        placeholder="예: 10 (10명까지 사용 가능)"
+                        className="col-span-3"
+                        value={newCodeLimit}
+                        onChange={(e) => setNewCodeLimit(e.target.value)}
+                        disabled={isCreating}
+                      />
                     </div>
                   )}
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -675,7 +714,3 @@ export default function AdminCodesPage() {
     </>
   );
 }
-
-    
-
-    
