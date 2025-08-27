@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -16,13 +17,13 @@ const WordChainTurnSchema = z.object({
   word: z.string(),
 });
 
-export const WordChainInputSchema = z.object({
+const WordChainInputSchema = z.object({
   word: z.string(),
   history: z.array(WordChainTurnSchema),
 });
 export type WordChainInput = z.infer<typeof WordChainInputSchema>;
 
-export const WordChainOutputSchema = z.object({
+const WordChainOutputSchema = z.object({
   isValid: z.boolean(),
   isGameOver: z.boolean(),
   aiWord: z.string().optional(),
