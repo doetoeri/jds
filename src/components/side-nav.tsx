@@ -27,6 +27,7 @@ import {
   Bird,
   MessageCircleQuestion,
   Megaphone,
+  PartyPopper
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -38,6 +39,7 @@ const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
+  { name: '우정의 벽', href: '/dashboard/friendship-wall', icon: PartyPopper },
   { name: '친구', href: '/dashboard/friends', icon: Users },
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
@@ -108,7 +110,7 @@ export function SideNav({ role }: { role: Role }) {
             <SheetTitle>
                  <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
                     <Bird className="h-6 w-6 text-primary" />
-                    <span>종달샘 허브</span>
+                    <span className="font-headline">종달샘 허브</span>
                 </Link>
             </SheetTitle>
         </SheetHeader>
