@@ -38,12 +38,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
             const role = userDoc.data().role;
-            if (role === 'admin' || role === 'council' || role === 'teacher') {
+            // Allow student and council roles, redirect others
+            if (role === 'admin' || role === 'teacher') {
                 setIsAuthorized(false);
                 let redirectPath = '/dashboard';
                 if (role === 'admin') redirectPath = '/admin';
-                if (role === 'council') redirectPath = '/council';
                 if (role === 'teacher') redirectPath = '/teacher/rewards';
+                
+                toast({
+                  title: "잘못된 접근",
+                  description: "현재 모드에서는 접근할 수 없는 페이지입니다.",
+                  variant: "destructive"
+                })
                 setTimeout(() => router.push(redirectPath), 50);
                 return; 
             }
