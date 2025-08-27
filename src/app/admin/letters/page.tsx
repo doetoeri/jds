@@ -100,7 +100,6 @@ export default function AdminLettersPage() {
         await updateDoc(letterRef, {
             status: 'approved',
             approvedAt: Timestamp.now(),
-            content: '학생회를 통해 오프라인으로 편지가 전달되었습니다.' // Hide content
         });
         toast({
             title: '성공',
@@ -241,7 +240,7 @@ export default function AdminLettersPage() {
                     <TableCell className="max-w-[200px] truncate">
                        <AlertDialog>
                           <AlertDialogTrigger asChild>
-                             <Button variant="link" className="p-0 h-auto" disabled={letter.status === 'approved' && letter.isOffline}>내용 보기</Button>
+                             <Button variant="link" className="p-0 h-auto">내용 보기</Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                              <AlertDialogHeader>
