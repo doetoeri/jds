@@ -66,6 +66,8 @@ export default function LandingPage() {
            className="mt-4 max-w-md text-lg text-gray-700">
           고촌중학교 학생 자치회를 위한 허브에 오신 것을 환영합니다.
           다양한 활동에 참여하고 포인트를 관리해보세요.
+           <br/>
+          <strong className="text-primary">지금 가입하고 바로 사용 가능한 3포인트를 받으세요!</strong>
         </motion.p>
         
         <motion.div

@@ -29,6 +29,53 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 
+// One-time function to add signup bonus to existing users
+const addSignupBonusToExistingUsers = async () => {
+    const flagDocRef = doc(db, 'system_flags', 'signup_bonus_added');
+    
+    try {
+        await runTransaction(db, async (transaction) => {
+            const flagDoc = await transaction.get(flagDocRef);
+            if (flagDoc.exists()) {
+                // The bonus has already been given. Do nothing.
+                console.log("Signup bonus already distributed.");
+                return;
+            }
+
+            // The bonus has not been given. Proceed.
+            console.log("Distributing signup bonus to existing users...");
+            const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+            const usersSnapshot = await getDocs(usersQuery); // Note: getDocs is fine inside a transaction if it's for a read-only part before writes. But it's better to do it outside if possible. Let's assume it's fine for this one-time script.
+
+            const userUpdates = new Map();
+
+            for (const userDoc of usersSnapshot.docs) {
+                userUpdates.set(userDoc.ref, { lak: increment(3) });
+                
+                const historyRef = doc(collection(userDoc.ref, 'transactions'));
+                transaction.set(historyRef, {
+                    amount: 3,
+                    date: Timestamp.now(),
+                    description: '가입 축하 포인트',
+                    type: 'credit',
+                });
+            }
+
+            // Perform batch updates
+            userUpdates.forEach((data, ref) => {
+                transaction.update(ref, data);
+            });
+
+            // Set the flag to indicate the bonus has been distributed.
+            transaction.set(flagDocRef, { completed: true, timestamp: Timestamp.now() });
+            console.log(`Signup bonus distributed to ${usersSnapshot.size} users.`);
+        });
+    } catch (error) {
+        console.error("Failed to add signup bonus to existing users:", error);
+        // Do not re-throw, as it might fail the signup process. Log it.
+    }
+};
+
 // Sign up function
 export const signUp = async (
     userType: 'student' | 'teacher' | 'pending_teacher',
@@ -41,6 +88,9 @@ export const signUp = async (
   }
 
   try {
+    // Run the one-time bonus distribution. It will only run once.
+    await addSignupBonusToExistingUsers();
+
     if (email === 'admin@jongdalsem.com') {
         throw new Error("해당 이메일은 사용할 수 없습니다.");
     }
@@ -79,17 +129,29 @@ export const signUp = async (
         const studentId = userData.studentId!;
         await runTransaction(db, async (transaction) => {
             const mateCode = user.uid.substring(0, 4).toUpperCase();
+            
+            // Set initial user data with 3 points
             transaction.set(userDocRef, {
                 studentId: studentId,
                 email: email,
-                lak: 0,
+                lak: 3,
                 createdAt: Timestamp.now(),
                 mateCode: mateCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange', // Default gradient
             });
+            
+            // Create the signup bonus transaction record
+            const historyRef = doc(collection(userDocRef, 'transactions'));
+            transaction.set(historyRef, {
+                amount: 3,
+                date: Timestamp.now(),
+                description: '가입 축하 포인트',
+                type: 'credit',
+            });
 
+            // Create the user's mate code
             const mateCodeRef = doc(collection(db, 'codes'));
             transaction.set(mateCodeRef, {
                 code: mateCode,
