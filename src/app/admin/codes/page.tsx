@@ -301,23 +301,24 @@ export default function AdminCodesPage() {
       
       const codesToRender = codes.filter(c => selectedCodes.includes(c.id));
       
-      const couponWidth = 360; 
-      const couponHeight = 225;
+      const couponWidth = 250; 
+      const couponHeight = 400;
       
       const columns = 4;
-      const rows = 4;
+      const rows = 2;
+      const couponsPerPage = columns * rows;
       
       // Calculate cell dimensions
       const cellWidth = a4Width / columns;
       const cellHeight = a4Height / rows;
       
       // Calculate scale to fit coupon within cell, maintaining aspect ratio
-      const scale = Math.min(cellWidth / couponWidth, cellHeight / couponHeight);
+      const scale = Math.min((cellWidth * 0.9) / couponWidth, (cellHeight * 0.9) / couponHeight);
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
       for (let i = 0; i < codesToRender.length; i++) {
-        if (i >= 16) break; // Limit to 16 coupons per page
+        if (i >= couponsPerPage) break; 
 
         const code = codesToRender[i];
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
@@ -669,14 +670,14 @@ export default function AdminCodesPage() {
 
       {/* Coupon Display Dialog */}
       <Dialog open={!!generatedCouponInfo} onOpenChange={(isOpen) => !isOpen && setGeneratedCouponInfo(null)}>
-        <DialogContent className="sm:max-w-md bg-transparent border-none shadow-none">
+        <DialogContent className="sm:max-w-md bg-transparent border-none shadow-none flex items-center justify-center p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>쿠폰 생성 완료</DialogTitle>
             <DialogDescription>
               아래 쿠폰 이미지를 다운로드하여 사용하세요.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center justify-center my-4">
+          <div className="relative">
              {generatedCouponInfo && (
               <CouponTicket
                 ref={couponRef}
@@ -685,18 +686,18 @@ export default function AdminCodesPage() {
                 type={generatedCouponInfo.type}
               />
             )}
-          </div>
-          <DialogFooter className="sm:justify-between gap-2">
-             <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  닫기
+             <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 w-full flex justify-center gap-2">
+                 <DialogClose asChild>
+                    <Button type="button" variant="secondary">
+                      닫기
+                    </Button>
+                  </DialogClose>
+                <Button type="button" onClick={handleDownloadCoupon}>
+                  <Download className="mr-2 h-4 w-4" />
+                  이미지 다운로드
                 </Button>
-              </DialogClose>
-            <Button type="button" onClick={handleDownloadCoupon}>
-              <Download className="mr-2 h-4 w-4" />
-              쿠폰 이미지 다운로드
-            </Button>
-          </DialogFooter>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       
@@ -704,9 +705,9 @@ export default function AdminCodesPage() {
       <div ref={a4ContainerRef} className="absolute -left-[9999px] top-0">
           {codes
             .filter(c => selectedCodes.includes(c.id))
-            .slice(0, 16)
+            .slice(0, 8) // 4x2 grid
             .map(c => (
-              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 360, height: 225 }}>
+              <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 250, height: 400 }}>
                 <CouponTicket code={c.code} value={c.value} type={c.type} />
               </div>
           ))}
