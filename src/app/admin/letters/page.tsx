@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
 interface Letter {
   id: string;
@@ -285,6 +286,13 @@ export default function AdminLettersPage() {
                           <Loader2 className="h-4 w-4 animate-spin ml-auto" />
                       ) : letter.status === 'pending' ? (
                         <div className="flex gap-2 justify-end">
+                           {letter.isOffline && (
+                            <Button asChild size="icon" variant="ghost">
+                              <Link href={`/admin/letters/print?id=${letter.id}`} target="_blank">
+                                <Printer className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="default"
@@ -317,5 +325,3 @@ export default function AdminLettersPage() {
     </div>
   );
 }
-
-    
