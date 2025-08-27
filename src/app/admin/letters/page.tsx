@@ -292,7 +292,7 @@ export default function AdminLettersPage() {
                           )}
                           {isProcessing === letter.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : letter.status === 'pending' && (
+                          ) : letter.status === 'pending' ? (
                             <>
                               <Button
                                 size="sm"
@@ -312,8 +312,7 @@ export default function AdminLettersPage() {
                                 거절
                               </Button>
                             </>
-                          )}
-                          {letter.status !== 'pending' && (
+                          ) : (
                             <span>완료</span>
                           )}
                         </div>
