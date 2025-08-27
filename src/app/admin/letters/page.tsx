@@ -111,7 +111,7 @@ export default function AdminLettersPage() {
         return;
       }
 
-      // Online letter logic (with Lak points)
+      // Online letter logic (with points)
       const batch = writeBatch(db);
       const usersRef = collection(db, 'users');
       
@@ -160,7 +160,7 @@ export default function AdminLettersPage() {
 
       toast({
         title: '성공',
-        description: '편지를 승인하고 Lak을 지급했습니다.',
+        description: '편지를 승인하고 포인트를 지급했습니다.',
       });
       await fetchLetters();
     } catch (error: any) {

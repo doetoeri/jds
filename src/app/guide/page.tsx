@@ -39,15 +39,15 @@ export default function GuidePage() {
                 <AccordionItem value="item-1">
                 <AccordionTrigger className="text-lg font-semibold">
                     <Coins className="mr-2 text-primary" />
-                    Lak이란 무엇인가요?
+                    포인트란 무엇인가요?
                 </AccordionTrigger>
                 <AccordionContent className="text-base pl-8 space-y-2">
                     <p>
-                    <strong>Lak(라크)</strong>은 종달샘 허브에서 사용하는 공식 포인트 단위입니다.
-                    학교 행사 참여, 코드 등록, 편지 쓰기, 친구 초대 등 다양한 활동을 통해 Lak을 적립할 수 있으며, 적립한 Lak은 '종달 상점'에서 원하는 상품으로 교환할 수 있습니다.
+                    <strong>포인트</strong>은 종달샘 허브에서 사용하는 공식 포인트 단위입니다.
+                    학교 행사 참여, 코드 등록, 편지 쓰기, 친구 초대 등 다양한 활동을 통해 포인트를 적립할 수 있으며, 적립한 포인트는 '종달 상점'에서 원하는 상품으로 교환할 수 있습니다.
                     </p>
                     <p className="font-bold text-primary">
-                    (1 Lak = 약 500원)의 가치를 가집니다.
+                    (1 포인트 = 약 500원)의 가치를 가집니다.
                     </p>
                 </AccordionContent>
                 </AccordionItem>
@@ -59,20 +59,20 @@ export default function GuidePage() {
                 </AccordionTrigger>
                 <AccordionContent className="text-base pl-8 space-y-4">
                     <p>
-                    '코드 사용' 메뉴에서 오프라인 행사나 이벤트를 통해 배부된 코드를 등록하여 Lak을 적립할 수 있습니다. 스캔 또는 직접 입력으로 사용할 수 있습니다.
+                    '코드 사용' 메뉴에서 오프라인 행사나 이벤트를 통해 배부된 코드를 등록하여 포인트를 적립할 수 있습니다. 스캔 또는 직접 입력으로 사용할 수 있습니다.
                     </p>
                     <ul className="space-y-3">
                       <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">일반 종달코드</h4>
-                        <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 Lak을 즉시 받습니다.</p>
+                        <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">메이트코드</h4>
-                        <p className="text-sm text-muted-foreground">친구와 함께 보상을 받는 특별한 코드입니다. 친구의 메이트코드를 입력하면, <strong className="text-primary">코드를 사용한 나와 코드 주인인 친구 모두에게 1 Lak씩 지급됩니다.</strong> 나의 메이트코드는 대시보드에서 확인할 수 있습니다. 자기 자신의 코드는 사용할 수 없습니다.</p>
+                        <p className="text-sm text-muted-foreground">친구와 함께 보상을 받는 특별한 코드입니다. 친구의 메이트코드를 입력하면, <strong className="text-primary">코드를 사용한 나와 코드 주인인 친구 모두에게 1 포인트씩 지급됩니다.</strong> 나의 메이트코드는 대시보드에서 확인할 수 있습니다. 자기 자신의 코드는 사용할 수 없습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
-                        <p className="text-sm text-muted-foreground">학교 곳곳에 숨겨진 보물 같은 코드입니다! 이 코드를 찾아서 등록할 때 <strong className="text-primary">다른 친구의 학번을 함께 입력하면, 두 사람 모두에게 지정된 Lak이 지급됩니다.</strong></p>
+                        <p className="text-sm text-muted-foreground">학교 곳곳에 숨겨진 보물 같은 코드입니다! 이 코드를 찾아서 등록할 때 <strong className="text-primary">다른 친구의 학번을 함께 입력하면, 두 사람 모두에게 지정된 포인트가 지급됩니다.</strong></p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">선착순코드 (다회용)</h4>
@@ -126,10 +126,10 @@ export default function GuidePage() {
                         보낸 편지는 관리자의 승인 후 상대방의 '받은 편지함'으로 전달됩니다.
                     </li>
                     <li>
-                        편지가 성공적으로 승인되면, <strong className="text-primary">편지를 보낸 사람과 받은 사람 모두에게 각각 2 Lak이 지급됩니다.</strong>
+                        편지가 성공적으로 승인되면, <strong className="text-primary">편지를 보낸 사람과 받은 사람 모두에게 각각 2 포인트가 지급됩니다.</strong>
                     </li>
                      <li>
-                        '오프라인으로 전달하기'를 체크하면, 학생회에서 내용을 확인 후 직접 편지를 전달해드립니다. 이 경우 Lak 지급도 오프라인으로 이루어집니다.
+                        '오프라인으로 전달하기'를 체크하면, 학생회에서 내용을 확인 후 직접 편지를 전달해드립니다. 이 경우 포인트 지급도 오프라인으로 이루어집니다.
                     </li>
                     </ul>
                 </AccordionContent>

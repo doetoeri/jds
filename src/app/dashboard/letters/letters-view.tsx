@@ -213,8 +213,8 @@ export default function LettersView() {
               <Mail className="mr-2" /> 종달 우체국
             </CardTitle>
             <CardDescription>
-              친구에게 편지를 보내고 함께 Lak을 받아보세요. 관리자 승인 후 편지와
-              Lak이 지급됩니다.
+              친구에게 편지를 보내고 함께 포인트를 받아보세요. 관리자 승인 후 편지와
+              포인트가 지급됩니다.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSendLetter}>
@@ -258,7 +258,7 @@ export default function LettersView() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>오프라인 편지 안내</AlertTitle>
                   <AlertDescription>
-                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 Lak 포인트 또한 오프라인으로 지급됩니다.
+                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 포인트 또한 오프라인으로 지급됩니다.
                   </AlertDescription>
                 </Alert>
               )}

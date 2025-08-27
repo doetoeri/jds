@@ -65,7 +65,7 @@ export default function HistoryPage() {
     <div>
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">사용 내역</h1>
-        <p className="text-muted-foreground">나의 Lak 사용 및 적립 내역입니다.</p>
+        <p className="text-muted-foreground">나의 포인트 사용 및 적립 내역입니다.</p>
       </div>
       <Card>
         <CardContent className="p-0">
@@ -104,7 +104,7 @@ export default function HistoryPage() {
                         variant={transaction.type === 'credit' ? 'default' : 'destructive'}
                       >
                         {transaction.type === 'credit' ? '+' : ''}
-                        {transaction.amount} Lak
+                        {transaction.amount} 포인트
                       </Badge>
                     </TableCell>
                   </TableRow>

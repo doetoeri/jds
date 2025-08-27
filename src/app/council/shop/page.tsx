@@ -248,7 +248,7 @@ export default function CouncilShopPage() {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>{p.price} Lak</TableCell>
+                    <TableCell>{p.price} 포인트</TableCell>
                     <TableCell>
                         <Badge variant={p.stock > 10 ? 'default' : p.stock > 0 ? 'secondary' : 'destructive'}>
                             {p.stock}개
@@ -285,7 +285,7 @@ export default function CouncilShopPage() {
                 </div>
                  <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
-                        <Label htmlFor="product-price">가격 (Lak)</Label>
+                        <Label htmlFor="product-price">가격 (포인트)</Label>
                         <Input id="product-price" type="number" value={productPrice} onChange={e => setProductPrice(e.target.value)} disabled={isProcessing} />
                     </div>
                      <div className="space-y-2">

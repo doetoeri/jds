@@ -71,7 +71,7 @@ export default function TeacherRewardsPage() {
     }
 
     if (Number(value) <= 0) {
-        toast({ title: "입력 오류", description: "Lak 값은 0보다 커야 합니다.", variant: "destructive" });
+        toast({ title: "입력 오류", description: "포인트 값은 0보다 커야 합니다.", variant: "destructive" });
         return;
     }
 
@@ -136,7 +136,7 @@ export default function TeacherRewardsPage() {
                 <Award className="mr-2" /> 학생 보상 지급
             </h1>
             <p className="text-muted-foreground">
-            칭찬하고 싶은 학생에게 `Lak`을 지급할 수 있는 일회용 코드를 생성합니다.
+            칭찬하고 싶은 학생에게 `포인트`를 지급할 수 있는 일회용 코드를 생성합니다.
             </p>
         </div>
       <Card className="w-full max-w-lg mx-auto">
@@ -154,11 +154,11 @@ export default function TeacherRewardsPage() {
               />
             </div>
              <div>
-              <Label htmlFor="value">지급할 Lak</Label>
+              <Label htmlFor="value">지급할 포인트</Label>
               <Input
                 id="value"
                 type="number"
-                placeholder="지급할 Lak의 양"
+                placeholder="지급할 포인트의 양"
                 value={value}
                 onChange={e => setValue(e.target.value)}
                 disabled={isLoading}
@@ -193,13 +193,13 @@ export default function TeacherRewardsPage() {
                 <Gift className="text-primary"/> 코드 생성 완료!
             </AlertDialogTitle>
             <AlertDialogDescription>
-              아래 코드를 학생에게 전달해주세요. 학생이 '코드 사용' 메뉴에서 이 코드를 입력하면 즉시 Lak이 지급됩니다.
+              아래 코드를 학생에게 전달해주세요. 학생이 '코드 사용' 메뉴에서 이 코드를 입력하면 즉시 포인트가 지급됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="my-4 p-4 bg-muted rounded-lg text-center">
             <p className="text-sm text-muted-foreground">{generatedCodeInfo?.studentId} 학생에게</p>
             <p className="font-mono text-3xl font-bold tracking-widest my-2 text-primary">{generatedCodeInfo?.code}</p>
-            <p className="font-bold text-lg">{generatedCodeInfo?.value} Lak</p>
+            <p className="font-bold text-lg">{generatedCodeInfo?.value} 포인트</p>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setGeneratedCodeInfo(null)}>닫기</AlertDialogCancel>

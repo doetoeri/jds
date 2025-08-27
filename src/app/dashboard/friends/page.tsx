@@ -163,7 +163,7 @@ export default function FriendsPage() {
             <Smile className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-medium text-muted-foreground">아직 친구가 없어요</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              대시보드에서 나의 메이트 코드 <strong className="text-primary font-mono">{mateCode || '...'}</strong>를 친구에게 공유하고 함께 Lak을 받아보세요!
+              대시보드에서 나의 메이트 코드 <strong className="text-primary font-mono">{mateCode || '...'}</strong>를 친구에게 공유하고 함께 포인트를 받아보세요!
             </p>
           </CardContent>
         </Card>

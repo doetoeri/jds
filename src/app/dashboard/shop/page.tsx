@@ -120,7 +120,7 @@ export default function ShopPage() {
                 종달 상점
             </h1>
             <p className="text-muted-foreground">
-                모은 Lak으로 원하는 상품을 구매해보세요!
+                모은 포인트로 원하는 상품을 구매해보세요!
             </p>
         </div>
 
@@ -138,7 +138,7 @@ export default function ShopPage() {
                 <CardContent className="p-4 flex flex-col flex-grow">
                   <div className="flex-grow">
                     <h3 className="font-bold text-lg">{product.name}</h3>
-                    <p className="text-sm text-primary font-semibold">{product.price} Lak</p>
+                    <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
                     <p className="text-xs text-muted-foreground">남은 수량: {product.stock}개</p>
                   </div>
                   <div className="mt-4 flex items-center justify-center gap-2">
@@ -164,18 +164,18 @@ export default function ShopPage() {
                 {cart.map(item => (
                     <div key={item.id} className="flex justify-between items-center text-sm mb-1">
                         <span>{item.name} x{item.quantity}</span>
-                        <span>{item.price * item.quantity} Lak</span>
+                        <span>{item.price * item.quantity} 포인트</span>
                     </div>
                 ))}
             </div>
             <Separator className="my-2"/>
             <div className="flex justify-between items-center font-bold text-xl">
               <span>총 금액:</span>
-              <span>{totalCost} Lak</span>
+              <span>{totalCost} 포인트</span>
             </div>
             <Button className="w-full mt-3 font-bold" onClick={handlePurchase} disabled={isPurchasing}>
               {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {totalCost} Lak으로 구매하기
+              {totalCost} 포인트으로 구매하기
             </Button>
           </div>
         </div>

@@ -217,7 +217,7 @@ export default function CodesPage() {
     <>
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">코드 사용하기</h1>
-        <p className="text-muted-foreground">코드를 직접 입력하거나, QR/바코드를 스캔하여 Lak을 적립하세요.</p>
+        <p className="text-muted-foreground">코드를 직접 입력하거나, QR/바코드를 스캔하여 포인트를 적립하세요.</p>
       </div>
 
       <div className="max-w-md mx-auto">
@@ -287,7 +287,7 @@ export default function CodesPage() {
                  <div className="flex items-start gap-2">
                    <UserPlus className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
                    <p>
-                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하면 나와 친구 모두에게 Lak이 지급됩니다. 나의 메이트코드를 친구에게 공유해보세요!
+                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하면 나와 친구 모두에게 포인트가 지급됩니다. 나의 메이트코드를 친구에게 공유해보세요!
                      <br/>
                      <span className="font-mono text-sm font-bold bg-muted px-2 py-1 rounded-md mt-1 inline-block">나의 메이트코드: {myMateCode || "로딩중..."}</span>
                    </p>
@@ -312,7 +312,7 @@ export default function CodesPage() {
               파트너 지정하기
             </AlertDialogTitle>
             <AlertDialogDescription>
-              이 코드는 '히든코드'입니다! 함께 Lak을 받을 친구의 5자리 학번을 입력해주세요. 본인과 입력한 친구 모두에게 보상이 지급됩니다.
+              이 코드는 '히든코드'입니다! 함께 포인트를 받을 친구의 5자리 학번을 입력해주세요. 본인과 입력한 친구 모두에게 보상이 지급됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-4 py-4">

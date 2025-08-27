@@ -131,13 +131,13 @@ export default function AdminUsersPage() {
         await adjustUserLak(selectedUser.id, amount, adjustmentReason);
         toast({
             title: '성공',
-            description: `${displayName} 님의 Lak을 성공적으로 조정했습니다.`
+            description: `${displayName} 님의 포인트를 성공적으로 조정했습니다.`
         });
         setIsAdjustDialogOpen(false);
     } catch (error: any) {
         toast({
             title: '오류',
-            description: error.message || 'Lak 조정 중 오류가 발생했습니다.',
+            description: error.message || '포인트 조정 중 오류가 발생했습니다.',
             variant: 'destructive',
         });
     } finally {
@@ -212,7 +212,7 @@ export default function AdminUsersPage() {
                 <TableHead>학번/성함</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
-                <TableHead className="text-right">보유 Lak</TableHead>
+                <TableHead className="text-right">보유 포인트</TableHead>
                 <TableHead className="text-right">작업</TableHead>
               </TableRow>
             </TableHeader>
@@ -233,11 +233,11 @@ export default function AdminUsersPage() {
                     <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
-                    <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} Lak</TableCell>
+                    <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} 포인트</TableCell>
                     <TableCell className="text-right space-x-1">
                        <Button variant="outline" size="sm" onClick={() => openAdjustDialog(user)} disabled={user.role === 'admin'}>
                          <Coins className="mr-1 h-3.5 w-3.5"/>
-                         Lak
+                         포인트
                        </Button>
                        <Button variant="outline" size="sm" onClick={() => openRoleDialog(user)} disabled={user.role === 'admin'}>
                          <UserCog className="mr-1 h-3.5 w-3.5"/>
@@ -260,9 +260,9 @@ export default function AdminUsersPage() {
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Lak 조정: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
+            <DialogTitle>포인트 조정: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
             <DialogDescription>
-              사용자의 Lak을 직접 추가하거나 차감합니다. 모든 내역은 기록됩니다.
+              사용자의 포인트를 직접 추가하거나 차감합니다. 모든 내역은 기록됩니다.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -350,7 +350,7 @@ export default function AdminUsersPage() {
                 <AlertDialogTitle>정말로 이 사용자를 삭제하시겠습니까?</AlertDialogTitle>
                 <AlertDialogDescription>
                   이 작업은 <strong className="text-destructive">되돌릴 수 없습니다.</strong> 
-                  사용자의 Firestore 데이터(Lak, 프로필, 거래내역 등)가 영구적으로 삭제됩니다.
+                  사용자의 Firestore 데이터(포인트, 프로필, 거래내역 등)가 영구적으로 삭제됩니다.
                   <br/><br/>
                   <strong className="text-destructive uppercase">중요:</strong> 이 작업은 데이터베이스 기록만 삭제합니다. 
                   사용자를 완전히 제거하려면, 작업 완료 후 Firebase 콘솔의 'Authentication' 탭에서 해당 사용자의 이메일을 수동으로 삭제해야 합니다.

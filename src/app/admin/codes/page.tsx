@@ -120,7 +120,7 @@ export default function AdminCodesPage() {
 
   const handleCreateCode = async () => {
     if (!newCodeType || !newCodeValue || !newCode) {
-        toast({ title: "입력 오류", description: "코드, 유형, Lak 값을 모두 채워주세요.", variant: "destructive" });
+        toast({ title: "입력 오류", description: "코드, 유형, 포인트 값을 모두 채워주세요.", variant: "destructive" });
         return;
     }
      if (newCodeType === '메이트코드' && !newCodeOwnerStudentId) {
@@ -189,7 +189,7 @@ export default function AdminCodesPage() {
     const quantity = Number(bulkCodeQuantity);
 
     if (!bulkCodeType || !value || value <= 0 || !quantity || quantity <= 0) {
-      toast({ title: "입력 오류", description: "유효한 코드 유형, Lak 값, 수량을 입력해주세요.", variant: "destructive" });
+      toast({ title: "입력 오류", description: "유효한 코드 유형, 포인트 값, 수량을 입력해주세요.", variant: "destructive" });
       return;
     }
     
@@ -481,7 +481,7 @@ export default function AdminCodesPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="bulk-lak-value" className="text-right">
-                      Lak 값
+                      포인트 값
                     </Label>
                     <Input id="bulk-lak-value" type="number" placeholder="예: 5" className="col-span-3" value={bulkCodeValue} onChange={(e) => setBulkCodeValue(e.target.value)} disabled={isCreating} />
                   </div>
@@ -572,7 +572,7 @@ export default function AdminCodesPage() {
                   )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="lak-value" className="text-right">
-                      Lak 값
+                      포인트 값
                     </Label>
                     <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} disabled={isCreating} />
                   </div>
@@ -605,7 +605,7 @@ export default function AdminCodesPage() {
                 <TableHead>코드</TableHead>
                 <TableHead className="hidden sm:table-cell">쿠폰</TableHead>
                 <TableHead>유형</TableHead>
-                <TableHead>Lak 값</TableHead>
+                <TableHead>포인트 값</TableHead>
                 <TableHead>상태</TableHead>
                 <TableHead className="hidden sm:table-cell">사용자/대상</TableHead>
                 <TableHead className="hidden md:table-cell">생성일</TableHead>
@@ -640,7 +640,7 @@ export default function AdminCodesPage() {
                       </Button>
                     </TableCell>
                     <TableCell>{c.type}</TableCell>
-                    <TableCell>{c.value} Lak</TableCell>
+                    <TableCell>{c.value} 포인트</TableCell>
                     <TableCell>{renderStatus(c)}</TableCell>
                     <TableCell className="hidden sm:table-cell">{renderUsedBy(c)}</TableCell>
                      <TableCell className="hidden md:table-cell">{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>

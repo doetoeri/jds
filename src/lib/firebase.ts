@@ -264,7 +264,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           usedBy: [userStudentId, partnerStudentId],
         });
 
-        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} Lak을 받았습니다!` };
+        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
 
       case '메이트코드':
         if (freshCodeData.ownerUid === userId) {
@@ -302,7 +302,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             lastUsedAt: Timestamp.now()
         });
 
-        return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} Lak을, 코드 주인도 ${freshCodeData.value} Lak을 받았습니다!` };
+        return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} 포인트를, 코드 주인도 ${freshCodeData.value} 포인트를 받았습니다!` };
       
       case '선착순코드':
         const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
@@ -313,7 +313,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
         }
 
-        // Update user's Lak balance
+        // Update user's point balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 
         // Add user to usedBy list
@@ -330,13 +330,13 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
         
-        return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} Lak을 적립했습니다!` };
+        return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
 
       default: // '종달코드', '온라인 특수코드'
         if (freshCodeData.used) {
             throw "이미 사용된 코드입니다.";
         }
-        // Update user's Lak balance
+        // Update user's point balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 
         // Mark code as used
@@ -354,7 +354,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
 
-        return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} Lak을 적립했습니다!` };
+        return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
     }
 
   }).catch((error) => {
@@ -374,7 +374,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     const userData = userDoc.data();
 
     if ((userData.lak || 0) < totalCost) {
-      throw new Error(`Lak이 부족합니다. 현재 보유 Lak: ${userData.lak || 0}, 필요 Lak: ${totalCost}`);
+      throw new Error(`포인트가 부족합니다. 현재 보유 포인트: ${userData.lak || 0}, 필요 포인트: ${totalCost}`);
     }
 
     // Check stock and deduct it
@@ -410,7 +410,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     });
 
 
-    return { success: true, message: `총 ${totalCost} Lak으로 상품을 구매했습니다! 학생회에 알려 상품을 받아가세요.` };
+    return { success: true, message: `총 ${totalCost} 포인트으로 상품을 구매했습니다! 학생회에 알려 상품을 받아가세요.` };
   }).catch((error: any) => {
     console.error("Purchase error: ", error);
     return { success: false, message: error.message || "구매 중 오류가 발생했습니다." };
@@ -489,7 +489,7 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
       throw new Error("User does not exist.");
     }
 
-    // Update Lak balance using increment for safety
+    // Update point balance using increment for safety
     transaction.update(userRef, { lak: increment(amount) });
 
     // Create a transaction history record
@@ -501,8 +501,8 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
       type: amount > 0 ? 'credit' : 'debit',
     });
   }).catch((error: any) => {
-    console.error("Lak adjustment error:", error);
-    throw new Error(error.message || "Failed to adjust Lak points.");
+    console.error("Point adjustment error:", error);
+    throw new Error(error.message || "Failed to adjust points.");
   });
 };
 

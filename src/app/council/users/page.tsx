@@ -69,7 +69,7 @@ export default function CouncilUsersPage() {
                 <TableHead>학번</TableHead>
                 <TableHead>닉네임</TableHead>
                 <TableHead>이메일</TableHead>
-                <TableHead className="text-right">보유 Lak</TableHead>
+                <TableHead className="text-right">보유 포인트</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -88,7 +88,7 @@ export default function CouncilUsersPage() {
                     <TableCell className="font-medium">{user.studentId}</TableCell>
                     <TableCell>{user.displayName}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} Lak</TableCell>
+                    <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} 포인트</TableCell>
                   </TableRow>
                 ))
               )}

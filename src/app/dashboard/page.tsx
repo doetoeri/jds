@@ -141,17 +141,17 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">나의 Lak</CardTitle>
+            <CardTitle className="text-sm font-medium">나의 포인트</CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
-              <div className="text-2xl font-bold">{lakBalance?.toLocaleString() ?? 0} Lak</div>
+              <div className="text-2xl font-bold">{lakBalance?.toLocaleString() ?? 0} 포인트</div>
             )}
             <p className="text-xs text-muted-foreground">
-              (1 라크 = 500원)
+              (1 포인트 = 약 500원)
             </p>
           </CardContent>
         </Card>
@@ -206,7 +206,7 @@ export default function DashboardPage() {
                 <Image src={qrCodeUrl} alt="Mate Code QR" width={120} height={120} />
                 <div className="text-center">
                    <p className="font-mono text-2xl font-bold">{mateCode}</p>
-                   <p className="text-xs text-muted-foreground">친구에게 코드를 공유하고 함께 Lak을 받으세요!</p>
+                   <p className="text-xs text-muted-foreground">친구에게 코드를 공유하고 함께 포인트를 받으세요!</p>
                 </div>
               </>
             ) : (

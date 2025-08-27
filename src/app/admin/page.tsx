@@ -87,13 +87,13 @@ export default function AdminDashboardPage() {
                 </Card>
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">총 사용된 Lak</CardTitle>
+                    <CardTitle className="text-sm font-medium">총 사용된 포인트</CardTitle>
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalLakRedeemed.toLocaleString()} Lak</div>
+                    <div className="text-2xl font-bold">{totalLakRedeemed.toLocaleString()} 포인트</div>
                     <p className="text-xs text-muted-foreground">
-                    코드를 통해 적립된 총 Lak
+                    코드를 통해 적립된 총 포인트
                     </p>
                 </CardContent>
                 </Card>
@@ -129,7 +129,7 @@ export default function AdminDashboardPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
                         <AlertDialogDescription>
-                        이 작업은 모든 사용자의 Lak, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
+                        이 작업은 모든 사용자의 포인트, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

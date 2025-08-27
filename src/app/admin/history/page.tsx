@@ -77,7 +77,7 @@ export default function AdminHistoryPage() {
     <div>
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">전체 내역</h1>
-        <p className="text-muted-foreground">시스템의 모든 Lak 사용 및 적립 내역입니다.</p>
+        <p className="text-muted-foreground">시스템의 모든 포인트 사용 및 적립 내역입니다.</p>
       </div>
       <Card>
         <CardContent className="p-0">
@@ -117,7 +117,7 @@ export default function AdminHistoryPage() {
                         variant={transaction.type === 'credit' ? 'default' : 'destructive'}
                       >
                         {transaction.type === 'credit' ? '+' : '-'}
-                        {Math.abs(transaction.amount)} Lak
+                        {Math.abs(transaction.amount)} 포인트
                       </Badge>
                     </TableCell>
                   </TableRow>

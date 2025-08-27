@@ -42,11 +42,11 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
     const getDescription = () => {
         switch (type) {
             case '히든코드':
-                return '파트너와 함께 코드를 사용하고 두 배의 라크를 받으세요!';
+                return '파트너와 함께 코드를 사용하고 두 배의 포인트를 받으세요!';
             case '선착순코드':
                 return '선착순으로 사용 가능한 코드입니다. 서두르세요!';
             default:
-                return 'jongdalsam.shop에서 라크를 사용해보세요.';
+                return 'jongdalsam.shop에서 포인트를 사용해보세요.';
         }
     }
     
@@ -69,7 +69,7 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
               </div>
 
               <div className="text-left">
-                  <p className="text-3xl text-primary font-bold">{value} Lak</p>
+                  <p className="text-3xl text-primary font-bold">{value} 포인트</p>
                   <p className="text-[10px] text-primary/80 -mt-1">고촌중학교 학생 자치회</p>
               </div>
           </div>

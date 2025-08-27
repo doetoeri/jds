@@ -77,7 +77,7 @@ export default function AdminPurchasesPage() {
                 <TableHead>주문자 학번</TableHead>
                 <TableHead>주문 시간</TableHead>
                 <TableHead>주문 내역</TableHead>
-                <TableHead className="text-right">총 사용 Lak</TableHead>
+                <TableHead className="text-right">총 사용 포인트</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -104,7 +104,7 @@ export default function AdminPurchasesPage() {
                     <TableCell className="max-w-[300px] truncate">{formatItems(purchase.items)}</TableCell>
                     <TableCell className="text-right">
                       <Badge variant="destructive">
-                        {purchase.totalCost} Lak
+                        {purchase.totalCost} 포인트
                       </Badge>
                     </TableCell>
                   </TableRow>
