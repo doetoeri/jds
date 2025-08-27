@@ -86,8 +86,7 @@ export default function GuestbookPage() {
         setIsLoadingMessages(true);
         const q = query(
             collection(db, 'guestbook'),
-            where('senderUid', '==', user.uid),
-            orderBy('createdAt', 'desc')
+            where('senderUid', '==', user.uid)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -95,6 +94,8 @@ export default function GuestbookPage() {
                 id: doc.id,
                 ...doc.data()
             } as MyMessage));
+            // Sort by date client-side
+            userMessages.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
             setMyMessages(userMessages);
             setIsLoadingMessages(false);
         }, (error) => {

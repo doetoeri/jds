@@ -36,6 +36,8 @@ const wordChainPrompt = ai.definePrompt({
     name: 'wordChainPrompt',
     input: { schema: WordChainInputSchema },
     output: { schema: WordChainOutputSchema },
+    model: 'googleai/gemini-pro',
+    temperature: 0.5,
     prompt: `You are a master of the Korean word chain game (끝말잇기).
 Your role is to act as the opponent and referee.
 
@@ -62,10 +64,6 @@ Follow these rules strictly:
 3. The game is lost if a player uses a word ending in a difficult character (e.g., 슘, 녘, 꾼) for which there are very few or no starting words. If the user does this, they lose. If you do it, you lose.
 
 Analyze the user's move and generate your response.`,
-    config: {
-        model: 'googleai/gemini-2.0-flash',
-        temperature: 0.5,
-    }
 });
 
 
