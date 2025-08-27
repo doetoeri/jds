@@ -5,14 +5,15 @@ import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, Megaphone, Image as ImageIcon } from 'lucide-react';
+import { Send, Loader2, Megaphone, Image as ImageIcon, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, postAnnouncement, storage } from '@/lib/firebase';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import Image from 'next/image';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Switch } from './ui/switch';
 
 export function AnnouncementPoster() {
   const [title, setTitle] = useState('');
@@ -20,6 +21,8 @@ export function AnnouncementPoster() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isTargeted, setIsTargeted] = useState(false);
+  const [targetStudentId, setTargetStudentId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [user] = useAuthState(auth);
@@ -30,6 +33,8 @@ export function AnnouncementPoster() {
       setContent('');
       setImageFile(null);
       setImagePreview(null);
+      setIsTargeted(false);
+      setTargetStudentId('');
       if(fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -51,6 +56,10 @@ export function AnnouncementPoster() {
         toast({ title: '입력 오류', description: '제목과 내용은 필수입니다.', variant: 'destructive'});
         return;
     }
+    if (isTargeted && !targetStudentId) {
+        toast({ title: '입력 오류', description: '알림을 받을 학생의 학번을 입력해주세요.', variant: 'destructive'});
+        return;
+    }
 
     setIsSending(true);
     try {
@@ -64,8 +73,8 @@ export function AnnouncementPoster() {
             imagePath = newImagePath;
         }
 
-      await postAnnouncement(user.uid, title, content, imageUrl, imagePath);
-      toast({ title: '공지 완료', description: '모든 학생에게 새 소식이 전달됩니다.' });
+      await postAnnouncement(user.uid, title, content, imageUrl, imagePath, isTargeted ? targetStudentId : undefined);
+      toast({ title: '공지 완료', description: isTargeted ? `${targetStudentId} 학생에게 알림이 전송되었습니다.` : '모든 학생에게 새 소식이 전달됩니다.' });
       resetForm();
     } catch (error: any) {
       toast({ title: '전송 실패', description: error.message, variant: 'destructive' });
@@ -87,6 +96,27 @@ export function AnnouncementPoster() {
       </CardHeader>
       <form onSubmit={handleSendAnnouncement}>
         <CardContent className="space-y-4">
+           <div className="flex items-center space-x-2">
+              <Switch id="targeted-switch" checked={isTargeted} onCheckedChange={setIsTargeted} disabled={isSending} />
+              <Label htmlFor="targeted-switch">특정 학생에게 보내기</Label>
+            </div>
+
+            {isTargeted && (
+                <div className="pl-8 space-y-2">
+                    <Label htmlFor="student-id">대상 학생 학번 (5자리)</Label>
+                    <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="student-id"
+                            value={targetStudentId}
+                            onChange={(e) => setTargetStudentId(e.target.value)}
+                            placeholder="예: 10203" 
+                            disabled={isSending}
+                            className="pl-9"
+                        />
+                    </div>
+                </div>
+            )}
            <div>
              <Label htmlFor="announcement-title">제목</Label>
              <Input 
@@ -123,7 +153,7 @@ export function AnnouncementPoster() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" disabled={isSending || !content.trim()} className="ml-auto">
+          <Button type="submit" disabled={isSending || !content.trim() || !title.trim()} className="ml-auto">
             {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
             게시하기
           </Button>

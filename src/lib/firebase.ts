@@ -637,7 +637,8 @@ export const postAnnouncement = async (
     title: string, 
     content: string, 
     imageUrl: string, 
-    imagePath: string
+    imagePath: string,
+    targetStudentId?: string
 ) => {
   const authorRef = doc(db, 'users', authorId);
   const authorDoc = await getDoc(authorRef);
@@ -646,7 +647,7 @@ export const postAnnouncement = async (
     throw new Error('공지를 게시할 권한이 없습니다.');
   }
 
-  await addDoc(collection(db, 'announcements'), {
+  const announcementData: any = {
     title,
     content,
     imageUrl,
@@ -654,7 +655,18 @@ export const postAnnouncement = async (
     authorName: authorDoc.data()?.displayName || '관리자',
     authorId: authorId,
     createdAt: Timestamp.now(),
-  });
+    targetStudentId: targetStudentId || null,
+  };
+
+  if (targetStudentId) {
+      const studentQuery = query(collection(db, 'users'), where('studentId', '==', targetStudentId));
+      const studentSnapshot = await getDocs(studentQuery);
+      if (studentSnapshot.empty) {
+          throw new Error(`학번 ${targetStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
+      }
+  }
+
+  await addDoc(collection(db, 'announcements'), announcementData);
 };
 
 export const addPointsForGameWin = async (studentId: string) => {

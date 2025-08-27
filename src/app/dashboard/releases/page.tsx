@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, or } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Megaphone } from 'lucide-react';
 import Image from 'next/image';
@@ -18,6 +18,7 @@ interface ReleaseNote {
   createdAt: Timestamp;
   authorName: string;
   imageUrl?: string;
+  targetStudentId?: string;
 }
 
 export default function ReleasesPage() {
@@ -40,15 +41,48 @@ export default function ReleasesPage() {
 
   useEffect(() => {
     const fetchNotes = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
+
       try {
-        const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (!userDocSnap.exists()) {
+            setIsLoading(false);
+            return;
+        }
+
+        const currentUserStudentId = userDocSnap.data().studentId;
+
+        const announcementsRef = collection(db, 'announcements');
+        // Query for general announcements OR announcements targeted at the current user
+        const q = query(
+          announcementsRef,
+          or(
+            where('targetStudentId', '==', null),
+            where('targetStudentId', '==', currentUserStudentId)
+          ),
+          orderBy('createdAt', 'desc')
+        );
+
         const querySnapshot = await getDocs(q);
         const fetchedNotes = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         } as ReleaseNote));
-        setNotes(fetchedNotes);
+        
+        // Filter again in client-side because Firestore OR queries on different fields can be tricky
+        // and sometimes return more than expected if not structured perfectly.
+        // This ensures we only show global (null target) or user-specific announcements.
+        const filteredNotes = fetchedNotes.filter(note => 
+            !note.targetStudentId || note.targetStudentId === currentUserStudentId
+        );
+        
+        setNotes(filteredNotes);
         
         // Mark as read after fetching
         markAsRead();
@@ -61,7 +95,7 @@ export default function ReleasesPage() {
       }
     };
     fetchNotes();
-  }, [toast, markAsRead]);
+  }, [toast, markAsRead, user]);
 
   return (
     <div>
@@ -97,11 +131,12 @@ export default function ReleasesPage() {
           </Card>
         ) : (
           notes.map((note) => (
-            <Card key={note.id}>
+            <Card key={note.id} className={note.targetStudentId ? 'border-primary bg-primary/5' : ''}>
               <CardHeader>
                 <CardTitle>{note.title}</CardTitle>
                 <CardDescription>
                   {note.createdAt?.toDate ? note.createdAt.toDate().toLocaleDateString() : ''} by {note.authorName}
+                  {note.targetStudentId && <span className="ml-2 font-bold text-primary">[개인 알림]</span>}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -110,8 +145,8 @@ export default function ReleasesPage() {
                     <Image
                       src={note.imageUrl}
                       alt={note.title}
-                      layout="fill"
-                      objectFit="cover"
+                      fill
+                      className="object-cover"
                     />
                   </div>
                 )}
