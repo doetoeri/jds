@@ -35,6 +35,8 @@ interface Turn {
     word: string;
 }
 
+const MAX_ATTEMPTS = 3;
+
 export default function WordChainPage() {
     const [gameStep, setGameStep] = useState<GameStep>('form');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -52,6 +54,7 @@ export default function WordChainPage() {
     const [isGameOver, setIsGameOver] = useState(false);
     const [isAITurn, setIsAITurn] = useState(true);
     const [isWin, setIsWin] = useState(false);
+    const [attempts, setAttempts] = useState(MAX_ATTEMPTS);
 
     const onStudentIdSubmit: SubmitHandler<FormValues> = async (data) => {
         setStudentIdForReward(data.studentId);
@@ -98,25 +101,23 @@ export default function WordChainPage() {
             const result = await playWordChain(input);
             
             if (!result.isValid) {
-                setGameMessage(`게임 오버! 이유: ${result.reason}`);
+                setGameMessage(`패배! 이유: ${result.reason}`);
                 setIsGameOver(true);
                 setIsWin(false);
+                setGameStep('result');
             } else {
-                if (result.isGameOver) {
-                    if (result.reason.includes("You win")) {
-                        setIsWin(true);
-                        setGameStep('result');
-                    } else {
-                       setGameMessage(`게임 오버! 이유: ${result.reason}`);
-                       setIsGameOver(true);
-                       setIsWin(false);
-                    }
+                 if (result.isGameOver) {
+                    setIsWin(true);
+                    setGameMessage(`승리! 이유: ${result.reason}`);
+                    setGameStep('result');
                 } else if (result.aiWord) {
                     const finalHistory = [...newHistory, { speaker: 'ai', word: result.aiWord }];
                     setTurns(finalHistory);
 
-                    if (finalHistory.length >= 10) { // 5 turns for user, 5 for AI
+                    // Win condition: 5 successful turns from the user
+                    if (finalHistory.filter(t => t.speaker === 'user').length >= 5) {
                          setIsWin(true);
+                         setGameMessage("승리! 5턴 이상을 성공적으로 주고받았습니다!");
                          setGameStep('result');
                     } else {
                         setGameMessage('성공! 당신의 차례입니다.');
@@ -129,6 +130,7 @@ export default function WordChainPage() {
             toast({ title: "게임 오류", description: e.message, variant: "destructive" });
             setIsGameOver(true);
             setIsWin(false);
+            setGameStep('result');
         } finally {
             setCurrentWord('');
         }
@@ -136,6 +138,7 @@ export default function WordChainPage() {
 
      useEffect(() => {
         if (gameStep === 'result' && isWin) {
+            setAttempts(prev => prev - 1);
             const giveReward = async () => {
                 setIsProcessing(true);
                 const rewardResult = await addPointsForGameWin(studentIdForReward);
@@ -147,10 +150,17 @@ export default function WordChainPage() {
                 setIsProcessing(false);
             };
             giveReward();
+        } else if (gameStep === 'result' && !isWin) {
+            setAttempts(prev => prev - 1);
         }
     }, [gameStep, isWin, studentIdForReward, toast]);
 
 
+    const handlePlayAgain = () => {
+        setGameStep('game');
+        startNewGame();
+    }
+    
     const handleReset = () => {
         reset();
         setTurns([]);
@@ -159,6 +169,7 @@ export default function WordChainPage() {
         setIsGameOver(false);
         setIsAITurn(true);
         setStudentIdForReward('');
+        setAttempts(MAX_ATTEMPTS);
         setGameStep('form');
         setIsWin(false);
     }
@@ -178,7 +189,7 @@ export default function WordChainPage() {
                              <form onSubmit={handleSubmit(onStudentIdSubmit)}>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Gamepad/> AI 끝말잇기 챌린지</CardTitle>
-                                    <CardDescription>AI와 끝말잇기를 5턴 이상 성공하여 2포인트를 획득하세요! 보상을 받을 학번을 입력해주세요.</CardDescription>
+                                    <CardDescription>AI와 끝말잇기를 5턴 이상 성공하여 2포인트를 획득하세요! 보상을 받을 학번을 먼저 입력해주세요.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                      <div className="space-y-1">
@@ -202,7 +213,10 @@ export default function WordChainPage() {
                         {gameStep === 'game' && (
                             <>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Gamepad /> AI와 끝말잇기</CardTitle>
+                                    <CardTitle className="flex items-center justify-between font-headline text-2xl">
+                                       <span><Gamepad className="inline-block mr-2" /> AI와 끝말잇기</span>
+                                       <span className="text-sm font-medium text-muted-foreground">남은 기회: {attempts}</span>
+                                    </CardTitle>
                                     <CardDescription>AI와 끝말잇기를 5턴 이상 성공하여 보상을 획득하세요!</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
@@ -236,27 +250,34 @@ export default function WordChainPage() {
                         )}
                         
                         {gameStep === 'result' && (
-                            <>
+                             <>
                                 <CardHeader className="text-center">
-                                     <CardTitle className="font-headline text-2xl text-green-500 flex items-center justify-center gap-2">
-                                        <Award />
-                                        챌린지 성공!
+                                     <CardTitle className={`font-headline text-2xl flex items-center justify-center gap-2 ${isWin ? 'text-green-500' : 'text-destructive'}`}>
+                                        {isWin ? <><Award /> 챌린지 성공!</> : '챌린지 실패'}
                                      </CardTitle>
-                                    <CardDescription>AI와의 대결에서 승리하셨습니다! {studentIdForReward} 학번으로 2포인트가 자동 지급됩니다.</CardDescription>
+                                    <CardDescription>{gameMessage}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="text-center">
-                                     {isProcessing ? (
+                                     {isWin && isProcessing && (
                                         <div className="flex flex-col items-center gap-2">
                                             <Loader2 className="h-8 w-8 animate-spin text-primary"/>
                                             <p className="text-sm text-muted-foreground">포인트를 지급하고 있습니다...</p>
                                         </div>
-                                     ) : (
-                                        <p className="text-lg font-bold text-primary">🎉 포인트 지급 완료! 🎉</p>
+                                     )}
+                                     {isWin && !isProcessing && (
+                                         <p className="text-lg font-bold text-primary">🎉 {studentIdForReward} 학번으로 2포인트 지급 완료! 🎉</p>
+                                     )}
+                                     {!isWin && (
+                                         <p className="text-lg font-bold">아쉽지만 다음에 다시 도전해보세요!</p>
                                      )}
                                 </CardContent>
                                  <CardFooter className="flex-col gap-2">
-                                    <Button onClick={handleReset} className="w-full" disabled={isProcessing}>
-                                        <RefreshCcw className="mr-2"/>새로운 게임 시작하기
+                                    <Button onClick={handlePlayAgain} className="w-full" disabled={isProcessing || attempts <= 0}>
+                                        <RefreshCcw className="mr-2"/>
+                                        {attempts > 0 ? `다시 도전하기 (${attempts}회 남음)` : '도전 기회 없음'}
+                                    </Button>
+                                    <Button onClick={handleReset} variant="ghost" className="w-full text-sm">
+                                        다른 학번으로 새로 시작하기
                                     </Button>
                                 </CardFooter>
                             </>

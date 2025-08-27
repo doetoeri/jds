@@ -48,22 +48,27 @@ Here is the game history so far:
 {{/each}}
 
 Follow these rules strictly:
-1. If the user's first word is "시작" (start), that means you should start the game. Your response should be your first word, which must be a valid Korean noun of two or more syllables. In this case, isValid is true, isGameOver is false, and you must provide an aiWord.
-2. Validate the user's word.
-   - It must be a real noun in Korean.
-   - It must be at least two syllables long.
-   - The first letter of the user's word must match the last letter of the previous AI word (if any).
-   - The word must not have been used before in this game session.
-   - If the user's word is invalid, set 'isValid' to false, 'isGameOver' to true, and provide the 'reason' for the loss. Do not provide 'aiWord'.
-3. If the user's word is valid:
-   - Set 'isValid' to true.
-   - Find a valid next word. Your word's first letter must match the last letter of the user's word.
-   - Your word must also be a real Korean noun, at least two syllables long, and not previously used.
-   - If you cannot think of a valid word, the AI (you) loses. Set 'isGameOver' to true and 'reason' to "I give up! You win!".
-   - If you find a valid word, set 'isGameOver' to false, provide the 'aiWord', and set the 'reason' to "Your turn!".
-4. The game is lost if a player uses a word ending in a difficult character (e.g., 슘, 녘, 꾼) for which there are very few or no starting words. If the user does this, they lose. If you do it, you lose.
+1.  **Game Start**: If the user's word is "시작" (start), it's a signal to begin the game. You must respond with your first word. Your word must be a valid Korean noun of two or more syllables. In this case, set 'isValid' to true, 'isGameOver' to false, and provide your 'aiWord'.
 
-Analyze the user's move and generate your response.`,
+2.  **Word Validation**: You must validate the user's word based on the following criteria:
+    *   It must be a real noun in the Korean dictionary.
+    *   It must be at least two syllables long.
+    *   The first letter of the user's word must match the last letter of the previous AI word (if any). 두음법칙 is not allowed.
+    *   The word must not have been used before in this game session (check the history).
+    *   If the user's word is invalid for any of these reasons, set 'isValid' to false, 'isGameOver' to true, and provide a clear 'reason' for their loss. Do not provide an 'aiWord'.
+
+3.  **Your Turn**: If the user's word is valid:
+    *   Set 'isValid' to true.
+    *   You must find a valid follow-up word. Your word must start with the last letter of the user's word.
+    *   Your word must also be a real Korean noun, be at least two syllables long, and must not have been used before in the game.
+    *   If you successfully find a word, set 'isGameOver' to false, provide the 'aiWord', and set the 'reason' to "Your turn!".
+    *   If you cannot think of a valid word, you (the AI) lose. Set 'isGameOver' to true, 'isWin' to true, and the 'reason' to "I give up! You win!".
+
+4.  **Game-Ending Words**: The game is lost if a player uses a word for which there are very few or no subsequent words (e.g., words ending in 슘, 녘, 꾼, 듐, 쁨).
+    *   If the user plays such a word, they lose. Set 'isValid' to true (as the word itself is valid), but set 'isGameOver' to true and the 'reason' to "You used a difficult word to follow, so you lose!".
+    *   You must not use such a word yourself. If you do, you lose.
+
+Analyze the user's move according to these rules and generate your response in the specified JSON format.`,
 });
 
 
@@ -74,7 +79,7 @@ const playWordChainFlow = ai.defineFlow(
     outputSchema: WordChainOutputSchema,
   },
   async (input) => {
-    const { output } = await wordChainPrompt(input);
+    const { output } = await playWordChainPrompt(input);
     if (!output) {
         throw new Error("AI failed to respond.");
     }
