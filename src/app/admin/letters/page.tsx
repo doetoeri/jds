@@ -282,38 +282,41 @@ export default function AdminLettersPage() {
                       {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isProcessing === letter.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin ml-auto" />
-                      ) : letter.status === 'pending' ? (
-                        <div className="flex gap-2 justify-end">
-                           {letter.isOffline && (
+                       <div className="flex gap-2 justify-end">
+                          {letter.isOffline && (
                             <Button asChild size="icon" variant="ghost">
                               <Link href={`/admin/letters/print?id=${letter.id}`} target="_blank">
                                 <Printer className="h-4 w-4" />
                               </Link>
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleApproveLetter(letter)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            승인
-                          </Button>
-                           <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRejectLetter(letter.id)}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            거절
-                          </Button>
+                          {isProcessing === letter.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : letter.status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleApproveLetter(letter)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                승인
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleRejectLetter(letter.id)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                거절
+                              </Button>
+                            </>
+                          )}
+                          {letter.status !== 'pending' && (
+                            <span>완료</span>
+                          )}
                         </div>
-                      ) : (
-                        <span>완료</span>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))
