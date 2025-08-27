@@ -27,7 +27,6 @@ import {
   Bird,
   MessageCircleQuestion,
   Megaphone,
-  PartyPopper
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -39,7 +38,6 @@ const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
-  { name: '우정의 벽', href: '/dashboard/friendship-wall', icon: PartyPopper },
   { name: '친구', href: '/dashboard/friends', icon: Users },
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
@@ -57,13 +55,14 @@ const adminLinks = [
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
+  { name: '방명록 관리', href: '/admin/guestbook', icon: MessageCircleQuestion },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
   { name: '전체 내역', href: '/admin/history', icon: History },
 ];
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '사용자 관리', href: '/council/users', icon: Users },
+  { name:g: '사용자 관리', href: '/council/users', icon: Users },
 ];
 
 const teacherLinks = [
