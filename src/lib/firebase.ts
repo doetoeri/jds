@@ -616,18 +616,14 @@ export const submitInquiry = async (userId: string, content: string) => {
     await addDoc(collection(db, 'inquiries'), inquiryData);
 };
 
-export const submitGuestbookMessage = async (userId: string, myStudentId: string, friendStudentId: string, message: string) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) {
-      throw new Error("User data not found.");
+export const submitGuestbookMessage = async (friendStudentId: string, message: string) => {
+    const q = query(collection(db, 'users'), where('studentId', '==', friendStudentId));
+    const userSnapshot = await getDocs(q);
+    if (userSnapshot.empty) {
+        throw new Error(`학번 ${friendStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
     }
-    const userData = userDoc.data();
     
     const messageData = {
-        senderUid: userId,
-        senderStudentId: myStudentId,
-        senderDisplayName: userData.displayName,
         friendStudentId: friendStudentId,
         message: message,
         createdAt: Timestamp.now(),
@@ -659,6 +655,36 @@ export const postAnnouncement = async (
     authorId: authorId,
     createdAt: Timestamp.now(),
   });
+};
+
+export const addPointsForGameWin = async (studentId: string) => {
+    return await runTransaction(db, async (transaction) => {
+        const usersQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
+        const usersSnapshot = await getDocs(usersQuery);
+
+        if (usersSnapshot.empty) {
+            throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
+        }
+        
+        const userDoc = usersSnapshot.docs[0];
+        const userRef = userDoc.ref;
+        const rewardAmount = 2;
+
+        transaction.update(userRef, { lak: increment(rewardAmount) });
+
+        const historyRef = doc(collection(userRef, 'transactions'));
+        transaction.set(historyRef, {
+            amount: rewardAmount,
+            date: Timestamp.now(),
+            description: '끝말잇기 챌린지 성공!',
+            type: 'credit',
+        });
+
+        return { success: true, message: `챌린지 성공! ${rewardAmount}포인트가 자동으로 적립되었습니다.` };
+    }).catch((error: any) => {
+        console.error("Game reward error: ", error);
+        return { success: false, message: error.message || "포인트 적립 중 오류가 발생했습니다." };
+    });
 };
 
 

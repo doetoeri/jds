@@ -17,13 +17,13 @@ const WordChainTurnSchema = z.object({
   word: z.string(),
 });
 
-const WordChainInputSchema = z.object({
+export const WordChainInputSchema = z.object({
   word: z.string(),
   history: z.array(WordChainTurnSchema),
 });
 export type WordChainInput = z.infer<typeof WordChainInputSchema>;
 
-const WordChainOutputSchema = z.object({
+export const WordChainOutputSchema = z.object({
   isValid: z.boolean(),
   isGameOver: z.boolean(),
   aiWord: z.string().optional(),
@@ -37,7 +37,6 @@ const wordChainPrompt = ai.definePrompt({
     input: { schema: WordChainInputSchema },
     output: { schema: WordChainOutputSchema },
     model: 'googleai/gemini-1.5-flash-latest',
-    temperature: 0.5,
     prompt: `You are a master of the Korean word chain game (끝말잇기).
 Your role is to act as the opponent and referee.
 

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,24 +13,18 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { db, auth, submitGuestbookMessage } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
+import { addPointsForGameWin } from '@/lib/firebase';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, Send, Gamepad, MessageSquare, Award, RefreshCcw } from 'lucide-react';
+import { Loader2, Send, Gamepad, Award, RefreshCcw } from 'lucide-react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { playWordChain, WordChainInput, WordChainOutput } from '@/ai/flows/word-chain-flow';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+import { playWordChain, WordChainInput } from '@/ai/flows/word-chain-flow';
+import Link from 'next/link';
 
 const formSchema = z.object({
-  myStudentId: z.string().regex(/^\d{5}$/, '학번은 5자리 숫자여야 합니다.'),
-  friendStudentId: z.string().regex(/^\d{5}$/, '학번은 5자리 숫자여야 합니다.'),
-  message: z.string().min(5, '메시지는 5자 이상 입력해주세요.').max(100, '메시지는 100자 이하로 입력해주세요.'),
+  studentId: z.string().regex(/^\d{5}$/, '학번은 5자리 숫자여야 합니다.'),
 });
 type FormValues = z.infer<typeof formSchema>;
 
@@ -41,88 +35,27 @@ interface Turn {
     word: string;
 }
 
-interface MyMessage {
-    id: string;
-    friendStudentId: string;
-    message: string;
-    createdAt: Timestamp;
-}
-
-export default function GuestbookPage() {
-    const [user] = useAuthState(auth);
-    
-    const [isSubmitting, setIsSubmitting] = useState(false);
+export default function WordChainPage() {
     const [gameStep, setGameStep] = useState<GameStep>('form');
+    const [isProcessing, setIsProcessing] = useState(false);
     
-    // My Messages state
-    const [myMessages, setMyMessages] = useState<MyMessage[]>([]);
-    const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+    const { toast } = useToast();
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+    });
 
     // Game state
+    const [studentIdForReward, setStudentIdForReward] = useState('');
     const [turns, setTurns] = useState<Turn[]>([]);
     const [currentWord, setCurrentWord] = useState('');
     const [gameMessage, setGameMessage] = useState('AI가 첫 단어를 생성 중입니다...');
     const [isGameOver, setIsGameOver] = useState(false);
     const [isAITurn, setIsAITurn] = useState(true);
 
-    const { toast } = useToast();
-    const { register, handleSubmit, reset, formState: { errors, isSubmitSuccessful }, setValue } = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            myStudentId: '',
-            friendStudentId: '',
-            message: '',
-        }
-    });
-
-    useEffect(() => {
-        if (isSubmitSuccessful) {
-            reset();
-        }
-    }, [isSubmitSuccessful, reset]);
-
-    useEffect(() => {
-        if (!user) return;
-        setIsLoadingMessages(true);
-        const q = query(
-            collection(db, 'guestbook'),
-            where('senderUid', '==', user.uid)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const userMessages = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as MyMessage));
-            // Sort by date client-side
-            userMessages.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
-            setMyMessages(userMessages);
-            setIsLoadingMessages(false);
-        }, (error) => {
-            console.error("Error fetching my messages:", error);
-            toast({ title: '오류', description: '내가 쓴 글을 불러오는 데 실패했습니다.', variant: 'destructive' });
-            setIsLoadingMessages(false);
-        });
-
-        return () => unsubscribe();
-    }, [user, toast]);
-
-    const onSubmit: SubmitHandler<FormValues> = async (data) => {
-        if (!user) {
-            toast({ title: '오류', description: '로그인 정보가 필요합니다.', variant: 'destructive' });
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            await submitGuestbookMessage(user.uid, data.myStudentId, data.friendStudentId, data.message);
-            toast({ title: '메시지 전송 성공!', description: '비밀 방명록에 메시지가 추가되었어요.' });
-            setGameStep('game');
-            startNewGame();
-        } catch (error: any) {
-            toast({ title: '오류', description: error.message || '메시지 전송에 실패했습니다.', variant: 'destructive' });
-        } finally {
-            setIsSubmitting(false);
-        }
+    const onStudentIdSubmit: SubmitHandler<FormValues> = async (data) => {
+        setStudentIdForReward(data.studentId);
+        setGameStep('game');
+        await startNewGame();
     };
     
     const startNewGame = async () => {
@@ -175,6 +108,14 @@ export default function GuestbookPage() {
 
                     if (finalHistory.length >= 10) {
                          setGameStep('result');
+                         setIsProcessing(true);
+                         const rewardResult = await addPointsForGameWin(studentIdForReward);
+                         if (rewardResult.success) {
+                             toast({ title: '챌린지 성공!', description: rewardResult.message });
+                         } else {
+                              toast({ title: '포인트 지급 실패', description: rewardResult.message, variant: 'destructive' });
+                         }
+                         setIsProcessing(false);
                     } else {
                         setGameMessage('성공! 당신의 차례입니다.');
                         setIsAITurn(false);
@@ -197,11 +138,12 @@ export default function GuestbookPage() {
         setGameMessage('');
         setIsGameOver(false);
         setIsAITurn(true);
+        setStudentIdForReward('');
         setGameStep('form');
     }
 
     return (
-        <div className="flex flex-col items-center justify-center p-4 gap-8">
+        <div className="flex flex-col items-center justify-center min-h-screen p-4">
             <Card className="w-full max-w-md">
                 <AnimatePresence mode="wait">
                     <motion.div
@@ -212,32 +154,25 @@ export default function GuestbookPage() {
                         transition={{ duration: 0.3 }}
                     >
                         {gameStep === 'form' && (
-                            <form onSubmit={handleSubmit(onSubmit)}>
+                             <form onSubmit={handleSubmit(onStudentIdSubmit)}>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2 font-headline text-2xl"><MessageSquare /> 비밀 방명록 남기기</CardTitle>
-                                    <CardDescription>친구에게 비밀 메시지를 남기고 AI 끝말잇기 게임에 참여하여 포인트를 받아가세요!</CardDescription>
+                                    <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Gamepad/> AI 끝말잇기 챌린지</CardTitle>
+                                    <CardDescription>AI와 끝말잇기를 10턴 이상 성공하여 2포인트를 획득하세요! 보상을 받을 학번을 입력해주세요.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                      <div className="space-y-1">
-                                        <Label htmlFor="myStudentId">내 학번 (5자리)</Label>
-                                        <Input id="myStudentId" {...register('myStudentId')} placeholder="예: 20101" disabled={isSubmitting}/>
-                                        {errors.myStudentId && <p className="text-xs text-destructive">{errors.myStudentId.message}</p>}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label htmlFor="friendStudentId">친구 학번 (5자리)</Label>
-                                        <Input id="friendStudentId" {...register('friendStudentId')} placeholder="예: 10203" disabled={isSubmitting}/>
-                                        {errors.friendStudentId && <p className="text-xs text-destructive">{errors.friendStudentId.message}</p>}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label htmlFor="message">비밀 메시지</Label>
-                                        <Textarea id="message" {...register('message')} disabled={isSubmitting} placeholder="친구에게 전하고 싶은 말을 남겨보세요."/>
-                                        {errors.message && <p className="text-xs text-destructive">{errors.message.message}</p>}
+                                        <Label htmlFor="studentId">내 학번 (5자리)</Label>
+                                        <Input id="studentId" {...register('studentId')} placeholder="예: 20101" disabled={isProcessing}/>
+                                        {errors.studentId && <p className="text-xs text-destructive">{errors.studentId.message}</p>}
                                     </div>
                                 </CardContent>
-                                <CardFooter>
-                                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                                        {isSubmitting ? <Loader2 className="animate-spin" /> : <Send />}
-                                        <span className="ml-2">메시지 남기고 게임 시작!</span>
+                                <CardFooter className="flex-col gap-4">
+                                    <Button type="submit" className="w-full" disabled={isProcessing}>
+                                        {isProcessing ? <Loader2 className="animate-spin" /> : <Gamepad />}
+                                        <span className="ml-2">게임 시작!</span>
+                                    </Button>
+                                    <Button variant="link" asChild>
+                                        <Link href="/guestbook">비밀 방명록 남기러 가기</Link>
                                     </Button>
                                 </CardFooter>
                             </form>
@@ -258,6 +193,7 @@ export default function GuestbookPage() {
                                                 </span>
                                             </div>
                                         ))}
+                                        {isAITurn && <Loader2 className="h-5 w-5 animate-spin"/>}
                                     </div>
                                     <p className="text-center text-muted-foreground text-sm h-5">{gameMessage}</p>
                                     <form onSubmit={handleWordSubmit} className="flex gap-2">
@@ -268,7 +204,7 @@ export default function GuestbookPage() {
                                             disabled={isAITurn || isGameOver}
                                         />
                                         <Button type="submit" disabled={isAITurn || isGameOver || !currentWord}>
-                                            {isAITurn ? <Loader2 className="animate-spin" /> : <Send />}
+                                            <Send />
                                         </Button>
                                     </form>
                                 </CardContent>
@@ -285,18 +221,21 @@ export default function GuestbookPage() {
                                         <Award />
                                         챌린지 성공!
                                      </CardTitle>
-                                    <CardDescription>AI와의 대결에서 10턴 이상 생존하셨습니다!</CardDescription>
+                                    <CardDescription>AI와의 대결에서 10턴 이상 생존하셨습니다! {studentIdForReward} 학번으로 2포인트가 자동 지급됩니다.</CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-6">
-                                     <div className="p-4 bg-muted rounded-lg text-center">
-                                        <p className="text-sm text-muted-foreground">참여해주셔서 감사합니다! 아래 코드를 사용해 포인트를 받아가세요.</p>
-                                        <p className="font-mono text-3xl font-bold tracking-widest my-2 text-primary">GUESTBOOK24</p>
-                                        <p className="font-bold text-lg">2 포인트</p>
-                                    </div>
+                                <CardContent className="text-center">
+                                     {isProcessing ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+                                            <p className="text-sm text-muted-foreground">포인트를 지급하고 있습니다...</p>
+                                        </div>
+                                     ) : (
+                                        <p className="text-lg font-bold text-primary">🎉 포인트 지급 완료! 🎉</p>
+                                     )}
                                 </CardContent>
                                  <CardFooter className="flex-col gap-2">
-                                    <Button onClick={handleReset} className="w-full">
-                                        <RefreshCcw className="mr-2"/>다음 사람을 위해 새로 시작
+                                    <Button onClick={handleReset} className="w-full" disabled={isProcessing}>
+                                        <RefreshCcw className="mr-2"/>새로운 게임 시작하기
                                     </Button>
                                 </CardFooter>
                             </>
@@ -304,29 +243,7 @@ export default function GuestbookPage() {
                     </motion.div>
                 </AnimatePresence>
             </Card>
-
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle>내가 남긴 글</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    {isLoadingMessages ? (
-                        Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
-                    ) : myMessages.length === 0 ? (
-                        <p className="text-center text-sm text-muted-foreground py-4">아직 남긴 글이 없어요.</p>
-                    ) : (
-                        myMessages.map(msg => (
-                            <div key={msg.id} className="border p-3 rounded-md">
-                                <div className="flex justify-between items-center mb-1">
-                                    <p className="text-sm font-semibold">To: {msg.friendStudentId}</p>
-                                    <Badge variant="outline">{new Date(msg.createdAt.seconds * 1000).toLocaleDateString()}</Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground">{msg.message}</p>
-                            </div>
-                        ))
-                    )}
-                </CardContent>
-            </Card>
         </div>
     );
 }
+
