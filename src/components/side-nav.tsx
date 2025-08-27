@@ -62,7 +62,7 @@ const adminLinks = [
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
-  { name:g: '사용자 관리', href: '/council/users', icon: Users },
+  { name: '사용자 관리', href: '/council/users', icon: Users },
 ];
 
 const teacherLinks = [
