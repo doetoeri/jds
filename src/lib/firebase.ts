@@ -494,7 +494,7 @@ const deleteCollection = async (collectionRef: any) => {
 export const resetAllData = async () => {
     try {
         // 1. Reset 'codes', 'letters', 'purchases'
-        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel'];
+        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'friendship_wall'];
         for (const col of collectionsToReset) {
             const collectionRef = collection(db, col);
             await deleteCollection(collectionRef);
@@ -617,16 +617,16 @@ export const submitInquiry = async (userId: string, content: string) => {
 };
 
 export const postAnnouncement = async (
-    adminId: string, 
+    authorId: string, 
     title: string, 
     content: string, 
     imageUrl: string, 
     imagePath: string
 ) => {
-  const adminRef = doc(db, 'users', adminId);
-  const adminDoc = await getDoc(adminRef);
+  const authorRef = doc(db, 'users', authorId);
+  const authorDoc = await getDoc(authorRef);
 
-  if (!adminDoc.exists() || (adminDoc.data()?.role !== 'admin' && adminDoc.data()?.role !== 'council')) {
+  if (!authorDoc.exists() || (authorDoc.data()?.role !== 'admin' && authorDoc.data()?.role !== 'council')) {
     throw new Error('공지를 게시할 권한이 없습니다.');
   }
 
@@ -635,11 +635,13 @@ export const postAnnouncement = async (
     content,
     imageUrl,
     imagePath,
-    authorName: adminDoc.data()?.displayName || '관리자',
-    authorId: adminId,
+    authorName: authorDoc.data()?.displayName || '관리자',
+    authorId: authorId,
     createdAt: Timestamp.now(),
   });
 };
 
 
 export { auth, db, storage };
+
+    
