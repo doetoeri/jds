@@ -36,7 +36,7 @@ const wordChainPrompt = ai.definePrompt({
     name: 'wordChainPrompt',
     input: { schema: WordChainInputSchema },
     output: { schema: WordChainOutputSchema },
-    model: 'googleai/gemini-pro',
+    model: 'googleai/gemini-1.5-flash-latest',
     temperature: 0.5,
     prompt: `You are a master of the Korean word chain game (끝말잇기).
 Your role is to act as the opponent and referee.
