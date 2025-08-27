@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { auth, useCode, db } from '@/lib/firebase';
-import { Loader2, QrCode, CameraOff, UserPlus } from 'lucide-react';
+import { Loader2, QrCode, CameraOff, UserPlus, Info, Sparkles } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import jsQR from 'jsqr';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, onSnapshot } from 'firebase/firestore';
 
 
 export default function CodesPage() {
@@ -37,6 +37,7 @@ export default function CodesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [user] = useAuthState(auth);
+  const [myMateCode, setMyMateCode] = useState<string | null>(null);
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -45,11 +46,21 @@ export default function CodesPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const animationFrameId = useRef<number>();
 
-  // State for Hidden Code partner selection
   const [isPartnerDialogVisible, setIsPartnerDialogVisible] = useState(false);
   const [partnerStudentId, setPartnerStudentId] = useState('');
   const [isConfirmingPartner, setIsConfirmingPartner] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      const userDocRef = doc(db, 'users', user.uid);
+      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+          setMyMateCode(doc.data().mateCode);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
 
   const closeScanner = useCallback(() => {
     setIsScannerOpen(false);
@@ -63,13 +74,12 @@ export default function CodesPage() {
     }
   }, []);
   
-  // This is the final step that sends the code and partner to Firebase
   const confirmAndUseCode = async (codeToUse: string, partnerId?: string) => {
       if (!user) {
           toast({ title: "오류", description: "로그인이 필요합니다.", variant: "destructive" });
           return;
       }
-      setIsConfirmingPartner(true); // Show loading state on the final confirm button
+      setIsConfirmingPartner(true); 
       setIsLoading(true);
 
       try {
@@ -79,7 +89,6 @@ export default function CodesPage() {
                   title: "성공!",
                   description: result.message,
               });
-              // Reset all states
               setCode('');
               setPartnerStudentId('');
               closeScanner();
@@ -118,7 +127,6 @@ export default function CodesPage() {
     }
     
     setIsLoading(true);
-    // 1. Check code type first
     const codeQuery = query(collection(db, 'codes'), where('code', '==', scannedCode.toUpperCase()));
     const codeSnapshot = await getDocs(codeQuery);
 
@@ -129,20 +137,18 @@ export default function CodesPage() {
     }
     const codeData = codeSnapshot.docs[0].data();
 
-    // 2. If it's a hidden code, open the partner selection dialog
     if (codeData.type === '히든코드' && !codeData.used) {
-        setCode(scannedCode); // Store the code to be used
+        setCode(scannedCode);
         setIsPartnerDialogVisible(true);
-        return; // Stop here and wait for partner input
+        return; 
     }
     
-    // 3. If it's any other code type, use it directly
     await confirmAndUseCode(scannedCode);
 
   }, [user, toast, closeScanner]);
 
   const tick = useCallback(() => {
-    if (isLoading || isPartnerDialogVisible) return; // Pause scanning if dialog is open
+    if (isLoading || isPartnerDialogVisible) return;
     if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
       if (canvasRef.current) {
         const canvas = canvasRef.current;
@@ -158,7 +164,7 @@ export default function CodesPage() {
           });
 
           if (qrCode) {
-            closeScanner(); // Close scanner immediately after finding a code
+            closeScanner();
             handleUseCode(qrCode.data);
             return; 
           }
@@ -274,14 +280,31 @@ export default function CodesPage() {
             </>
           )}
         </Card>
+        <Alert className="mt-6">
+            <Info className="h-4 w-4" />
+            <AlertTitle className="font-semibold">코드 사용 팁!</AlertTitle>
+            <AlertDescription className="mt-2 space-y-2">
+                 <div className="flex items-start gap-2">
+                   <UserPlus className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
+                   <p>
+                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하면 나와 친구 모두에게 Lak이 지급됩니다. 나의 메이트코드를 친구에게 공유해보세요!
+                     <br/>
+                     <span className="font-mono text-sm font-bold bg-muted px-2 py-1 rounded-md mt-1 inline-block">나의 메이트코드: {myMateCode || "로딩중..."}</span>
+                   </p>
+                 </div>
+                 <div className="flex items-start gap-2">
+                   <Sparkles className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
+                   <p><strong className="text-primary">히든코드:</strong> 학교에 숨겨진 코드로, 입력 시 파트너의 학번이 필요하며 두 사람 모두에게 보상이 지급됩니다.</p>
+                 </div>
+            </AlertDescription>
+        </Alert>
       </div>
 
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         <audio ref={audioRef} src="https://cdn.pixabay.com/audio/2021/08/04/audio_c668156e54.mp3" preload="auto" />
       
 
-       {/* Partner Selection Dialog for Hidden Codes */}
-      <AlertDialog open={isPartnerDialogVisible} onOpenChange={setIsPartnerDialogVisible}>
+       <AlertDialog open={isPartnerDialogVisible} onOpenChange={setIsPartnerDialogVisible}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -319,5 +342,3 @@ export default function CodesPage() {
     </>
   );
 }
-
-    
