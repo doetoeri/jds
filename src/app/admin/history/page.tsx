@@ -39,7 +39,8 @@ export default function AdminHistoryPage() {
       setIsLoading(true);
       try {
         const transactionsGroupRef = collectionGroup(db, 'transactions');
-        const q = query(transactionsGroupRef, orderBy('date', 'desc'));
+        // orderBy is removed to prevent index error. Sorting will be done client-side.
+        const q = query(transactionsGroupRef);
         const querySnapshot = await getDocs(q);
 
         const allTransactions = await Promise.all(querySnapshot.docs.map(async (doc) => {
@@ -60,6 +61,9 @@ export default function AdminHistoryPage() {
             ...data
           } as Transaction;
         }));
+
+        // Sort transactions by date in descending order on the client side
+        allTransactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
 
         setTransactions(allTransactions);
 
