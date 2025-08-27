@@ -51,6 +51,7 @@ export default function WordChainPage() {
     const [gameMessage, setGameMessage] = useState('AI가 첫 단어를 생성 중입니다...');
     const [isGameOver, setIsGameOver] = useState(false);
     const [isAITurn, setIsAITurn] = useState(true);
+    const [isWin, setIsWin] = useState(false);
 
     const onStudentIdSubmit: SubmitHandler<FormValues> = async (data) => {
         setStudentIdForReward(data.studentId);
@@ -61,6 +62,7 @@ export default function WordChainPage() {
     const startNewGame = async () => {
         setIsAITurn(true);
         setIsGameOver(false);
+        setIsWin(false);
         setTurns([]);
         setGameMessage('AI가 첫 단어를 생성 중입니다...');
         
@@ -98,24 +100,24 @@ export default function WordChainPage() {
             if (!result.isValid) {
                 setGameMessage(`게임 오버! 이유: ${result.reason}`);
                 setIsGameOver(true);
+                setIsWin(false);
             } else {
                 if (result.isGameOver) {
-                    setGameMessage(`게임 오버! 이유: ${result.reason}`);
-                    setIsGameOver(true);
+                    if (result.reason.includes("You win")) {
+                        setIsWin(true);
+                        setGameStep('result');
+                    } else {
+                       setGameMessage(`게임 오버! 이유: ${result.reason}`);
+                       setIsGameOver(true);
+                       setIsWin(false);
+                    }
                 } else if (result.aiWord) {
                     const finalHistory = [...newHistory, { speaker: 'ai', word: result.aiWord }];
                     setTurns(finalHistory);
 
-                    if (finalHistory.length >= 10) {
+                    if (finalHistory.length >= 10) { // 5 turns for user, 5 for AI
+                         setIsWin(true);
                          setGameStep('result');
-                         setIsProcessing(true);
-                         const rewardResult = await addPointsForGameWin(studentIdForReward);
-                         if (rewardResult.success) {
-                             toast({ title: '챌린지 성공!', description: rewardResult.message });
-                         } else {
-                              toast({ title: '포인트 지급 실패', description: rewardResult.message, variant: 'destructive' });
-                         }
-                         setIsProcessing(false);
                     } else {
                         setGameMessage('성공! 당신의 차례입니다.');
                         setIsAITurn(false);
@@ -126,10 +128,28 @@ export default function WordChainPage() {
         } catch (e: any) {
             toast({ title: "게임 오류", description: e.message, variant: "destructive" });
             setIsGameOver(true);
+            setIsWin(false);
         } finally {
             setCurrentWord('');
         }
     };
+
+     useEffect(() => {
+        if (gameStep === 'result' && isWin) {
+            const giveReward = async () => {
+                setIsProcessing(true);
+                const rewardResult = await addPointsForGameWin(studentIdForReward);
+                if (rewardResult.success) {
+                    toast({ title: '챌린지 성공!', description: rewardResult.message });
+                } else {
+                    toast({ title: '포인트 지급 실패', description: rewardResult.message, variant: 'destructive' });
+                }
+                setIsProcessing(false);
+            };
+            giveReward();
+        }
+    }, [gameStep, isWin, studentIdForReward, toast]);
+
 
     const handleReset = () => {
         reset();
@@ -140,6 +160,7 @@ export default function WordChainPage() {
         setIsAITurn(true);
         setStudentIdForReward('');
         setGameStep('form');
+        setIsWin(false);
     }
 
     return (
@@ -157,7 +178,7 @@ export default function WordChainPage() {
                              <form onSubmit={handleSubmit(onStudentIdSubmit)}>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Gamepad/> AI 끝말잇기 챌린지</CardTitle>
-                                    <CardDescription>AI와 끝말잇기를 10턴 이상 성공하여 2포인트를 획득하세요! 보상을 받을 학번을 입력해주세요.</CardDescription>
+                                    <CardDescription>AI와 끝말잇기를 5턴 이상 성공하여 2포인트를 획득하세요! 보상을 받을 학번을 입력해주세요.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                      <div className="space-y-1">
@@ -182,7 +203,7 @@ export default function WordChainPage() {
                             <>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Gamepad /> AI와 끝말잇기</CardTitle>
-                                    <CardDescription>AI와 끝말잇기를 10턴 이상 성공하여 보상을 획득하세요!</CardDescription>
+                                    <CardDescription>AI와 끝말잇기를 5턴 이상 성공하여 보상을 획득하세요!</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="w-full h-40 bg-muted rounded-lg p-4 overflow-y-auto flex flex-col gap-2 text-sm">
@@ -193,7 +214,7 @@ export default function WordChainPage() {
                                                 </span>
                                             </div>
                                         ))}
-                                        {isAITurn && <Loader2 className="h-5 w-5 animate-spin"/>}
+                                        {isAITurn && !isGameOver && <Loader2 className="h-5 w-5 animate-spin"/>}
                                     </div>
                                     <p className="text-center text-muted-foreground text-sm h-5">{gameMessage}</p>
                                     <form onSubmit={handleWordSubmit} className="flex gap-2">
@@ -221,7 +242,7 @@ export default function WordChainPage() {
                                         <Award />
                                         챌린지 성공!
                                      </CardTitle>
-                                    <CardDescription>AI와의 대결에서 10턴 이상 생존하셨습니다! {studentIdForReward} 학번으로 2포인트가 자동 지급됩니다.</CardDescription>
+                                    <CardDescription>AI와의 대결에서 승리하셨습니다! {studentIdForReward} 학번으로 2포인트가 자동 지급됩니다.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="text-center">
                                      {isProcessing ? (

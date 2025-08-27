@@ -52,7 +52,7 @@ Follow these rules strictly:
 2. Validate the user's word.
    - It must be a real noun in Korean.
    - It must be at least two syllables long.
-   - The first letter of the user's word must match the last letter of the previous AI word.
+   - The first letter of the user's word must match the last letter of the previous AI word (if any).
    - The word must not have been used before in this game session.
    - If the user's word is invalid, set 'isValid' to false, 'isGameOver' to true, and provide the 'reason' for the loss. Do not provide 'aiWord'.
 3. If the user's word is valid:
