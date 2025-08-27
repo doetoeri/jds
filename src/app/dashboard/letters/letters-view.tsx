@@ -163,7 +163,7 @@ export default function LettersView() {
         senderUid: user.uid,
         senderStudentId: senderStudentId,
         receiverStudentId: receiverStudentId,
-        content: content,
+        content: content, // Always save the original content
         status: 'pending',
         createdAt: Timestamp.now(),
         isOffline: isOffline,
