@@ -96,7 +96,7 @@ export default function AdminLettersPage() {
     try {
       const letterRef = doc(db, 'letters', letter.id);
       
-      // Offline letter logic
+      // Offline letter logic - just update status
       if (letter.isOffline) {
         await updateDoc(letterRef, {
             status: 'approved',
@@ -246,7 +246,7 @@ export default function AdminLettersPage() {
                           <AlertDialogContent>
                              <AlertDialogHeader>
                                 <AlertDialogTitle>편지 내용</AlertDialogTitle>
-                                <AlertDialogDescription className="whitespace-pre-wrap break-words">
+                                <AlertDialogDescription className="whitespace-pre-wrap break-words max-h-[60vh] overflow-y-auto">
                                    {letter.content}
                                 </AlertDialogDescription>
                              </AlertDialogHeader>
