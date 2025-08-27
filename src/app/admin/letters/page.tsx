@@ -228,7 +228,7 @@ export default function AdminLettersPage() {
                     <TableCell>{letter.senderStudentId}</TableCell>
                     <TableCell>{letter.receiverStudentId}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
-                       {letter.content}
+                      {letter.content}
                     </TableCell>
                     <TableCell>
                       {letter.isOffline ? (
@@ -263,14 +263,6 @@ export default function AdminLettersPage() {
                                 <span className="sr-only">상세 보기</span>
                               </Link>
                             </Button>
-                          {letter.isOffline && (
-                            <Button asChild size="icon" variant="ghost">
-                              <Link href={`/admin/letters/print?id=${letter.id}`} target="_blank">
-                                <Printer className="h-4 w-4" />
-                                <span className="sr-only">인쇄</span>
-                              </Link>
-                            </Button>
-                          )}
                           {isProcessing === letter.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                           ) : letter.status === 'pending' ? (
