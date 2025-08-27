@@ -494,7 +494,7 @@ const deleteCollection = async (collectionRef: any) => {
 export const resetAllData = async () => {
     try {
         // 1. Reset 'codes', 'letters', 'purchases'
-        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'friendship_wall'];
+        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'guestbook'];
         for (const col of collectionsToReset) {
             const collectionRef = collection(db, col);
             await deleteCollection(collectionRef);
@@ -616,6 +616,26 @@ export const submitInquiry = async (userId: string, content: string) => {
     await addDoc(collection(db, 'inquiries'), inquiryData);
 };
 
+export const submitGuestbookMessage = async (userId: string, myStudentId: string, friendStudentId: string, message: string) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error("User data not found.");
+    }
+    const userData = userDoc.data();
+    
+    const messageData = {
+        senderUid: userId,
+        senderStudentId: myStudentId,
+        senderDisplayName: userData.displayName,
+        friendStudentId: friendStudentId,
+        message: message,
+        createdAt: Timestamp.now(),
+    };
+
+    await addDoc(collection(db, 'guestbook'), messageData);
+}
+
 export const postAnnouncement = async (
     authorId: string, 
     title: string, 
@@ -643,5 +663,3 @@ export const postAnnouncement = async (
 
 
 export { auth, db, storage };
-
-    

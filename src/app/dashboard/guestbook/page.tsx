@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,8 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { db, auth } from '@/lib/firebase';
-import { addDoc, collection, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { db, auth, submitGuestbookMessage } from '@/lib/firebase';
+import { collection, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, Send, Gamepad, MessageSquare, Award, RefreshCcw } from 'lucide-react';
 import { useForm, SubmitHandler } from 'react-hook-form';
@@ -24,8 +24,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { playWordChain, WordChainInput, WordChainOutput } from '@/ai/flows/word-chain-flow';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
+  myStudentId: z.string().regex(/^\d{5}$/, '학번은 5자리 숫자여야 합니다.'),
   friendStudentId: z.string().regex(/^\d{5}$/, '학번은 5자리 숫자여야 합니다.'),
   message: z.string().min(5, '메시지는 5자 이상 입력해주세요.').max(100, '메시지는 100자 이하로 입력해주세요.'),
 });
@@ -38,13 +41,23 @@ interface Turn {
     word: string;
 }
 
+interface MyMessage {
+    id: string;
+    friendStudentId: string;
+    message: string;
+    createdAt: Timestamp;
+}
+
 export default function GuestbookPage() {
     const [user] = useAuthState(auth);
-    const [userData, setUserData] = useState<{ displayName: string } | null>(null);
-
+    
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [gameStep, setGameStep] = useState<GameStep>('form');
     
+    // My Messages state
+    const [myMessages, setMyMessages] = useState<MyMessage[]>([]);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+
     // Game state
     const [turns, setTurns] = useState<Turn[]>([]);
     const [currentWord, setCurrentWord] = useState('');
@@ -52,37 +65,55 @@ export default function GuestbookPage() {
     const [isGameOver, setIsGameOver] = useState(false);
     const [isAITurn, setIsAITurn] = useState(true);
 
-
     const { toast } = useToast();
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
-        resolver: zodResolver(formSchema)
+    const { register, handleSubmit, reset, formState: { errors, isSubmitSuccessful }, setValue } = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            myStudentId: '',
+            friendStudentId: '',
+            message: '',
+        }
     });
 
     useEffect(() => {
-        if (user) {
-            const userDocRef = doc(db, 'users', user.uid);
-            getDoc(userDocRef).then(docSnap => {
-                if (docSnap.exists()) {
-                    setUserData(docSnap.data() as { displayName: string });
-                }
-            })
+        if (isSubmitSuccessful) {
+            reset();
         }
-    }, [user]);
+    }, [isSubmitSuccessful, reset]);
+
+    useEffect(() => {
+        if (!user) return;
+        setIsLoadingMessages(true);
+        const q = query(
+            collection(db, 'guestbook'),
+            where('senderUid', '==', user.uid),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const userMessages = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as MyMessage));
+            setMyMessages(userMessages);
+            setIsLoadingMessages(false);
+        }, (error) => {
+            console.error("Error fetching my messages:", error);
+            toast({ title: '오류', description: '내가 쓴 글을 불러오는 데 실패했습니다.', variant: 'destructive' });
+            setIsLoadingMessages(false);
+        });
+
+        return () => unsubscribe();
+    }, [user, toast]);
 
     const onSubmit: SubmitHandler<FormValues> = async (data) => {
-        if (!user || !userData) {
+        if (!user) {
             toast({ title: '오류', description: '로그인 정보가 필요합니다.', variant: 'destructive' });
             return;
         }
         setIsSubmitting(true);
         try {
-            await addDoc(collection(db, 'guestbook'), {
-                senderUid: user.uid,
-                senderDisplayName: userData.displayName,
-                friendStudentId: data.friendStudentId,
-                message: data.message,
-                createdAt: Timestamp.now(),
-            });
+            await submitGuestbookMessage(user.uid, data.myStudentId, data.friendStudentId, data.message);
             toast({ title: '메시지 전송 성공!', description: '비밀 방명록에 메시지가 추가되었어요.' });
             setGameStep('game');
             startNewGame();
@@ -99,7 +130,6 @@ export default function GuestbookPage() {
         setTurns([]);
         setGameMessage('AI가 첫 단어를 생성 중입니다...');
         
-        // Let AI say the first word
         const input: WordChainInput = { word: '시작', history: [] };
         try {
             const result = await playWordChain(input);
@@ -170,7 +200,7 @@ export default function GuestbookPage() {
     }
 
     return (
-        <div className="flex items-center justify-center p-4 min-h-[calc(100vh-150px)]">
+        <div className="flex flex-col items-center justify-center p-4 gap-8">
             <Card className="w-full max-w-md">
                 <AnimatePresence mode="wait">
                     <motion.div
@@ -187,6 +217,11 @@ export default function GuestbookPage() {
                                     <CardDescription>친구에게 비밀 메시지를 남기고 AI 끝말잇기 게임에 참여하여 포인트를 받아가세요!</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
+                                     <div className="space-y-1">
+                                        <Label htmlFor="myStudentId">내 학번 (5자리)</Label>
+                                        <Input id="myStudentId" {...register('myStudentId')} placeholder="예: 20101" disabled={isSubmitting}/>
+                                        {errors.myStudentId && <p className="text-xs text-destructive">{errors.myStudentId.message}</p>}
+                                    </div>
                                     <div className="space-y-1">
                                         <Label htmlFor="friendStudentId">친구 학번 (5자리)</Label>
                                         <Input id="friendStudentId" {...register('friendStudentId')} placeholder="예: 10203" disabled={isSubmitting}/>
@@ -194,7 +229,7 @@ export default function GuestbookPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <Label htmlFor="message">비밀 메시지</Label>
-                                        <Textarea id="message" {...register('message')} disabled={isSubmitting} placeholder="친구에게 전하고 싶은 말을 남겨보세요. 내용은 관리자만 볼 수 있습니다."/>
+                                        <Textarea id="message" {...register('message')} disabled={isSubmitting} placeholder="친구에게 전하고 싶은 말을 남겨보세요."/>
                                         {errors.message && <p className="text-xs text-destructive">{errors.message.message}</p>}
                                     </div>
                                 </CardContent>
@@ -267,6 +302,29 @@ export default function GuestbookPage() {
                         )}
                     </motion.div>
                 </AnimatePresence>
+            </Card>
+
+            <Card className="w-full max-w-md">
+                <CardHeader>
+                    <CardTitle>내가 남긴 글</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {isLoadingMessages ? (
+                        Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
+                    ) : myMessages.length === 0 ? (
+                        <p className="text-center text-sm text-muted-foreground py-4">아직 남긴 글이 없어요.</p>
+                    ) : (
+                        myMessages.map(msg => (
+                            <div key={msg.id} className="border p-3 rounded-md">
+                                <div className="flex justify-between items-center mb-1">
+                                    <p className="text-sm font-semibold">To: {msg.friendStudentId}</p>
+                                    <Badge variant="outline">{new Date(msg.createdAt.seconds * 1000).toLocaleDateString()}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{msg.message}</p>
+                            </div>
+                        ))
+                    )}
+                </CardContent>
             </Card>
         </div>
     );
