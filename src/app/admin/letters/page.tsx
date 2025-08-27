@@ -32,20 +32,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle, Printer } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Printer, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 
 interface Letter {
@@ -239,22 +228,7 @@ export default function AdminLettersPage() {
                     <TableCell>{letter.senderStudentId}</TableCell>
                     <TableCell>{letter.receiverStudentId}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
-                       <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                             <Button variant="link" className="p-0 h-auto">내용 보기</Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                             <AlertDialogHeader>
-                                <AlertDialogTitle>편지 내용</AlertDialogTitle>
-                                <AlertDialogDescription className="whitespace-pre-wrap break-words max-h-[60vh] overflow-y-auto">
-                                   {letter.content}
-                                </AlertDialogDescription>
-                             </AlertDialogHeader>
-                             <AlertDialogFooter>
-                                <AlertDialogCancel>닫기</AlertDialogCancel>
-                             </AlertDialogFooter>
-                          </AlertDialogContent>
-                       </AlertDialog>
+                       {letter.content}
                     </TableCell>
                     <TableCell>
                       {letter.isOffline ? (
@@ -283,10 +257,17 @@ export default function AdminLettersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                        <div className="flex gap-2 justify-end">
+                            <Button asChild size="icon" variant="ghost">
+                              <Link href={`/admin/letters/${letter.id}`}>
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">상세 보기</span>
+                              </Link>
+                            </Button>
                           {letter.isOffline && (
                             <Button asChild size="icon" variant="ghost">
                               <Link href={`/admin/letters/print?id=${letter.id}`} target="_blank">
                                 <Printer className="h-4 w-4" />
+                                <span className="sr-only">인쇄</span>
                               </Link>
                             </Button>
                           )}
