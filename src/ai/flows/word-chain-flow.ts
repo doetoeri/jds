@@ -32,7 +32,7 @@ const WordChainOutputSchema = z.object({
 export type WordChainOutput = z.infer<typeof WordChainOutputSchema>;
 
 
-const wordChainPrompt = ai.definePrompt({
+const playWordChainPrompt = ai.definePrompt({
     name: 'wordChainPrompt',
     input: { schema: WordChainInputSchema },
     output: { schema: WordChainOutputSchema },
