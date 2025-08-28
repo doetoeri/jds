@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -22,18 +22,74 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { resetAllData } from '@/lib/firebase';
+import { resetAllData, db } from '@/lib/firebase';
 import { CommunicationChannel } from '@/components/communication-channel';
 import { AnnouncementPoster } from '@/components/announcement-poster';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
+interface Stats {
+    totalUsers: number;
+    totalCodes: number;
+    totalLakRedeemed: number;
+}
 
 export default function AdminDashboardPage() {
-  const totalUsers = 152;
-  const totalCodes = 521;
-  const totalLakRedeemed = 1230;
-
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), where('role', '!=', 'pending_teacher'));
+    const codesQuery = query(collection(db, 'codes'));
+
+    const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
+        setStats(prev => ({ ...prev!, totalUsers: snapshot.size }));
+    });
+
+    const unsubCodes = onSnapshot(codesQuery, (snapshot) => {
+        let redeemed = 0;
+        snapshot.forEach(doc => {
+            const code = doc.data();
+            switch (code.type) {
+                case '종달코드':
+                case '온라인 특수코드':
+                    if (code.used) redeemed += code.value;
+                    break;
+                case '히든코드':
+                    if (code.used) redeemed += (code.value * 2); // User + Partner
+                    break;
+                case '메이트코드':
+                    redeemed += (code.participants.length - 1) * code.value * 2; // Each use gives points to 2 people
+                    break;
+                case '선착순코드':
+                     if (Array.isArray(code.usedBy)) {
+                        redeemed += code.usedBy.length * code.value;
+                    }
+                    break;
+            }
+        });
+        setStats(prev => ({ 
+            ...prev!, 
+            totalCodes: snapshot.size,
+            totalLakRedeemed: redeemed
+        }));
+    });
+    
+    Promise.all([getDocs(usersQuery), getDocs(codesQuery)]).then(() => {
+        setIsLoading(false);
+    }).catch(e => {
+        console.error("Error fetching initial stats:", e);
+        setIsLoading(false);
+    });
+
+    return () => {
+        unsubUsers();
+        unsubCodes();
+    };
+}, []);
+
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -67,7 +123,7 @@ export default function AdminDashboardPage() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalUsers.toLocaleString()} 명</div>
+                    {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers.toLocaleString() ?? 0} 명</div>}
                     <p className="text-xs text-muted-foreground">
                     현재 시스템에 등록된 총 사용자 수
                     </p>
@@ -79,7 +135,7 @@ export default function AdminDashboardPage() {
                     <QrCode className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalCodes.toLocaleString()} 개</div>
+                    {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalCodes.toLocaleString() ?? 0} 개</div>}
                     <p className="text-xs text-muted-foreground">
                     발급된 모든 코드의 수
                     </p>
@@ -87,11 +143,11 @@ export default function AdminDashboardPage() {
                 </Card>
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">총 사용된 포인트</CardTitle>
+                    <CardTitle className="text-sm font-medium">코드로 지급된 포인트</CardTitle>
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalLakRedeemed.toLocaleString()} 포인트</div>
+                     {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLakRedeemed.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
                     코드를 통해 적립된 총 포인트
                     </p>
