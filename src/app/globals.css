@@ -86,6 +86,21 @@
   .gradient-red {
     background-image: linear-gradient(to bottom right, #ef4444, #f87171);
   }
+  .gradient-amber {
+    background-image: linear-gradient(to bottom right, #f59e0b, #fbbf24);
+  }
+  .gradient-lime {
+      background-image: linear-gradient(to bottom right, #84cc16, #a3e635);
+  }
+  .gradient-emerald {
+      background-image: linear-gradient(to bottom right, #10b981, #34d399);
+  }
+  .gradient-sky {
+      background-image: linear-gradient(to bottom right, #0ea5e9, #38bdf8);
+  }
+  .gradient-violet {
+      background-image: linear-gradient(to bottom right, #7c3aed, #a78bfa);
+  }
 
   .animate-highlight-pulse {
     animation: highlight-pulse 2s ease-out infinite;
