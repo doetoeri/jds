@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, or, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Megaphone } from 'lucide-react';
 import Image from 'next/image';
@@ -59,30 +59,33 @@ export default function ReleasesPage() {
         const currentUserStudentId = userDocSnap.data().studentId;
 
         const announcementsRef = collection(db, 'announcements');
-        // Query for general announcements OR announcements targeted at the current user
-        const q = query(
+        
+        // Query 1: Global announcements
+        const globalQuery = query(
           announcementsRef,
-          or(
-            where('targetStudentId', '==', null),
-            where('targetStudentId', '==', currentUserStudentId)
-          ),
-          orderBy('createdAt', 'desc')
+          where('targetStudentId', '==', null)
         );
+        
+        // Query 2: Targeted announcements for the current user
+        const targetedQuery = query(
+          announcementsRef,
+          where('targetStudentId', '==', currentUserStudentId)
+        );
+        
+        const [globalSnapshot, targetedSnapshot] = await Promise.all([
+            getDocs(globalQuery),
+            getDocs(targetedQuery)
+        ]);
 
-        const querySnapshot = await getDocs(q);
-        const fetchedNotes = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as ReleaseNote));
+        const globalNotes = globalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReleaseNote));
+        const targetedNotes = targetedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReleaseNote));
+
+        // Combine, remove duplicates, and sort
+        const allNotes = [...globalNotes, ...targetedNotes];
+        const uniqueNotes = Array.from(new Map(allNotes.map(note => [note.id, note])).values());
+        uniqueNotes.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
         
-        // Filter again in client-side because Firestore OR queries on different fields can be tricky
-        // and sometimes return more than expected if not structured perfectly.
-        // This ensures we only show global (null target) or user-specific announcements.
-        const filteredNotes = fetchedNotes.filter(note => 
-            !note.targetStudentId || note.targetStudentId === currentUserStudentId
-        );
-        
-        setNotes(filteredNotes);
+        setNotes(uniqueNotes);
         
         // Mark as read after fetching
         markAsRead();
