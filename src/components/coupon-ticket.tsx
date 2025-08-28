@@ -5,9 +5,8 @@ import React, { forwardRef, useEffect, useState } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
 import { Skeleton } from './ui/skeleton';
-import { Bird } from 'lucide-react';
+import { Bird, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
 
 interface CouponTicketProps {
   code: string;
@@ -17,17 +16,18 @@ interface CouponTicketProps {
 
 export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
   ({ code, value, type }, ref) => {
-    const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [codeQrUrl, setCodeQrUrl] = useState('');
+    const [pageQrUrl, setPageQrUrl] = useState('');
 
     useEffect(() => {
-      const generateQr = async (codeToQr: string, setUrl: (url: string) => void) => {
+      const generateQr = async (text: string, setUrl: (url: string) => void) => {
         try {
-          const url = await QRCode.toDataURL(codeToQr, {
+          const url = await QRCode.toDataURL(text, {
             width: 150, 
             margin: 1,
             color: {
               dark: '#000000',
-              light: '#00000000', // Transparent background
+              light: '#FFFFFF',
             },
           });
           setUrl(url);
@@ -37,7 +37,8 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
       };
 
       if (code) {
-        generateQr(code, setQrCodeUrl);
+        generateQr(code, setCodeQrUrl);
+        generateQr('https://jongdalsam.shop/dashboard/codes', setPageQrUrl);
       }
     }, [code]);
     
@@ -51,50 +52,54 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
 
     const gradientClass = valueToGradient[value] || 'gradient-orange';
 
-
     return (
-        <a href="https://jongdalsam.shop" target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
-            <div
-                ref={ref}
-                className={cn(
-                    "w-[250px] h-[400px] rounded-2xl overflow-hidden relative shadow-lg flex flex-col p-5 font-headline transition-all duration-300",
-                    gradientClass
-                )}
-            >
-                {/* Header */}
-                <div className="text-center mb-4">
-                <div className="flex items-center justify-center gap-2 text-primary">
-                    <Bird className="h-6 w-6" />
-                    <h2 className="text-xl font-bold">
-                    종달샘 포인트 쿠폰
+        <div
+            ref={ref}
+            className="w-[250px] h-[400px] rounded-2xl overflow-hidden relative shadow-soft-lg flex flex-col bg-white font-headline"
+        >
+            {/* Header */}
+            <div className={cn("text-center p-3 text-white", gradientClass)}>
+                <div className="flex items-center justify-center gap-1.5">
+                    <Bird className="h-5 w-5" />
+                    <h2 className="text-lg font-bold">
+                        종달샘 포인트 쿠폰
                     </h2>
                 </div>
-                <p className="text-xs text-primary/80">고촌중학교 학생 자치회</p>
-                </div>
+            </div>
 
-                {/* Value */}
-                <div className="text-center my-auto">
-                    <p className="text-6xl font-bold text-primary tracking-tighter">{value}</p>
-                    <p className="text-2xl font-semibold text-primary/90 -mt-2">포인트</p>
-                </div>
-
-                {/* QR & Code */}
-                <div className="flex flex-col items-center justify-center gap-1 mb-4">
-                    {qrCodeUrl ? (
-                        <Image src={qrCodeUrl} alt={`QR Code for ${code}`} width={120} height={120} />
+            {/* Value */}
+            <div className="text-center my-auto py-2">
+                <p className="text-6xl font-bold text-gray-800 tracking-tighter">{value}</p>
+                <p className="text-2xl font-semibold text-gray-700 -mt-2">포인트</p>
+            </div>
+            
+            {/* QR Codes Section */}
+            <div className="border-t border-b border-gray-200 grid grid-cols-2 gap-px bg-gray-200">
+                <div className="bg-white flex flex-col items-center justify-center p-2">
+                    {codeQrUrl ? (
+                        <Image src={codeQrUrl} alt={`QR Code for ${code}`} width={80} height={80} />
                     ) : (
-                        <Skeleton className="w-[120px] h-[120px]" />
+                        <Skeleton className="w-[80px] h-[80px]" />
                     )}
-                    <p className="font-mono font-bold text-2xl tracking-widest text-primary">{code}</p>
+                    <p className="mt-1 font-mono font-bold text-lg tracking-wider text-gray-800">{code}</p>
+                    <p className="text-[10px] font-semibold text-gray-500">코드 사용하기</p>
                 </div>
-                
-                {/* Footer */}
-                <div className="text-center text-xs text-primary/70 border-t-2 border-dashed border-primary/20 pt-2">
-                <p className="font-bold">jongdalsam.web.app</p>
-                <p className="mt-1">1. 웹사이트 접속 {'>'} 2. 코드사용 {'>'} 3. 코드입력/스캔</p>
+                 <div className="bg-gray-50 flex flex-col items-center justify-center p-2">
+                    {pageQrUrl ? (
+                        <Image src={pageQrUrl} alt="Page QR Code" width={80} height={80} />
+                    ) : (
+                        <Skeleton className="w-[80px] h-[80px]" />
+                    )}
+                    <QrCode className="h-4 w-4 mt-1.5 text-gray-600"/>
+                    <p className="text-[10px] font-semibold text-gray-500 mt-0.5">페이지로 이동</p>
                 </div>
             </div>
-      </a>
+            
+            {/* Footer */}
+            <div className="text-center text-xs text-gray-500 p-2 mt-auto">
+                <p className="font-bold">jongdalsam.shop</p>
+            </div>
+        </div>
     );
   }
 );
