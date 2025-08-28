@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, or } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, or, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Megaphone } from 'lucide-react';
 import Image from 'next/image';
