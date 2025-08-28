@@ -246,6 +246,7 @@ export const handleSignOut = async () => {
 // Use Code function
 export const useCode = async (userId: string, inputCode: string, partnerStudentId?: string) => {
   const upperCaseCode = inputCode.toUpperCase();
+  const mateCodeReward = 2;
 
   return await runTransaction(db, async (transaction) => {
     // 1. Get user data (the person redeeming the code)
@@ -338,23 +339,23 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         }
 
         // Give points to the code user
-        transaction.update(userRef, { lak: increment(freshCodeData.value) });
+        transaction.update(userRef, { lak: increment(mateCodeReward) });
         const mateUserHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(mateUserHistoryRef, {
           date: Timestamp.now(),
           description: `'${freshCodeData.ownerStudentId}'님의 메이트코드 사용`,
-          amount: freshCodeData.value,
+          amount: mateCodeReward,
           type: 'credit',
         });
 
         // Give points to the code owner
         const ownerRef = doc(db, 'users', freshCodeData.ownerUid);
-        transaction.update(ownerRef, { lak: increment(freshCodeData.value) });
+        transaction.update(ownerRef, { lak: increment(mateCodeReward) });
         const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
         transaction.set(ownerHistoryRef, {
           date: Timestamp.now(),
           description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
-          amount: freshCodeData.value,
+          amount: mateCodeReward,
           type: 'credit',
         });
 
@@ -364,7 +365,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             lastUsedAt: Timestamp.now()
         });
 
-        return { success: true, message: `메이트코드를 사용하여 ${freshCodeData.value} 포인트를, 코드 주인도 ${freshCodeData.value} 포인트를 받았습니다!` };
+        return { success: true, message: `메이트코드를 사용하여 ${mateCodeReward} 포인트를, 코드 주인도 ${mateCodeReward} 포인트를 받았습니다!` };
       
       case '선착순코드':
         const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
