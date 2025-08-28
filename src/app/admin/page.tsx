@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { resetAllData, db } from '@/lib/firebase';
 import { CommunicationChannel } from '@/components/communication-channel';
 import { AnnouncementPoster } from '@/components/announcement-poster';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Stats {
@@ -58,10 +58,14 @@ export default function AdminDashboardPage() {
                     if (code.used) redeemed += code.value;
                     break;
                 case '히든코드':
-                    if (code.used) redeemed += (code.value * 2); // User + Partner
+                    if (code.used && Array.isArray(code.usedBy)) { 
+                        redeemed += (code.usedBy.length * code.value); // should be 2 people * value
+                    }
                     break;
                 case '메이트코드':
-                    redeemed += (code.participants.length - 1) * code.value * 2; // Each use gives points to 2 people
+                    if(Array.isArray(code.participants)) {
+                        redeemed += (code.participants.length - 1) * code.value * 2; // Each use gives points to 2 people
+                    }
                     break;
                 case '선착순코드':
                      if (Array.isArray(code.usedBy)) {
