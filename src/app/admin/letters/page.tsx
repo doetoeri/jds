@@ -85,22 +85,6 @@ export default function AdminLettersPage() {
     try {
       const letterRef = doc(db, 'letters', letter.id);
       
-      // Offline letter logic - just update status
-      if (letter.isOffline) {
-        await updateDoc(letterRef, {
-            status: 'approved',
-            approvedAt: Timestamp.now(),
-        });
-        toast({
-            title: '성공',
-            description: '오프라인 편지를 승인 처리했습니다. 이제 직접 전달해주세요.',
-        });
-        await fetchLetters();
-        setIsProcessing(null);
-        return;
-      }
-
-      // Online letter logic (with points)
       const batch = writeBatch(db);
       const usersRef = collection(db, 'users');
       
@@ -126,24 +110,47 @@ export default function AdminLettersPage() {
 
       batch.update(letterRef, { status: 'approved', approvedAt: Timestamp.now() });
 
-      batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
-      batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
+      // 오프라인 편지라도 포인트는 온라인으로 지급
+      if (!letter.isOffline) {
+        batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
+        batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
 
-      const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
-      batch.set(receiverTransactionRef, {
-        amount: 2,
-        date: Timestamp.now(),
-        description: `편지 수신 (보낸 사람: ${letter.senderStudentId})`,
-        type: 'credit',
-      });
+        const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
+        batch.set(receiverTransactionRef, {
+          amount: 2,
+          date: Timestamp.now(),
+          description: `편지 수신 (보낸 사람: ${letter.senderStudentId})`,
+          type: 'credit',
+        });
 
-      const senderTransactionRef = doc(collection(senderRef, 'transactions'));
-      batch.set(senderTransactionRef, {
-        amount: 2,
-        date: Timestamp.now(),
-        description: `편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
-        type: 'credit',
-      });
+        const senderTransactionRef = doc(collection(senderRef, 'transactions'));
+        batch.set(senderTransactionRef, {
+          amount: 2,
+          date: Timestamp.now(),
+          description: `편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
+          type: 'credit',
+        });
+      } else { // 오프라인 편지일때도 포인트는 온라인으로 지급
+         batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
+        batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
+
+        const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
+        batch.set(receiverTransactionRef, {
+          amount: 2,
+          date: Timestamp.now(),
+          description: `오프라인 편지 수신 (보낸 사람: ${letter.senderStudentId})`,
+          type: 'credit',
+        });
+
+        const senderTransactionRef = doc(collection(senderRef, 'transactions'));
+        batch.set(senderTransactionRef, {
+          amount: 2,
+          date: Timestamp.now(),
+          description: `오프라인 편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
+          type: 'credit',
+        });
+      }
+
 
       await batch.commit();
 

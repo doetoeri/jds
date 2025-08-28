@@ -258,7 +258,7 @@ export default function LettersView() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>오프라인 편지 안내</AlertTitle>
                   <AlertDescription>
-                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 포인트 또한 오프라인으로 지급됩니다.
+                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 포인트는 승인 즉시 온라인으로 지급됩니다.
                   </AlertDescription>
                 </Alert>
               )}
