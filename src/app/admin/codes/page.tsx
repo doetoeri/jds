@@ -323,6 +323,7 @@ export default function AdminCodesPage() {
             width: couponWidth,
             height: couponHeight,
             cacheBust: true,
+            fontEmbedCSS: '@font-face { font-family: "Gowun Batang"; }',
         });
       });
 
