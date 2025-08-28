@@ -286,9 +286,9 @@ export default function AdminCodesPage() {
     setIsDownloading(true);
 
     try {
-      // A4 Landscape: 297mm x 210mm. At 300 DPI: 3508 x 2480 pixels
-      const a4Width = 3508; 
-      const a4Height = 2480;
+      // A4 Portrait: 210mm x 297mm. At 300 DPI: 2480 x 3508 pixels
+      const a4Width = 2480; 
+      const a4Height = 3508;
 
       const canvas = document.createElement('canvas');
       canvas.width = a4Width;
@@ -305,31 +305,32 @@ export default function AdminCodesPage() {
       const couponHeight = 400;
       
       const columns = 4;
-      const rows = 2;
+      const rows = 4;
       const couponsPerPage = columns * rows;
       
-      // Calculate cell dimensions
       const cellWidth = a4Width / columns;
       const cellHeight = a4Height / rows;
       
-      // Calculate scale to fit coupon within cell, maintaining aspect ratio
       const scale = Math.min((cellWidth * 0.9) / couponWidth, (cellHeight * 0.9) / couponHeight);
       const scaledWidth = couponWidth * scale;
       const scaledHeight = couponHeight * scale;
 
-      for (let i = 0; i < codesToRender.length; i++) {
-        if (i >= couponsPerPage) break; 
-
-        const code = codesToRender[i];
+      const imagePromises = codesToRender.slice(0, couponsPerPage).map(code => {
         const couponNode = document.getElementById(`coupon-render-${code.id}`);
-        if (!couponNode) continue;
-        
-        const dataUrl = await toPng(couponNode, { 
+        if (!couponNode) return Promise.resolve(null);
+        return toPng(couponNode, { 
             pixelRatio: 2,
             width: couponWidth,
             height: couponHeight,
             cacheBust: true,
         });
+      });
+
+      const dataUrls = await Promise.all(imagePromises);
+
+      for (let i = 0; i < dataUrls.length; i++) {
+        const dataUrl = dataUrls[i];
+        if (!dataUrl) continue;
 
         const img = new Image();
         
@@ -347,12 +348,10 @@ export default function AdminCodesPage() {
         });
       }
        
-      // Draw cutting lines
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.lineWidth = 2;
-      ctx.setLineDash([15, 15]); // Dashed line style
+      ctx.setLineDash([15, 15]);
 
-      // Horizontal lines
       for (let i = 1; i < rows; i++) {
           const y = i * cellHeight;
           ctx.beginPath();
@@ -361,7 +360,6 @@ export default function AdminCodesPage() {
           ctx.stroke();
       }
 
-      // Vertical lines
       for (let i = 1; i < columns; i++) {
           const x = i * cellWidth;
           ctx.beginPath();
@@ -372,7 +370,7 @@ export default function AdminCodesPage() {
       
       const finalImage = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
-      link.download = 'A4_Coupons_Landscape.png';
+      link.download = 'A4_Coupons_Portrait.png';
       link.href = finalImage;
       link.click();
       
@@ -705,7 +703,7 @@ export default function AdminCodesPage() {
       <div ref={a4ContainerRef} className="absolute -left-[9999px] top-0">
           {codes
             .filter(c => selectedCodes.includes(c.id))
-            .slice(0, 8) // 4x2 grid
+            .slice(0, 16) // 4x4 grid
             .map(c => (
               <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 250, height: 400 }}>
                 <CouponTicket code={c.code} value={c.value} type={c.type} />
