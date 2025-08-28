@@ -43,22 +43,25 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
     }, [code]);
     
     const valueToGradient: { [key: number]: string } = {
-        1: 'gradient-amber',
-        3: 'gradient-lime',
-        5: 'gradient-emerald',
-        7: 'gradient-sky',
-        10: 'gradient-violet',
+        1: 'from-amber-400/80',
+        3: 'from-lime-400/80',
+        5: 'from-emerald-400/80',
+        7: 'from-sky-400/80',
+        10: 'from-violet-400/80',
     };
 
-    const gradientClass = valueToGradient[value] || 'gradient-orange';
+    const gradientClass = valueToGradient[value] || 'from-orange-400/80';
 
     return (
         <div
             ref={ref}
-            className="w-[250px] h-[400px] rounded-2xl overflow-hidden relative shadow-soft-lg flex flex-col bg-white font-headline"
+            className={cn(
+                "w-[250px] h-[400px] rounded-2xl overflow-hidden relative shadow-soft-lg flex flex-col font-headline bg-gradient-to-b to-white",
+                gradientClass
+            )}
         >
             {/* Header */}
-            <div className={cn("text-center p-3 text-white", gradientClass)}>
+            <div className="text-center p-3 text-gray-800">
                 <div className="flex items-center justify-center gap-1.5">
                     <Bird className="h-5 w-5" />
                     <h2 className="text-lg font-bold">
@@ -74,8 +77,8 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
             </div>
             
             {/* QR Codes Section */}
-            <div className="border-t border-b border-gray-200 grid grid-cols-2 gap-px bg-gray-200">
-                <div className="bg-white flex flex-col items-center justify-center p-2">
+            <div className="border-t border-b border-gray-200/50 grid grid-cols-2 gap-px bg-gray-200/50 backdrop-blur-sm bg-white/30">
+                <div className="flex flex-col items-center justify-center p-2">
                     {codeQrUrl ? (
                         <Image src={codeQrUrl} alt={`QR Code for ${code}`} width={80} height={80} />
                     ) : (
@@ -84,14 +87,14 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
                     <p className="mt-1 font-mono font-bold text-lg tracking-wider text-gray-800">{code}</p>
                     <p className="text-[10px] font-semibold text-gray-500">코드 사용하기</p>
                 </div>
-                 <div className="bg-gray-50 flex flex-col items-center justify-center p-2">
+                 <div className="flex flex-col items-center justify-center p-2">
                     {pageQrUrl ? (
                         <Image src={pageQrUrl} alt="Page QR Code" width={80} height={80} />
                     ) : (
                         <Skeleton className="w-[80px] h-[80px]" />
                     )}
                     <QrCode className="h-4 w-4 mt-1.5 text-gray-600"/>
-                    <p className="text-[10px] font-semibold text-gray-500 mt-0.5">페이지로 이동</p>
+                    <p className="text-[10px] font-semibold text-gray-500 mt-0.5">코드 등록 페이지로 가기</p>
                 </div>
             </div>
             
