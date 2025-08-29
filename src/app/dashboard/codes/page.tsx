@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -14,8 +15,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { auth, useCode, db } from '@/lib/firebase';
-import { Loader2, QrCode, CameraOff, UserPlus, Info, Sparkles } from 'lucide-react';
+import { auth, useCode, db, useMathFunctionCode } from '@/lib/firebase';
+import { Loader2, QrCode, CameraOff, UserPlus, Info, Sparkles, BrainCircuit } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -29,7 +30,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import jsQR from 'jsqr';
-import { collection, query, where, getDocs, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, onSnapshot, limit, orderBy, Timestamp } from 'firebase/firestore';
+
+
+interface MathChallengeInfo {
+    title: string;
+    points: number;
+    type: string;
+}
 
 
 export default function CodesPage() {
@@ -50,6 +58,10 @@ export default function CodesPage() {
   const [partnerStudentId, setPartnerStudentId] = useState('');
   const [isConfirmingPartner, setIsConfirmingPartner] = useState(false);
 
+  const [activeMathChallenge, setActiveMathChallenge] = useState<MathChallengeInfo | null>(null);
+  const [mathAnswer, setMathAnswer] = useState('');
+
+
   useEffect(() => {
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
@@ -61,6 +73,32 @@ export default function CodesPage() {
       return () => unsubscribe();
     }
   }, [user]);
+  
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTimestamp = Timestamp.fromDate(today);
+
+    const q = query(
+        collection(db, 'math_functions'),
+        where('validDate', '==', todayTimestamp),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+            const challengeData = snapshot.docs[0].data();
+            setActiveMathChallenge({
+                title: challengeData.title,
+                points: challengeData.points,
+                type: challengeData.type,
+            });
+        } else {
+            setActiveMathChallenge(null);
+        }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const closeScanner = useCallback(() => {
     setIsScannerOpen(false);
@@ -212,6 +250,30 @@ export default function CodesPage() {
       }
       confirmAndUseCode(code, partnerStudentId);
   }
+  
+  const handleMathSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!user) return;
+      if (!mathAnswer) {
+          toast({ title: "입력 오류", description: "계산 결과를 입력해주세요.", variant: "destructive" });
+          return;
+      }
+      setIsLoading(true);
+      try {
+          const result = await useMathFunctionCode(user.uid, Number(mathAnswer));
+          if(result.success) {
+              toast({ title: "성공!", description: result.message });
+              setMathAnswer('');
+          } else {
+               toast({ title: "오류", description: result.message, variant: "destructive" });
+          }
+      } catch (error: any) {
+          toast({ title: "치명적 오류", description: error.message, variant: "destructive" });
+      } finally {
+          setIsLoading(false);
+      }
+  }
+
 
   return (
     <>
@@ -220,10 +282,46 @@ export default function CodesPage() {
         <p className="text-muted-foreground">코드를 직접 입력하거나, QR/바코드를 스캔하여 포인트를 적립하세요.</p>
       </div>
 
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md mx-auto grid gap-6">
+
+        {activeMathChallenge && (
+            <Card className="w-full">
+                <form onSubmit={handleMathSubmit}>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><BrainCircuit/> 오늘의 수학 챌린지</CardTitle>
+                        <CardDescription>
+                           {activeMathChallenge.title}
+                           <br/>
+                           <span className="font-bold text-primary">정답을 맞추면 {activeMathChallenge.points}포인트를 드립니다! (하루 한 번)</span>
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="mathAnswer">f(내 학번) = ?</Label>
+                            <Input
+                                id="mathAnswer"
+                                placeholder="함수에 학번을 대입한 결과값을 입력하세요."
+                                type="number"
+                                value={mathAnswer}
+                                onChange={e => setMathAnswer(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                         <Button type="submit" className="w-full font-bold" disabled={isLoading || !mathAnswer}>
+                           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                           정답 확인하기
+                        </Button>
+                    </CardFooter>
+                </form>
+            </Card>
+        )}
+
+
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>코드 입력</CardTitle>
+            <CardTitle>일반 코드 입력</CardTitle>
             <CardDescription>
                 {isScannerOpen ? "QR 코드를 중앙에 맞춰주세요." : "코드를 입력하거나 스캔하세요."}
             </CardDescription>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -495,7 +496,7 @@ const deleteCollection = async (collectionRef: any) => {
 export const resetAllData = async () => {
     try {
         // 1. Reset 'codes', 'letters', 'purchases'
-        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'guestbook'];
+        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'guestbook', 'math_functions'];
         for (const col of collectionsToReset) {
             const collectionRef = collection(db, col);
             await deleteCollection(collectionRef);
@@ -509,7 +510,9 @@ export const resetAllData = async () => {
             const batch = writeBatch(db);
             // Reset lak to 0, but keep user data
             if (userDoc.data().role !== 'admin' && userDoc.data().role !== 'council') {
-                batch.update(userRef, { lak: 0 });
+                batch.update(userRef, { lak: 0, mathChallenges: {} });
+            } else {
+                 batch.update(userRef, { mathChallenges: {} });
             }
             await batch.commit();
 
@@ -617,7 +620,7 @@ export const submitInquiry = async (userId: string, content: string) => {
     await addDoc(collection(db, 'inquiries'), inquiryData);
 };
 
-export const submitGuestbookMessage = async (friendStudentId: string, message: string) => {
+export const submitGuestbookMessage = async (senderDisplayName: string, friendStudentId: string, message: string) => {
     const q = query(collection(db, 'users'), where('studentId', '==', friendStudentId));
     const userSnapshot = await getDocs(q);
     if (userSnapshot.empty) {
@@ -625,8 +628,9 @@ export const submitGuestbookMessage = async (friendStudentId: string, message: s
     }
     
     const messageData = {
-        friendStudentId: friendStudentId,
-        message: message,
+        senderDisplayName,
+        friendStudentId,
+        message,
         createdAt: Timestamp.now(),
     };
 
@@ -697,6 +701,112 @@ export const addPointsForGameWin = async (studentId: string) => {
     }).catch((error: any) => {
         console.error("Game reward error: ", error);
         return { success: false, message: error.message || "포인트 적립 중 오류가 발생했습니다." };
+    });
+};
+
+
+// ----- Math Function Challenge -----
+
+export const createMathChallenge = async (
+  type: string,
+  params: Record<string, number>,
+  points: number,
+  title: string
+) => {
+  const challengeRef = doc(collection(db, 'math_functions'));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const validDate = Timestamp.fromDate(today);
+
+  await setDoc(challengeRef, {
+    type,
+    params,
+    points,
+    title,
+    validDate,
+    createdAt: Timestamp.now(),
+  });
+};
+
+export const useMathFunctionCode = async (userId: string, answer: number) => {
+    return runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error("사용자 정보를 찾을 수 없습니다.");
+        const userData = userDoc.data();
+        const studentId = parseInt(userData.studentId, 10);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTimestamp = Timestamp.fromDate(today);
+
+        const challengeQuery = query(
+            collection(db, 'math_functions'),
+            where('validDate', '==', todayTimestamp),
+            orderBy('createdAt', 'desc'),
+            limit(1)
+        );
+
+        const challengeSnapshot = await getDocs(challengeQuery);
+        if (challengeSnapshot.empty) {
+            throw new Error("오늘 진행되는 수학 챌린지가 없습니다.");
+        }
+
+        const challengeDoc = challengeSnapshot.docs[0];
+        const challenge = challengeDoc.data();
+        const challengeId = challengeDoc.id;
+        
+        const alreadyClaimedPath = `mathChallenges.${challengeId}`;
+        if (userData.mathChallenges && userData.mathChallenges[challengeId]) {
+            throw new Error("이미 오늘의 챌린지 보상을 받았습니다.");
+        }
+
+        let correctAnswer;
+        const { a, b, c, luckyNumber } = challenge.params;
+
+        switch (challenge.type) {
+            case 'linear': // f(x) = ax + b
+                correctAnswer = a * studentId + b;
+                break;
+            case 'quadratic': // f(x) = ax^2 + bx + c
+                correctAnswer = a * (studentId * studentId) + b * studentId + c;
+                break;
+            case 'luckyDigit': // f(x) = (x % 10 === luckyNumber) ? a : b
+                correctAnswer = (studentId % 10) === luckyNumber ? a : b;
+                break;
+             case 'divisors': // 약수의 개수
+                let count = 0;
+                for (let i = 1; i * i <= studentId; i++) {
+                    if (studentId % i === 0) {
+                       if (i * i === studentId) count++;
+                       else count += 2;
+                    }
+                }
+                correctAnswer = count;
+                break;
+            default:
+                throw new Error("알 수 없는 챌린지 유형입니다.");
+        }
+        
+        if (answer !== correctAnswer) {
+            throw new Error("정답이 아닙니다. 계산을 다시 확인해주세요!");
+        }
+
+        // Success
+        transaction.update(userRef, { 
+            lak: increment(challenge.points),
+            [alreadyClaimedPath]: true
+         });
+        
+        const historyRef = doc(collection(userRef, 'transactions'));
+        transaction.set(historyRef, {
+            amount: challenge.points,
+            date: Timestamp.now(),
+            description: `수학 챌린지 성공: ${challenge.title}`,
+            type: 'credit',
+        });
+
+        return { success: true, message: `정답입니다! ${challenge.points}포인트를 획득했습니다!` };
     });
 };
 

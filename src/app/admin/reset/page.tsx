@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -72,7 +73,7 @@ export default function AdminResetPage() {
             <p className="text-sm text-foreground mb-4">
                 아래 버튼을 누르면 시스템의 모든 활동 데이터가 영구적으로 삭제됩니다.
                 <br/>
-                <strong className="font-bold">삭제되는 데이터:</strong> 모든 포인트, 거래 내역, 발급된 코드, 편지, 구매 내역, 공지사항, 소통 채널 메시지, 방명록.
+                <strong className="font-bold">삭제되는 데이터:</strong> 모든 포인트, 거래 내역, 발급된 코드, 수학 챌린지, 편지, 구매 내역, 공지사항, 소통 채널 메시지, 방명록.
                 <br/>
                 <strong className="font-bold">유지되는 데이터:</strong> 사용자 계정(이메일, 비밀번호, 학번, 이름 등)은 그대로 유지됩니다.
             </p>

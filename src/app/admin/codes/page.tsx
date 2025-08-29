@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Loader2, Download, Users, Sparkles, Ticket } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Download, Users, Sparkles, Ticket, BrainCircuit } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -34,12 +35,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp, writeBatch, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, createMathChallenge } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toPng } from 'html-to-image';
 import { CouponTicket } from '@/components/coupon-ticket';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 interface Code {
@@ -55,11 +57,22 @@ interface Code {
   limit?: number;
 }
 
+interface MathChallenge {
+    id: string;
+    title: string;
+    type: string;
+    points: number;
+    validDate: Timestamp;
+}
+
+
 export default function AdminCodesPage() {
   const [codes, setCodes] = useState<Code[]>([]);
+  const [mathChallenges, setMathChallenges] = useState<MathChallenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isBulkCreateDialogOpen, setIsBulkCreateDialogOpen] = useState(false);
+  const [isMathDialogOpen, setIsMathDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -77,6 +90,11 @@ export default function AdminCodesPage() {
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const [mathChallengeType, setMathChallengeType] = useState('linear');
+  const [mathChallengeTitle, setMathChallengeTitle] = useState('');
+  const [mathChallengePoints, setMathChallengePoints] = useState('');
+  const [mathParams, setMathParams] = useState<Record<string, string>>({ a: '', b: '', c: '', luckyNumber: '' });
+
 
   const [generatedCouponInfo, setGeneratedCouponInfo] = useState<{code: string, value: number, type: Code['type']} | null>(null);
   const couponRef = useRef<HTMLDivElement>(null);
@@ -93,6 +111,13 @@ export default function AdminCodesPage() {
       const codeSnapshot = await getDocs(q);
       const codeList = codeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Code));
       setCodes(codeList);
+      
+      const mathFunctionsCollection = collection(db, 'math_functions');
+      const mq = query(mathFunctionsCollection, orderBy('createdAt', 'desc'));
+      const mathSnapshot = await getDocs(mq);
+      const mathList = mathSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MathChallenge));
+      setMathChallenges(mathList);
+
     } catch (error) {
       console.error("Error fetching codes: ", error);
       toast({ title: "오류", description: "코드를 불러오는 데 실패했습니다.", variant: "destructive" });
@@ -116,6 +141,34 @@ export default function AdminCodesPage() {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+  };
+  
+  const handleCreateMathChallenge = async () => {
+    if (!mathChallengeTitle || !mathChallengeType || !mathChallengePoints) {
+        toast({ title: "입력 오류", description: "제목, 유형, 포인트를 모두 입력해주세요.", variant: "destructive" });
+        return;
+    }
+    const paramsAsNumbers: Record<string, number> = {};
+    for(const key in mathParams) {
+        if(mathParams[key] !== '') {
+             paramsAsNumbers[key] = Number(mathParams[key]);
+        }
+    }
+
+    setIsCreating(true);
+    try {
+        await createMathChallenge(mathChallengeType, paramsAsNumbers, Number(mathChallengePoints), mathChallengeTitle);
+        toast({ title: "성공", description: "새로운 수학 챌린지를 생성했습니다." });
+        setMathChallengeTitle('');
+        setMathChallengePoints('');
+        setMathParams({ a: '', b: '', c: '', luckyNumber: ''});
+        setIsMathDialogOpen(false);
+        fetchCodes(); // Refetch all codes and challenges
+    } catch(e: any) {
+        toast({ title: "오류", description: e.message || "챌린지 생성에 실패했습니다.", variant: "destructive" });
+    } finally {
+        setIsCreating(false);
+    }
   };
 
   const handleCreateCode = async () => {
@@ -265,7 +318,7 @@ export default function AdminCodesPage() {
       return;
     }
 
-    toPng(couponRef.current, { cacheBust: true, pixelRatio: 2 })
+    toPng(couponRef.current, { cacheBust: true, pixelRatio: 2, fontEmbedCSS: '@font-face { font-family: "Gowun Batang"; }', })
       .then((dataUrl) => {
         const link = document.createElement('a');
         link.download = `JDS_Coupon_${generatedCouponInfo.code}.png`;
@@ -304,8 +357,8 @@ export default function AdminCodesPage() {
       const couponWidth = 250; 
       const couponHeight = 400;
       
-      const columns = 4;
-      const rows = 4;
+      const columns = 5;
+      const rows = 6;
       const couponsPerPage = columns * rows;
       
       const cellWidth = a4Width / columns;
@@ -371,7 +424,7 @@ export default function AdminCodesPage() {
       
       const finalImage = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
-      link.download = 'A4_Coupons_Portrait.png';
+      link.download = `JDS_Coupons_A4_x${couponsPerPage}.png`;
       link.href = finalImage;
       link.click();
       
@@ -432,7 +485,7 @@ export default function AdminCodesPage() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight font-headline">코드 관리</h1>
-          <p className="text-muted-foreground">발급된 모든 코드를 관리합니다.</p>
+          <p className="text-muted-foreground">발급된 모든 코드를 관리하고, 수학 챌린지를 생성합니다.</p>
         </div>
         <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={handleDownloadSelected} disabled={isDownloading || selectedCodes.length === 0}>
@@ -441,231 +494,272 @@ export default function AdminCodesPage() {
                     선택 항목 다운로드
                 </span>
             </Button>
-            {/* Bulk Create Dialog */}
-            <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    대량 생성
-                  </span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>코드 대량 생성</DialogTitle>
-                  <DialogDescription>
-                    지정한 유형과 값으로 여러 개의 코드를 자동으로 생성합니다.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="bulk-code-type" className="text-right">
-                      유형
-                    </Label>
-                    <Select onValueChange={(value) => setBulkCodeType(value as any)} value={bulkCodeType} disabled={isCreating}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="코드 유형 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="종달코드">종달코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="bulk-quantity" className="text-right">
-                      수량
-                    </Label>
-                    <Input id="bulk-quantity" type="number" placeholder="예: 50" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="bulk-lak-value" className="text-right">
-                      포인트 값
-                    </Label>
-                    <Input id="bulk-lak-value" type="number" placeholder="예: 5" className="col-span-3" value={bulkCodeValue} onChange={(e) => setBulkCodeValue(e.target.value)} disabled={isCreating} />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline" disabled={isCreating}>취소</Button>
-                  </DialogClose>
-                  <Button type="submit" onClick={handleBulkCreateCodes} disabled={isCreating}>
-                    {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    생성하기
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Single Create Dialog */}
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1">
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    수동 생성
-                  </span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>새 코드 생성</DialogTitle>
-                  <DialogDescription>
-                    새로운 코드를 수동으로 생성합니다. 유형과 값을 지정하세요.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="code-value" className="text-right">
-                        코드
-                        </Label>
-                        <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
-                    </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="code-type" className="text-right">
-                      유형
-                    </Label>
-                    <Select onValueChange={(value) => setNewCodeType(value as any)} value={newCodeType} disabled={isCreating}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="코드 유형 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="종달코드">종달코드</SelectItem>
-                        <SelectItem value="메이트코드">메이트코드</SelectItem>
-                        <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
-                        <SelectItem value="선착순코드">선착순코드 (다회용)</SelectItem>
-                        <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                   {newCodeType === '메이트코드' && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="owner-student-id" className="text-right">
-                        소유자 학번
-                        </Label>
-                        <Input
-                        id="owner-student-id"
-                        placeholder="연동할 학생의 학번"
-                        className="col-span-3"
-                        value={newCodeOwnerStudentId}
-                        onChange={(e) => setNewCodeOwnerStudentId(e.target.value)}
-                        disabled={isCreating}
-                        />
-                    </div>
-                  )}
-                   {newCodeType === '선착순코드' && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="limit" className="text-right">
-                        사용 제한 인원
-                      </Label>
-                      <Input
-                        id="limit"
-                        type="number"
-                        placeholder="예: 10 (10명까지 사용 가능)"
-                        className="col-span-3"
-                        value={newCodeLimit}
-                        onChange={(e) => setNewCodeLimit(e.target.value)}
-                        disabled={isCreating}
-                      />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="lak-value" className="text-right">
-                      포인트 값
-                    </Label>
-                    <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} disabled={isCreating} />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline" disabled={isCreating}>취소</Button>
-                  </DialogClose>
-                  <Button type="submit" onClick={handleCreateCode} disabled={isCreating}>
-                    {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    생성하기
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+        </div>
       </div>
-      <Card className="mt-6">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">
-                  <Checkbox 
-                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                    checked={selectedCodes.length === codes.length && codes.length > 0}
-                    aria-label="Select all"
-                  />
-                </TableHead>
-                <TableHead>코드</TableHead>
-                <TableHead className="hidden sm:table-cell">쿠폰</TableHead>
-                <TableHead>유형</TableHead>
-                <TableHead>포인트 값</TableHead>
-                <TableHead>상태</TableHead>
-                <TableHead className="hidden sm:table-cell">사용자/대상</TableHead>
-                <TableHead className="hidden md:table-cell">생성일</TableHead>
-                <TableHead className="text-right">작업</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-               {isLoading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <TableRow key={index}>
-                    <TableCell colSpan={9}><Skeleton className="h-8 w-full" /></TableCell>
-                  </TableRow>
-                ))
-              ) : codes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center h-24">생성된 코드가 없습니다.</TableCell>
-                </TableRow>
-              ) : (
-                codes.map((c) => (
-                  <TableRow key={c.id} data-state={selectedCodes.includes(c.id) && "selected"}>
-                    <TableCell>
-                      <Checkbox
-                        onCheckedChange={(checked) => handleSelectCode(c.id, checked as boolean)}
-                        checked={selectedCodes.includes(c.id)}
-                        aria-label={`Select code ${c.code}`}
-                       />
-                    </TableCell>
-                    <TableCell className="font-mono font-medium">{c.code}</TableCell>
-                     <TableCell className="hidden sm:table-cell">
-                      <Button variant="ghost" size="icon" onClick={() => handleShowCoupon(c)}>
-                        <Ticket className="h-5 w-5" />
-                      </Button>
-                    </TableCell>
-                    <TableCell>{c.type}</TableCell>
-                    <TableCell>{c.value} 포인트</TableCell>
-                    <TableCell>{renderStatus(c)}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{renderUsedBy(c)}</TableCell>
-                     <TableCell className="hidden md:table-cell">{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                       <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteCode(c.id)}
-                        disabled={isDeleting === c.id}
-                      >
-                        {isDeleting === c.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4 text-red-500" />
+      
+        <Tabs defaultValue="codes" className="mt-4">
+            <div className="flex justify-between items-end">
+                <TabsList>
+                    <TabsTrigger value="codes">일반 코드</TabsTrigger>
+                    <TabsTrigger value="math">수학 함수 챌린지</TabsTrigger>
+                </TabsList>
+                 <div className="flex gap-2">
+                    <Dialog open={isMathDialogOpen} onOpenChange={setIsMathDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1">
+                                <BrainCircuit className="h-3.5 w-3.5"/>
+                                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">챌린지 생성</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>수학 함수 챌린지 생성</DialogTitle>
+                                <DialogDescription>오늘 날짜로 유효한 수학 함수 챌린지를 생성합니다. 학생들은 자신의 학번을 함수에 대입하여 나온 결과값으로 포인트를 얻습니다.</DialogDescription>
+                            </DialogHeader>
+                             <div className="grid gap-4 py-4">
+                                <Input value={mathChallengeTitle} onChange={e => setMathChallengeTitle(e.target.value)} placeholder="챌린지 제목 (예: 1주차 비밀 함수)"/>
+                                <Select onValueChange={setMathChallengeType} value={mathChallengeType}>
+                                    <SelectTrigger><SelectValue placeholder="챌린지 유형 선택"/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="linear">일차함수 (f(x) = ax + b)</SelectItem>
+                                        <SelectItem value="quadratic">이차함수 (f(x) = ax² + bx + c)</SelectItem>
+                                        <SelectItem value="luckyDigit">끝자리 행운 (f(x) = x % 10)</SelectItem>
+                                        <SelectItem value="divisors">약수의 개수</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {mathChallengeType === 'linear' && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input value={mathParams.a} onChange={e => setMathParams({...mathParams, a: e.target.value})} type="number" placeholder="a (기울기)"/>
+                                        <Input value={mathParams.b} onChange={e => setMathParams({...mathParams, b: e.target.value})} type="number" placeholder="b (y절편)"/>
+                                    </div>
+                                )}
+                                {mathChallengeType === 'quadratic' && (
+                                     <div className="grid grid-cols-3 gap-2">
+                                        <Input value={mathParams.a} onChange={e => setMathParams({...mathParams, a: e.target.value})} type="number" placeholder="a"/>
+                                        <Input value={mathParams.b} onChange={e => setMathParams({...mathParams, b: e.target.value})} type="number" placeholder="b"/>
+                                        <Input value={mathParams.c} onChange={e => setMathParams({...mathParams, c: e.target.value})} type="number" placeholder="c"/>
+                                    </div>
+                                )}
+                                {mathChallengeType === 'luckyDigit' && (
+                                     <div className="grid grid-cols-3 gap-2">
+                                        <Input value={mathParams.luckyNumber} onChange={e => setMathParams({...mathParams, luckyNumber: e.target.value})} type="number" placeholder="행운의 끝자리"/>
+                                        <Input value={mathParams.a} onChange={e => setMathParams({...mathParams, a: e.target.value})} type="number" placeholder="성공 시 답"/>
+                                        <Input value={mathParams.b} onChange={e => setMathParams({...mathParams, b: e.target.value})} type="number" placeholder="실패 시 답"/>
+                                    </div>
+                                )}
+                                <Input value={mathChallengePoints} onChange={e => setMathChallengePoints(e.target.value)} type="number" placeholder="지급 포인트"/>
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild><Button variant="outline" disabled={isCreating}>취소</Button></DialogClose>
+                                <Button onClick={handleCreateMathChallenge} disabled={isCreating}>{isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}생성</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1"><Sparkles className="h-3.5 w-3.5" /><span className="sr-only sm:not-sr-only sm:whitespace-nowrap">대량 생성</span></Button>
+                        </DialogTrigger>
+                         <DialogContent>
+                            <DialogHeader>
+                            <DialogTitle>코드 대량 생성</DialogTitle>
+                            <DialogDescription>지정한 유형과 값으로 여러 개의 코드를 자동으로 생성합니다.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="bulk-code-type" className="text-right">유형</Label>
+                                <Select onValueChange={(value) => setBulkCodeType(value as any)} value={bulkCodeType} disabled={isCreating}>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="코드 유형 선택" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="종달코드">종달코드</SelectItem>
+                                    <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
+                                </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="bulk-quantity" className="text-right">수량</Label>
+                                <Input id="bulk-quantity" type="number" placeholder="예: 50" className="col-span-3" value={bulkCodeQuantity} onChange={(e) => setBulkCodeQuantity(e.target.value)} disabled={isCreating} />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="bulk-lak-value" className="text-right">포인트 값</Label>
+                                <Input id="bulk-lak-value" type="number" placeholder="예: 5" className="col-span-3" value={bulkCodeValue} onChange={(e) => setBulkCodeValue(e.target.value)} disabled={isCreating} />
+                            </div>
+                            </div>
+                            <DialogFooter>
+                            <DialogClose asChild><Button variant="outline" disabled={isCreating}>취소</Button></DialogClose>
+                            <Button type="submit" onClick={handleBulkCreateCodes} disabled={isCreating}>{isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}생성하기</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button size="sm" className="gap-1"><PlusCircle className="h-3.5 w-3.5" /><span className="sr-only sm:not-sr-only sm:whitespace-nowrap">수동 생성</span></Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                        <DialogTitle>새 코드 생성</DialogTitle>
+                        <DialogDescription>새로운 코드를 수동으로 생성합니다. 유형과 값을 지정하세요.</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="code-value" className="text-right">코드</Label>
+                                <Input id="code-value" placeholder="예: NEWCODE24" className="col-span-3 font-mono" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} disabled={isCreating} />
+                            </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="code-type" className="text-right">유형</Label>
+                            <Select onValueChange={(value) => setNewCodeType(value as any)} value={newCodeType} disabled={isCreating}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="코드 유형 선택" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="종달코드">종달코드</SelectItem>
+                                <SelectItem value="메이트코드">메이트코드</SelectItem>
+                                <SelectItem value="히든코드">히든코드 (파트너)</SelectItem>
+                                <SelectItem value="선착순코드">선착순코드 (다회용)</SelectItem>
+                                <SelectItem value="온라인 특수코드">온라인 특수코드</SelectItem>
+                            </SelectContent>
+                            </Select>
+                        </div>
+                        {newCodeType === '메이트코드' && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="owner-student-id" className="text-right">소유자 학번</Label>
+                                <Input id="owner-student-id" placeholder="연동할 학생의 학번" className="col-span-3" value={newCodeOwnerStudentId} onChange={(e) => setNewCodeOwnerStudentId(e.target.value)} disabled={isCreating}/>
+                            </div>
                         )}
-                        <span className="sr-only">Delete Code</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        {newCodeType === '선착순코드' && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="limit" className="text-right">사용 제한 인원</Label>
+                            <Input id="limit" type="number" placeholder="예: 10 (10명까지 사용 가능)" className="col-span-3" value={newCodeLimit} onChange={(e) => setNewCodeLimit(e.target.value)} disabled={isCreating}/>
+                            </div>
+                        )}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="lak-value" className="text-right">포인트 값</Label>
+                            <Input id="lak-value" type="number" placeholder="예: 5" className="col-span-3" value={newCodeValue} onChange={(e) => setNewCodeValue(e.target.value)} disabled={isCreating} />
+                        </div>
+                        </div>
+                        <DialogFooter>
+                        <DialogClose asChild><Button variant="outline" disabled={isCreating}>취소</Button></DialogClose>
+                        <Button type="submit" onClick={handleCreateCode} disabled={isCreating}>{isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}생성하기</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                    </Dialog>
+                </div>
+            </div>
+          <TabsContent value="codes">
+             <Card className="mt-2">
+                <CardContent className="p-0">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[50px]">
+                        <Checkbox 
+                            onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                            checked={selectedCodes.length === codes.length && codes.length > 0}
+                            aria-label="Select all"
+                        />
+                        </TableHead>
+                        <TableHead>코드</TableHead>
+                        <TableHead className="hidden sm:table-cell">쿠폰</TableHead>
+                        <TableHead>유형</TableHead>
+                        <TableHead>포인트 값</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead className="hidden sm:table-cell">사용자/대상</TableHead>
+                        <TableHead className="hidden md:table-cell">생성일</TableHead>
+                        <TableHead className="text-right">작업</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {isLoading ? (
+                        Array.from({ length: 5 }).map((_, index) => (
+                        <TableRow key={index}>
+                            <TableCell colSpan={9}><Skeleton className="h-8 w-full" /></TableCell>
+                        </TableRow>
+                        ))
+                    ) : codes.length === 0 ? (
+                        <TableRow>
+                        <TableCell colSpan={9} className="text-center h-24">생성된 코드가 없습니다.</TableCell>
+                        </TableRow>
+                    ) : (
+                        codes.map((c) => (
+                        <TableRow key={c.id} data-state={selectedCodes.includes(c.id) && "selected"}>
+                            <TableCell>
+                            <Checkbox
+                                onCheckedChange={(checked) => handleSelectCode(c.id, checked as boolean)}
+                                checked={selectedCodes.includes(c.id)}
+                                aria-label={`Select code ${c.code}`}
+                            />
+                            </TableCell>
+                            <TableCell className="font-mono font-medium">{c.code}</TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                            <Button variant="ghost" size="icon" onClick={() => handleShowCoupon(c)}>
+                                <Ticket className="h-5 w-5" />
+                            </Button>
+                            </TableCell>
+                            <TableCell>{c.type}</TableCell>
+                            <TableCell>{c.value} 포인트</TableCell>
+                            <TableCell>{renderStatus(c)}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{renderUsedBy(c)}</TableCell>
+                            <TableCell className="hidden md:table-cell">{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
+                            <TableCell className="text-right">
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteCode(c.id)}
+                                disabled={isDeleting === c.id}
+                            >
+                                {isDeleting === c.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                                )}
+                                <span className="sr-only">Delete Code</span>
+                            </Button>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    )}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
+           <TabsContent value="math">
+                 <Card className="mt-2">
+                    <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>챌린지 제목</TableHead>
+                                <TableHead>유형</TableHead>
+                                <TableHead>포인트</TableHead>
+                                <TableHead>유효 날짜</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                             {isLoading ? (
+                                Array.from({ length: 3 }).map((_, index) => (
+                                <TableRow key={index}>
+                                    <TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell>
+                                </TableRow>
+                                ))
+                            ) : mathChallenges.length === 0 ? (
+                                <TableRow>
+                                <TableCell colSpan={4} className="text-center h-24">생성된 수학 챌린지가 없습니다.</TableCell>
+                                </TableRow>
+                            ) : (
+                                mathChallenges.map((mc) => (
+                                    <TableRow key={mc.id}>
+                                        <TableCell className="font-medium">{mc.title}</TableCell>
+                                        <TableCell>{mc.type}</TableCell>
+                                        <TableCell>{mc.points} 포인트</TableCell>
+                                        <TableCell>{mc.validDate.toDate().toLocaleDateString()}</TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                    </CardContent>
+                 </Card>
+          </TabsContent>
+      </Tabs>
 
       {/* Coupon Display Dialog */}
       <Dialog open={!!generatedCouponInfo} onOpenChange={(isOpen) => !isOpen && setGeneratedCouponInfo(null)}>
@@ -704,7 +798,7 @@ export default function AdminCodesPage() {
       <div ref={a4ContainerRef} className="absolute -left-[9999px] top-0">
           {codes
             .filter(c => selectedCodes.includes(c.id))
-            .slice(0, 16) // 4x4 grid
+            .slice(0, 30) // 5x6 grid
             .map(c => (
               <div key={`render-${c.id}`} id={`coupon-render-${c.id}`} style={{ width: 250, height: 400 }}>
                 <CouponTicket code={c.code} value={c.value} type={c.type} />
