@@ -55,7 +55,6 @@ export default function MathChallengePage() {
         const q = query(
             collection(db, 'math_functions'),
             where('validDate', '==', todayTimestamp),
-            orderBy('createdAt', 'desc'),
             limit(1)
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
