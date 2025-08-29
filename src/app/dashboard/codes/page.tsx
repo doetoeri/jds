@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { auth, useCode, db } from '@/lib/firebase';
-import { Loader2, QrCode, CameraOff, UserPlus, Info, Sparkles, BrainCircuit } from 'lucide-react';
+import { Loader2, QrCode, CameraOff, UserPlus, Info, Sparkles } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -298,10 +298,6 @@ export default function CodesPage() {
                  <div className="flex items-start gap-2">
                    <Sparkles className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
                    <p><strong className="text-primary">히든코드:</strong> 학교에 숨겨진 코드로, 입력 시 파트너의 학번이 필요하며 두 사람 모두에게 보상이 지급됩니다.</p>
-                 </div>
-                 <div className="flex items-start gap-2">
-                   <BrainCircuit className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
-                   <p><strong className="text-primary">수학 챌린지:</strong> 수학 동아리와 함께하는 특별 이벤트! <a href="/game/math-challenge" className="underline font-bold">여기</a>에서 참여하세요.</p>
                  </div>
             </AlertDescription>
         </Alert>
