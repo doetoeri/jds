@@ -63,6 +63,7 @@ interface MathChallenge {
     type: string;
     points: number;
     validDate: Timestamp;
+    expression: string;
 }
 
 
@@ -376,7 +377,7 @@ export default function AdminCodesPage() {
             width: couponWidth,
             height: couponHeight,
             cacheBust: true,
-            fontEmbedCSS: '@font-face { font-family: "Gowun Batang"; }',
+            fontEmbedCSS: '@font-face {}',
         });
       });
 
@@ -523,7 +524,7 @@ export default function AdminCodesPage() {
                                     <SelectContent>
                                         <SelectItem value="linear">일차함수 (f(x) = ax + b)</SelectItem>
                                         <SelectItem value="quadratic">이차함수 (f(x) = ax² + bx + c)</SelectItem>
-                                        <SelectItem value="luckyDigit">끝자리 행운 (f(x) = x % 10)</SelectItem>
+                                        <SelectItem value="luckyDigit">끝자리 행운 (f(x) = x % 10 이 행운의 숫자와 같으면 a, 아니면 b)</SelectItem>
                                         <SelectItem value="divisors">약수의 개수</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -728,7 +729,7 @@ export default function AdminCodesPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>챌린지 제목</TableHead>
-                                <TableHead>유형</TableHead>
+                                <TableHead>함수식</TableHead>
                                 <TableHead>포인트</TableHead>
                                 <TableHead>유효 날짜</TableHead>
                             </TableRow>
@@ -748,7 +749,7 @@ export default function AdminCodesPage() {
                                 mathChallenges.map((mc) => (
                                     <TableRow key={mc.id}>
                                         <TableCell className="font-medium">{mc.title}</TableCell>
-                                        <TableCell>{mc.type}</TableCell>
+                                        <TableCell className="font-mono">{mc.expression}</TableCell>
                                         <TableCell>{mc.points} 포인트</TableCell>
                                         <TableCell>{mc.validDate.toDate().toLocaleDateString()}</TableCell>
                                     </TableRow>

@@ -718,12 +718,30 @@ export const createMathChallenge = async (
   today.setHours(0, 0, 0, 0);
   const validDate = Timestamp.fromDate(today);
 
+  let expression = '';
+  const { a, b, c, luckyNumber } = params;
+  switch (type) {
+    case 'linear':
+      expression = `f(x) = ${a}x + ${b}`;
+      break;
+    case 'quadratic':
+      expression = `f(x) = ${a}x² + ${b}x + ${c}`;
+      break;
+    case 'luckyDigit':
+      expression = `f(x) = (x % 10 === ${luckyNumber}) ? ${a} : ${b}`;
+      break;
+    case 'divisors':
+      expression = `f(x) = (x의 약수의 개수)`;
+      break;
+  }
+
   await setDoc(challengeRef, {
     type,
     params,
     points,
     title,
     validDate,
+    expression,
     createdAt: Timestamp.now(),
   });
 };
