@@ -21,8 +21,7 @@ interface Letter {
   isOffline?: boolean;
 }
 
-export default function LetterDetailPage({ params }: { params: { id: string } }) {
-  const letterId = params.id;
+export default function LetterDetailPage({ params: { id: letterId } }: { params: { id: string } }) {
   const [letter, setLetter] = useState<Letter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +35,7 @@ export default function LetterDetailPage({ params }: { params: { id: string } })
 
     const fetchLetter = async () => {
       try {
-        const letterRef = doc(db, 'letters', letterId);
+        const letterRef = doc(db, 'letters', letterId as string);
         const letterSnap = await getDoc(letterRef);
         if (letterSnap.exists()) {
           setLetter({ id: letterSnap.id, ...letterSnap.data() } as Letter);
