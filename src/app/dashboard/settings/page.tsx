@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, updateUserProfile } from '@/lib/firebase';
-import { Loader2, User, Palette } from 'lucide-react';
+import { Loader2, User, Palette, Bell, BellOff } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +24,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, '닉네임은 2자 이상이어야 합니다.').max(20, '닉네임은 20자 이하이어야 합니다.'),
@@ -49,12 +50,19 @@ export default function SettingsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedGradient, setSelectedGradient] = useState<string>('orange');
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
 
   const { toast } = useToast();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
   });
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -107,6 +115,20 @@ export default function SettingsPage() {
     }
   };
   
+  const handleRequestPermission = async () => {
+    if (!('Notification' in window)) {
+        toast({ title: "오류", description: "이 브라우저에서는 알림을 지원하지 않습니다.", variant: "destructive" });
+        return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted') {
+        toast({ title: "알림 허용됨", description: "이제 새로운 편지 알림을 받을 수 있습니다." });
+    } else if (permission === 'denied') {
+         toast({ title: "알림 거부됨", description: "알림을 받으려면 브라우저 설정에서 권한을 변경해야 합니다.", variant: "destructive" });
+    }
+  };
+
   const getInitials = () => {
     return userData?.displayName?.substring(0, 1).toUpperCase() || user?.email?.substring(0, 1).toUpperCase() || 'U';
   }
@@ -141,12 +163,15 @@ export default function SettingsPage() {
                 <User className="mr-2" /> 프로필 설정
             </h1>
             <p className="text-muted-foreground">
-                프로필 스타일과 닉네임을 변경할 수 있습니다.
+                프로필 스타일과 닉네임, 알림 설정을 변경할 수 있습니다.
             </p>
         </div>
         <Card>
             <form onSubmit={handleSubmit(onSubmit)}>
-                <CardContent className="pt-6 space-y-6">
+                <CardHeader>
+                    <CardTitle>프로필</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
                 <div className="space-y-4">
                     <Label>프로필 스타일</Label>
                     <div className="flex items-center gap-6">
@@ -187,13 +212,46 @@ export default function SettingsPage() {
                 <CardFooter>
                 <Button type="submit" className="ml-auto font-bold" disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    저장하기
+                    프로필 저장
                 </Button>
                 </CardFooter>
             </form>
         </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>알림 설정</CardTitle>
+                <CardDescription>새로운 편지가 오면 브라우저 알림을 받도록 설정합니다.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 {notificationPermission === 'granted' && (
+                    <Alert variant="default" className="bg-green-50 border-green-200">
+                        <Bell className="h-4 w-4 text-green-600" />
+                        <AlertTitle className="text-green-800">알림이 현재 허용되어 있습니다.</AlertTitle>
+                        <AlertDescription className="text-green-700">
+                            새로운 편지가 도착하면 브라우저를 통해 알려드립니다.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                 {notificationPermission === 'denied' && (
+                    <Alert variant="destructive">
+                        <BellOff className="h-4 w-4" />
+                        <AlertTitle>알림이 차단되었습니다.</AlertTitle>
+                        <AlertDescription>
+                            알림을 받으려면 브라우저 주소창 옆의 아이콘을 클릭하여 사이트 설정에서 직접 권한을 변경해야 합니다.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {notificationPermission === 'default' && (
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">새로운 편지 도착 알림을 받으시겠어요?</p>
+                        <Button onClick={handleRequestPermission}>
+                           <Bell className="mr-2 h-4 w-4"/> 알림 권한 요청하기
+                        </Button>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     </div>
   );
 }
-
-    
