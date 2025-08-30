@@ -141,8 +141,8 @@ export default function DashboardPage() {
         if (!mateCode) return;
     
         const shareData = {
-          title: '종달샘 허브 메이트코드 공유',
-          text: `💌 종달샘 허브 메이트코드로 함께 포인트 받아요!\n\n제 메이트 코드는 [ ${mateCode} ] 입니다.\n\n✅ 사용 방법:\n1️⃣ 아래 링크를 통해 '종달샘 허브'에 접속\n2️⃣ 회원가입 시 추천인 코드에 입력하거나,\n3️⃣ 로그인 후 '코드 사용' 메뉴에서 입력\n\n⬇️ 종달샘 허브 바로가기 ⬇️\n`,
+          title: '종달샘 허브 메이트코드',
+          text: `종달샘 허브에서 함께 포인트 받자! 🙌\n내 코드: ${mateCode}\n`,
           url: 'https://jongdalsam.shop',
         };
     
