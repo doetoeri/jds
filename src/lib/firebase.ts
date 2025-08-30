@@ -672,35 +672,83 @@ export const postAnnouncement = async (
   await addDoc(collection(db, 'announcements'), announcementData);
 };
 
-export const addPointsForGameWin = async (studentId: string) => {
-    return await runTransaction(db, async (transaction) => {
-        const usersQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
-        const usersSnapshot = await getDocs(usersQuery);
+export const submitWord = async (userId: string, word: string) => {
+    if (word.length <= 1) {
+        throw new Error("단어는 두 글자 이상이어야 합니다.");
+    }
 
-        if (usersSnapshot.empty) {
-            throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
+    return await runTransaction(db, async (transaction) => {
+        // Get user data
+        const userRef = doc(db, "users", userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) {
+            throw new Error("사용자를 찾을 수 없습니다.");
+        }
+        const userData = userDoc.data();
+        const today = new Date().toISOString().split('T')[0];
+        if (userData.lastWordChainDate === today) {
+            throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
+        }
+
+        // Get game data
+        const gameRef = doc(db, "games", "word-chain");
+        const gameDoc = await transaction.get(gameRef);
+        const gameData = gameDoc.exists() ? gameDoc.data() : null;
+
+        const history = gameData?.history || [];
+        const lastWord = history.length > 0 ? history[history.length - 1].word : null;
+        
+        if (lastWord && lastWord.charAt(lastWord.length - 1) !== word.charAt(0)) {
+            throw new Error(`'${lastWord.charAt(lastWord.length - 1)}'(으)로 시작하는 단어를 입력해야 합니다.`);
         }
         
-        const userDoc = usersSnapshot.docs[0];
-        const userRef = userDoc.ref;
-        const rewardAmount = 2;
+        if (history.some((turn: { word: string; }) => turn.word === word)) {
+            throw new Error("이미 사용된 단어입니다.");
+        }
 
-        transaction.update(userRef, { lak: increment(rewardAmount) });
+        // All checks passed, update data
+        const newTurn = {
+            word,
+            userId,
+            studentId: userData.studentId,
+            displayName: userData.displayName,
+            createdAt: Timestamp.now()
+        };
 
-        const historyRef = doc(collection(userRef, 'transactions'));
-        transaction.set(historyRef, {
-            amount: rewardAmount,
-            date: Timestamp.now(),
-            description: '끝말잇기 챌린지 성공!',
-            type: 'credit',
+        if (gameDoc.exists()) {
+            transaction.update(gameRef, {
+                history: arrayUnion(newTurn),
+                lastUpdate: Timestamp.now()
+            });
+        } else {
+            transaction.set(gameRef, {
+                history: [newTurn],
+                createdAt: Timestamp.now(),
+                lastUpdate: Timestamp.now()
+            });
+        }
+
+        // Give reward
+        transaction.update(userRef, {
+            lak: increment(1),
+            lastWordChainDate: today
         });
-
-        return { success: true, message: `챌린지 성공! ${rewardAmount}포인트가 자동으로 적립되었습니다.` };
-    }).catch((error: any) => {
-        console.error("Game reward error: ", error);
-        return { success: false, message: error.message || "포인트 적립 중 오류가 발생했습니다." };
+        
+        const txHistoryRef = doc(collection(userRef, "transactions"));
+        transaction.set(txHistoryRef, {
+            amount: 1,
+            date: Timestamp.now(),
+            description: "끝말잇기 참여 보상",
+            type: "credit",
+        });
+        
+        return { success: true, message: "성공! 1포인트를 획득했습니다." };
+    }).catch((error) => {
+        console.error("Word chain submission error: ", error);
+        return { success: false, message: error.message || "단어 제출 중 오류가 발생했습니다." };
     });
-};
+}
+
 
 
 
