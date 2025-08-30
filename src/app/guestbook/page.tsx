@@ -73,9 +73,6 @@ export default function GuestbookPage() {
                             {isSubmitting ? <Loader2 className="animate-spin" /> : <Send />}
                             <span className="ml-2">비밀 메시지 남기기</span>
                         </Button>
-                         <Button variant="link" asChild>
-                            <Link href="/game/word-chain">실시간 끝말잇기 하러가기</Link>
-                        </Button>
                     </CardFooter>
                 </form>
             </Card>

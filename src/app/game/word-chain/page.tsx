@@ -18,7 +18,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, Send, Gamepad, Languages } from 'lucide-react';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import Link from 'next/link';
 
 interface Turn {
     word: string;
@@ -89,58 +88,53 @@ export default function WordChainPage() {
     const lastLetter = lastWord ? lastWord.charAt(lastWord.length - 1) : '';
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen p-4">
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Languages/> 실시간 끝말잇기</CardTitle>
-                    <CardDescription>
-                        다른 친구들과 함께 끝말잇기를 이어가 보세요! 규칙에 맞게 단어를 이으면 하루에 한 번 1포인트를 드립니다.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div ref={scrollAreaRef} className="w-full h-64 bg-muted rounded-lg p-4 overflow-y-auto flex flex-col gap-2 text-sm">
-                        {isLoading ? (
-                            <Loader2 className="h-6 w-6 animate-spin mx-auto my-auto"/>
-                        ) : gameState?.history && gameState.history.length > 0 ? (
-                           <AnimatePresence>
-                             {gameState.history.map((turn, index) => (
-                                <motion.div 
-                                    key={index}
-                                    layout
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="flex"
-                                >
-                                    <span className="font-bold w-16 shrink-0">{turn.displayName}:</span>
-                                    <span className="px-3 py-1 rounded-full bg-background break-all">
-                                        {turn.word}
-                                    </span>
-                                </motion.div>
-                            ))}
-                           </AnimatePresence>
-                        ) : (
-                            <p className="text-center text-muted-foreground m-auto">아직 아무도 시작하지 않았어요. 첫 단어를 입력해보세요!</p>
-                        )}
-                    </div>
-                    <form onSubmit={handleWordSubmit} className="flex gap-2">
-                        <Input 
-                            value={currentWord}
-                            onChange={(e) => setCurrentWord(e.target.value)}
-                            placeholder={lastLetter ? `'${lastLetter}' (으)로 시작하는 단어` : '시작 단어 입력'}
-                            disabled={isSubmitting || !user}
-                        />
-                        <Button type="submit" disabled={isSubmitting || !user || !currentWord.trim()}>
-                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send />}
-                        </Button>
-                    </form>
-                </CardContent>
-                 <CardFooter className="flex-col gap-2">
-                    {!user && <p className="text-sm text-destructive">로그인 후 참여할 수 있습니다.</p>}
-                     <Button variant="link" asChild>
-                        <Link href="/guestbook">비밀 방명록 남기러 가기</Link>
+        <Card className="w-full max-w-2xl mx-auto">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline text-2xl"><Languages/> 실시간 끝말잇기</CardTitle>
+                <CardDescription>
+                    다른 친구들과 함께 끝말잇기를 이어가 보세요! 규칙에 맞게 단어를 이으면 하루에 한 번 1포인트를 드립니다.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div ref={scrollAreaRef} className="w-full h-80 bg-muted rounded-lg p-4 overflow-y-auto flex flex-col gap-2 text-sm">
+                    {isLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto my-auto"/>
+                    ) : gameState?.history && gameState.history.length > 0 ? (
+                       <AnimatePresence>
+                         {gameState.history.map((turn, index) => (
+                            <motion.div 
+                                key={index}
+                                layout
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex"
+                            >
+                                <span className="font-bold w-16 shrink-0">{turn.displayName}:</span>
+                                <span className="px-3 py-1 rounded-full bg-background break-all">
+                                    {turn.word}
+                                </span>
+                            </motion.div>
+                        ))}
+                       </AnimatePresence>
+                    ) : (
+                        <p className="text-center text-muted-foreground m-auto">아직 아무도 시작하지 않았어요. 첫 단어를 입력해보세요!</p>
+                    )}
+                </div>
+                <form onSubmit={handleWordSubmit} className="flex gap-2">
+                    <Input 
+                        value={currentWord}
+                        onChange={(e) => setCurrentWord(e.target.value)}
+                        placeholder={lastLetter ? `'${lastLetter}' (으)로 시작하는 단어` : '시작 단어 입력'}
+                        disabled={isSubmitting || !user}
+                    />
+                    <Button type="submit" disabled={isSubmitting || !user || !currentWord.trim()}>
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send />}
                     </Button>
-                </CardFooter>
-            </Card>
-        </div>
+                </form>
+            </CardContent>
+             <CardFooter className="flex-col gap-2">
+                {!user && <p className="text-sm text-destructive">로그인 후 참여할 수 있습니다.</p>}
+            </CardFooter>
+        </Card>
     );
 }
