@@ -51,7 +51,7 @@ interface User {
   name?: string;
   email: string;
   lak: number;
-  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council';
+  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth';
 }
 
 export default function AdminUsersPage() {
@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
 
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
-  const [newRole, setNewRole] = useState<'student' | 'council' | ''>('');
+  const [newRole, setNewRole] = useState<'student' | 'council' | 'council_booth' | ''>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
 
@@ -153,7 +153,7 @@ export default function AdminUsersPage() {
     setIsProcessing(true);
     try {
         await updateUserRole(selectedUser.id, newRole);
-        toast({ title: "성공", description: `${renderIdentifier(selectedUser)}님의 역할이 ${newRole}으로 변경되었습니다.` });
+        toast({ title: "성공", description: `${renderIdentifier(selectedUser)}님의 역할이 ${roleDisplayNames[newRole]}으로 변경되었습니다.` });
         setIsRoleDialogOpen(false);
     } catch (error: any) {
          toast({ title: "오류", description: error.message || '역할 변경 중 오류가 발생했습니다.', variant: "destructive" });
@@ -183,7 +183,7 @@ export default function AdminUsersPage() {
 
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
-    if (user.role === 'council') return user.name || user.email;
+    if (user.role === 'council' || user.role === 'council_booth') return user.name || user.email;
     if (user.role === 'student') return user.studentId;
     if (user.role === 'teacher') return user.name;
     return 'N/A';
@@ -192,6 +192,7 @@ export default function AdminUsersPage() {
   const roleDisplayNames: Record<User['role'], string> = {
     admin: '관리자',
     council: '학생회',
+    council_booth: '학생회(부스)',
     teacher: '교직원',
     student: '학생',
     pending_teacher: '승인 대기',
@@ -327,6 +328,7 @@ export default function AdminUsersPage() {
                 <SelectContent>
                   <SelectItem value="student">학생</SelectItem>
                   <SelectItem value="council">학생회</SelectItem>
+                  <SelectItem value="council_booth">학생회(부스)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -372,5 +374,4 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
     

@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function GameLayout({ children }: { children: ReactNode }) {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
   const pathname = usePathname();
@@ -26,39 +26,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!user) {
       toast({
         title: '로그인 필요',
-        description: '대시보드에 접근하려면 로그인이 필요합니다.',
+        description: '게임에 참여하려면 로그인이 필요합니다.',
         variant: 'destructive',
       });
-      setTimeout(() => router.push('/login'), 50);
+      router.push('/login');
       return;
     }
-    
-    const checkRole = async () => {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-            const role = userDoc.data().role;
-            // Allow student and council roles, redirect others
-            if (role === 'admin' || role === 'teacher' || role === 'council_booth') {
-                setIsAuthorized(false);
-                let redirectPath = '/dashboard';
-                if (role === 'admin') redirectPath = '/admin';
-                if (role === 'teacher') redirectPath = '/teacher/rewards';
-                if (role === 'council_booth') redirectPath = '/council/booth';
-                
-                toast({
-                  title: "잘못된 접근",
-                  description: "현재 모드에서는 접근할 수 없는 페이지입니다.",
-                  variant: "destructive"
-                })
-                setTimeout(() => router.push(redirectPath), 50);
-                return; 
-            }
-        }
-        setIsAuthorized(true);
-    };
-    checkRole();
-
+    setIsAuthorized(true);
   }, [user, loading, router, toast]);
 
   if (loading || !isAuthorized) {

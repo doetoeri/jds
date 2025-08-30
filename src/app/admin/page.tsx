@@ -7,8 +7,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardFooter
 } from '@/components/ui/card';
-import { Users, QrCode, Coins, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
+import { Users, QrCode, Coins, AlertTriangle, Loader2, Trash2, ListPlus, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -22,11 +24,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { resetAllData, db } from '@/lib/firebase';
+import { resetAllData, db, addBoothReason, deleteBoothReason } from '@/lib/firebase';
 import { CommunicationChannel } from '@/components/communication-channel';
 import { AnnouncementPoster } from '@/components/announcement-poster';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 interface Stats {
     totalUsers: number;
@@ -34,10 +38,19 @@ interface Stats {
     totalLakRedeemed: number;
 }
 
+interface BoothReason {
+    id: string;
+    reason: string;
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
+  const [boothReasons, setBoothReasons] = useState<BoothReason[]>([]);
+  const [newReason, setNewReason] = useState('');
+  const [isAddingReason, setIsAddingReason] = useState(false);
+  
   const { toast } = useToast();
   
   useEffect(() => {
@@ -59,12 +72,12 @@ export default function AdminDashboardPage() {
                     break;
                 case '히든코드':
                     if (code.used && Array.isArray(code.usedBy)) { 
-                        redeemed += (code.usedBy.length * code.value); // should be 2 people * value
+                        redeemed += (code.usedBy.length * code.value);
                     }
                     break;
                 case '메이트코드':
                     if(Array.isArray(code.participants)) {
-                        redeemed += (code.participants.length - 1) * code.value * 2; // Each use gives points to 2 people
+                        redeemed += (code.participants.length - 1) * code.value * 2;
                     }
                     break;
                 case '선착순코드':
@@ -81,6 +94,14 @@ export default function AdminDashboardPage() {
         }));
     });
     
+    const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
+    const unsubReasons = onSnapshot(reasonsRef, (doc) => {
+        if (doc.exists()) {
+            const reasonsData = doc.data().reasons || [];
+            setBoothReasons(reasonsData.map((reason: string, index: number) => ({id: `${index}-${reason}`, reason})));
+        }
+    });
+
     Promise.all([getDocs(usersQuery), getDocs(codesQuery)]).then(() => {
         setIsLoading(false);
     }).catch(e => {
@@ -91,6 +112,7 @@ export default function AdminDashboardPage() {
     return () => {
         unsubUsers();
         unsubCodes();
+        unsubReasons();
     };
 }, []);
 
@@ -103,7 +125,6 @@ export default function AdminDashboardPage() {
         title: '초기화 완료',
         description: '모든 활동 데이터가 성공적으로 초기화되었습니다.',
       });
-      // You might want to refresh the page or update state here
       window.location.reload();
     } catch (error: any) {
       toast({
@@ -113,6 +134,29 @@ export default function AdminDashboardPage() {
       });
     } finally {
       setIsResetting(false);
+    }
+  };
+  
+  const handleAddReason = async () => {
+    if (!newReason.trim()) return;
+    setIsAddingReason(true);
+    try {
+        await addBoothReason(newReason);
+        toast({ title: '성공', description: '지급 사유가 추가되었습니다.'});
+        setNewReason('');
+    } catch (error: any) {
+        toast({ title: '오류', description: error.message, variant: 'destructive'});
+    } finally {
+        setIsAddingReason(false);
+    }
+  };
+  
+  const handleDeleteReason = async (reasonToDelete: string) => {
+    try {
+        await deleteBoothReason(reasonToDelete);
+        toast({ title: '성공', description: '지급 사유가 삭제되었습니다.'});
+    } catch (error: any) {
+        toast({ title: '오류', description: error.message, variant: 'destructive'});
     }
   };
 
@@ -128,9 +172,6 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers.toLocaleString() ?? 0} 명</div>}
-                    <p className="text-xs text-muted-foreground">
-                    현재 시스템에 등록된 총 사용자 수
-                    </p>
                 </CardContent>
                 </Card>
                 <Card>
@@ -140,9 +181,6 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalCodes.toLocaleString() ?? 0} 개</div>}
-                    <p className="text-xs text-muted-foreground">
-                    발급된 모든 코드의 수
-                    </p>
                 </CardContent>
                 </Card>
                 <Card>
@@ -152,13 +190,42 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent>
                      {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLakRedeemed.toLocaleString() ?? 0} 포인트</div>}
-                    <p className="text-xs text-muted-foreground">
-                    코드를 통해 적립된 총 포인트
-                    </p>
                 </CardContent>
                 </Card>
             </div>
             
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><ListPlus/>부스 지급 사유 관리</CardTitle>
+                    <CardDescription>학생회(부스) 계정에서 사용할 포인트 지급 사유를 관리합니다.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="새 사유 입력 (예: 이벤트 참여)"
+                            value={newReason}
+                            onChange={(e) => setNewReason(e.target.value)}
+                            />
+                        <Button onClick={handleAddReason} disabled={isAddingReason || !newReason.trim()}>
+                            {isAddingReason ? <Loader2 className="h-4 w-4 animate-spin"/> : <PlusCircle className="h-4 w-4"/>}
+                            <span className="ml-2">추가</span>
+                        </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {boothReasons.length > 0 ? boothReasons.map(r => (
+                             <Badge key={r.id} variant="secondary" className="text-base gap-2">
+                                 {r.reason}
+                                 <button onClick={() => handleDeleteReason(r.reason)} className="rounded-full hover:bg-destructive/20 p-0.5">
+                                    <Trash2 className="h-3 w-3 text-destructive"/>
+                                 </button>
+                             </Badge>
+                        )) : (
+                            <p className="text-sm text-muted-foreground">추가된 사유가 없습니다.</p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
             <AnnouncementPoster />
 
             <Card className="border-destructive/50">
@@ -171,8 +238,6 @@ export default function AdminDashboardPage() {
                 <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
                     아래 버튼은 시스템의 모든 활동 데이터를 영구적으로 삭제하고 초기화합니다.
-                    사용자 계정 정보는 유지되지만, 모든 포인트, 거래 내역, 코드, 편지, 구매 내역이 사라집니다.
-                    이 작업은 되돌릴 수 없으므로 신중하게 사용하세요.
                 </p>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>

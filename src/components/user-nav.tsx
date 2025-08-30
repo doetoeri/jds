@@ -28,11 +28,11 @@ import { useRouter } from 'next/navigation';
 
 interface UserData {
   studentId?: string;
-  name?: string; // For teachers, admin, council
-  displayName?: string; // Nickname for all users
+  name?: string; 
+  displayName?: string; 
   email?: string;
-  role?: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council';
-  photoURL?: string; // Legacy, kept for compatibility
+  role?: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth';
+  photoURL?: string; 
   avatarGradient?: string;
 }
 
@@ -91,12 +91,13 @@ export function UserNav() {
      if (userData?.role === 'admin') return '관리자';
      if (userData?.displayName) return userData.displayName;
      if (userData?.role === 'teacher') return `${userData.name} 선생님`;
-     if (userData?.role === 'student' || userData?.role === 'council') return `학생 (${userData.studentId})`;
+     if (userData?.role === 'student' || userData?.role === 'council' || userData?.role === 'council_booth') return `학생 (${userData.studentId})`;
      return '사용자';
   }
   
   const getDashboardLink = () => {
       if (userData?.role === 'admin') return '/admin';
+      if (userData?.role === 'council_booth') return '/council/booth';
       if (userData?.role === 'council') {
         return councilMode === 'council' ? '/council' : '/dashboard';
       }

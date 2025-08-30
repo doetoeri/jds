@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -17,18 +16,14 @@ import {
   QrCode,
   History,
   Mail,
-  ShoppingCart,
-  HelpCircle,
   Cog,
   Award,
-  ListOrdered,
   UserCheck,
   Power,
   Bird,
   MessageCircleQuestion,
   Megaphone,
   Languages,
-  Wand2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -38,7 +33,6 @@ import { Separator } from './ui/separator';
 
 const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
-  { name: 'AI 어시스턴트', href: '/dashboard/assistant', icon: Wand2 },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '친구', href: '/dashboard/friends', icon: Users },

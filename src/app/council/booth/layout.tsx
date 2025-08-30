@@ -11,11 +11,8 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SideNav } from '@/components/side-nav';
-import { DesktopNav } from '@/components/desktop-nav';
 
-
-export default function CouncilLayout({ children }: { children: ReactNode }) {
+export default function CouncilBoothLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -38,31 +35,20 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
-      if (userDocSnap.exists()) {
-        const userRole = userDocSnap.data().role;
-        if (userRole === 'council' || userRole === 'council_booth') {
-          if (userRole === 'council_booth' && pathname !== '/council/booth') {
-             setTimeout(() => router.push('/council/booth'), 50);
-             return;
-          }
-          setIsAuthorized(true);
-        } else {
-           toast({
-            title: '접근 권한 없음',
-            description: '학생회만 접근할 수 있는 페이지입니다.',
-            variant: 'destructive',
-          });
-          setIsAuthorized(false);
-          setTimeout(() => router.push('/dashboard'), 50);
-        }
+      if (userDocSnap.exists() && userDocSnap.data().role === 'council_booth') {
+        setIsAuthorized(true);
       } else {
-        // Fallback for users that might exist in auth but not firestore for some reason
-        toast({ title: '오류', description: '사용자 정보를 찾을 수 없습니다.', variant: 'destructive'});
-        setTimeout(() => router.push('/login'), 50);
+        toast({
+          title: '접근 권한 없음',
+          description: '부스용 학생회 계정만 접근할 수 있는 페이지입니다.',
+          variant: 'destructive',
+        });
+        setIsAuthorized(false);
+        setTimeout(() => router.push('/dashboard'), 50);
       }
     };
     checkAuthorization();
-  }, [user, loading, router, toast, pathname]);
+  }, [user, loading, router, toast]);
 
   if (loading || !isAuthorized) {
     return (
@@ -73,20 +59,13 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-       <div className="hidden border-r bg-muted/40 md:flex flex-col">
-            <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-                <Logo isCouncil />
-            </div>
-            <DesktopNav role="council" />
-        </div>
-        <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <SideNav role="council" />
+          <Logo isCouncil />
           <div className="w-full flex-1" />
           <UserNav />
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent">
+        <main className="flex flex-1 w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
@@ -94,12 +73,12 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ type: "spring", stiffness: 260, damping: 30 }}
+              className="w-full"
             >
               {children}
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
-    </div>
   );
 }

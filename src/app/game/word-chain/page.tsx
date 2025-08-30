@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, submitWord } from '@/lib/firebase';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, Send, Gamepad, Languages } from 'lucide-react';
+import { Loader2, Send, Languages } from 'lucide-react';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 

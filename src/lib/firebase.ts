@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -9,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit, arrayRemove } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 
@@ -38,15 +37,13 @@ const addSignupBonusToExistingUsers = async () => {
         await runTransaction(db, async (transaction) => {
             const flagDoc = await transaction.get(flagDocRef);
             if (flagDoc.exists()) {
-                // The bonus has already been given. Do nothing.
                 console.log("Signup bonus already distributed.");
                 return;
             }
 
-            // The bonus has not been given. Proceed.
             console.log("Distributing signup bonus to existing users...");
             const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
-            const usersSnapshot = await getDocs(usersQuery); // Note: getDocs is fine inside a transaction if it's for a read-only part before writes. But it's better to do it outside if possible. Let's assume it's fine for this one-time script.
+            const usersSnapshot = await getDocs(usersQuery);
 
             const userUpdates = new Map();
 
@@ -62,18 +59,15 @@ const addSignupBonusToExistingUsers = async () => {
                 });
             }
 
-            // Perform batch updates
             userUpdates.forEach((data, ref) => {
                 transaction.update(ref, data);
             });
 
-            // Set the flag to indicate the bonus has been distributed.
             transaction.set(flagDocRef, { completed: true, timestamp: Timestamp.now() });
             console.log(`Signup bonus distributed to ${usersSnapshot.size} users.`);
         });
     } catch (error) {
         console.error("Failed to add signup bonus to existing users:", error);
-        // Do not re-throw, as it might fail the signup process. Log it.
     }
 };
 
@@ -89,7 +83,6 @@ export const signUp = async (
   }
 
   try {
-    // Run the one-time bonus distribution. It will only run once.
     await addSignupBonusToExistingUsers();
 
     if (email === 'admin@jongdalsem.com') {
@@ -98,7 +91,6 @@ export const signUp = async (
 
     if (userType === 'student') {
         const studentId = userData.studentId!;
-        // Check for duplicate studentId before creating auth user
         const studentQuery = query(
           collection(db, "users"),
           where("studentId", "==", studentId),
@@ -108,12 +100,11 @@ export const signUp = async (
         if (!studentSnapshot.empty) {
             throw new Error("이미 등록된 학번입니다.");
         }
-    } else { // teacher or pending_teacher
-        // Check for duplicate teacher email
+    } else {
         const teacherQuery = query(
           collection(db, "users"),
           where("email", "==", email),
-          where("role", "in", ["teacher", "pending_teacher", "council"])
+          where("role", "in", ["teacher", "pending_teacher", "council", "council_booth"])
         );
         const teacherSnapshot = await getDocs(teacherQuery);
         if (!teacherSnapshot.empty) {
@@ -131,7 +122,6 @@ export const signUp = async (
         await runTransaction(db, async (transaction) => {
             const mateCode = user.uid.substring(0, 4).toUpperCase();
             
-            // Set initial user data with 3 points
             transaction.set(userDocRef, {
                 studentId: studentId,
                 email: email,
@@ -140,10 +130,9 @@ export const signUp = async (
                 mateCode: mateCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
-                avatarGradient: 'orange', // Default gradient
+                avatarGradient: 'orange', 
             });
             
-            // Create the signup bonus transaction record
             const historyRef = doc(collection(userDocRef, 'transactions'));
             transaction.set(historyRef, {
                 amount: 3,
@@ -152,7 +141,6 @@ export const signUp = async (
                 type: 'credit',
             });
 
-            // Create the user's mate code
             const mateCodeRef = doc(collection(db, 'codes'));
             transaction.set(mateCodeRef, {
                 code: mateCode,
@@ -160,12 +148,12 @@ export const signUp = async (
                 value: 1,
                 ownerUid: user.uid,
                 ownerStudentId: studentId,
-                participants: [studentId], // Start with the owner
+                participants: [studentId], 
                 createdAt: Timestamp.now(),
                 lastUsedAt: Timestamp.now(),
             });
         });
-    } else { // 'teacher' (which is pending_teacher initially)
+    } else { 
         await setDoc(userDocRef, {
             name: userData.name,
             displayName: `${userData.name} 선생님`,
@@ -173,7 +161,7 @@ export const signUp = async (
             email: email,
             role: 'pending_teacher',
             createdAt: Timestamp.now(),
-            avatarGradient: 'blue', // Default gradient for teachers
+            avatarGradient: 'blue', 
         });
     }
 
@@ -188,7 +176,6 @@ export const signUp = async (
     if (error.code === 'auth/invalid-email') {
       throw new Error('유효하지 않은 이메일 주소입니다.');
     }
-    // Attempt to delete the auth user if doc creation fails but auth user was created
     const currentUser = getAuth().currentUser;
     if (currentUser && currentUser.email === email) {
       await currentUser.delete().catch(e => console.error("Failed to clean up auth user", e));
@@ -214,9 +201,6 @@ export const signIn = async (email: string, password: string) => {
             throw new Error('관리자 승인 대기중인 계정입니다.');
         }
     } else {
-        // This case can happen if a user is created in Auth but their Firestore doc fails.
-        // Or if they were deleted from Firestore but not Auth.
-        // We create the doc on the fly for special accounts.
         if (email === 'admin@jongdalsem.com') {
              await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자', createdAt: Timestamp.now() });
         } else {
@@ -250,7 +234,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
   const mateCodeReward = 2;
 
   return await runTransaction(db, async (transaction) => {
-    // 1. Get user data (the person redeeming the code)
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists()) {
@@ -259,9 +242,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userData = userDoc.data();
     const userStudentId = userData.studentId;
 
-    // 2. Find the code
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
-    const codeSnapshot = await getDocs(codeQuery); // Use getDocs outside transaction for reads
+    const codeSnapshot = await getDocs(codeQuery);
 
     if (codeSnapshot.empty) {
       throw "유효하지 않은 코드입니다.";
@@ -270,7 +252,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
     
-    // 3. Re-fetch inside transaction for consistent read and process
     const freshCodeDoc = await transaction.get(codeRef);
     const freshCodeData = freshCodeDoc.data();
     if (!freshCodeData) {
@@ -278,7 +259,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     }
     
 
-    // 4. Handle different code types
     switch (freshCodeData.type) {
       case '히든코드':
         if (freshCodeData.used) {
@@ -294,15 +274,13 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           throw "파트너의 학번은 5자리 숫자여야 합니다.";
         }
 
-        // Find partner
         const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
-        const partnerSnapshot = await getDocs(partnerQuery); // Read outside transaction
+        const partnerSnapshot = await getDocs(partnerQuery);
         if (partnerSnapshot.empty) {
           throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
         }
         const partnerRef = partnerSnapshot.docs[0].ref;
 
-        // Give points to the code user
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
         const userHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(userHistoryRef, {
@@ -312,7 +290,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
 
-        // Give points to the partner
         transaction.update(partnerRef, { lak: increment(freshCodeData.value) });
         const partnerHistoryRef = doc(collection(partnerRef, 'transactions'));
         transaction.set(partnerHistoryRef, {
@@ -322,7 +299,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
 
-        // Mark code as used
         transaction.update(codeRef, {
           used: true,
           usedBy: [userStudentId, partnerStudentId],
@@ -334,12 +310,10 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (freshCodeData.ownerUid === userId) {
           throw "자신의 메이트 코드는 사용할 수 없습니다.";
         }
-         // Check if user is already a participant
         if (freshCodeData.participants && freshCodeData.participants.includes(userStudentId)) {
             throw "이미 사용한 메이트 코드입니다.";
         }
 
-        // Give points to the code user
         transaction.update(userRef, { lak: increment(mateCodeReward) });
         const mateUserHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(mateUserHistoryRef, {
@@ -349,7 +323,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
 
-        // Give points to the code owner
         const ownerRef = doc(db, 'users', freshCodeData.ownerUid);
         transaction.update(ownerRef, { lak: increment(mateCodeReward) });
         const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
@@ -360,7 +333,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           type: 'credit',
         });
 
-        // Add user to the participants list and update timestamp
         transaction.update(codeRef, { 
             participants: arrayUnion(userStudentId),
             lastUsedAt: Timestamp.now()
@@ -377,15 +349,12 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
         }
 
-        // Update user's point balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 
-        // Add user to usedBy list
         transaction.update(codeRef, {
           usedBy: arrayUnion(userStudentId)
         });
 
-        // Create transaction history
         const fcfcHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(fcfcHistoryRef, {
           date: Timestamp.now(),
@@ -396,20 +365,17 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         
         return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
 
-      default: // '종달코드', '온라인 특수코드'
+      default:
         if (freshCodeData.used) {
             throw "이미 사용된 코드입니다.";
         }
-        // Update user's point balance
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
 
-        // Mark code as used
         transaction.update(codeRef, {
           used: true,
           usedBy: userStudentId,
         });
 
-        // Create transaction history
         const historyRef = doc(collection(userRef, 'transactions'));
         transaction.set(historyRef, {
           date: Timestamp.now(),
@@ -441,7 +407,6 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
       throw new Error(`포인트가 부족합니다. 현재 보유 포인트: ${userData.lak || 0}, 필요 포인트: ${totalCost}`);
     }
 
-    // Check stock and deduct it
     for (const item of cart) {
         const productRef = doc(db, 'products', item.id);
         const productDoc = await transaction.get(productRef);
@@ -470,7 +435,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
         items: cart,
         totalCost: totalCost,
         createdAt: Timestamp.now(),
-        status: 'pending' // 'pending', 'completed'
+        status: 'pending'
     });
 
 
@@ -481,7 +446,6 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
   });
 };
 
-// Function to delete all documents in a collection
 const deleteCollection = async (collectionRef: any) => {
     const q = query(collectionRef);
     const snapshot = await getDocs(q);
@@ -492,29 +456,24 @@ const deleteCollection = async (collectionRef: any) => {
     await batch.commit();
 };
 
-// Reset all data function
 export const resetAllData = async () => {
     try {
-        // 1. Reset 'codes', 'letters', 'purchases'
-        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'guestbook'];
+        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'guestbook', 'games'];
         for (const col of collectionsToReset) {
             const collectionRef = collection(db, col);
             await deleteCollection(collectionRef);
         }
 
-        // 2. Reset user data (lak to 0) and delete transactions subcollection
         const usersSnapshot = await getDocs(collection(db, 'users'));
 
         for (const userDoc of usersSnapshot.docs) {
             const userRef = userDoc.ref;
             const batch = writeBatch(db);
-            // Reset lak to 0, but keep user data
             if (userDoc.data().role !== 'admin' && userDoc.data().role !== 'council') {
                 batch.update(userRef, { lak: 0 });
             }
             await batch.commit();
 
-            // Delete transactions subcollection
             const transactionsRef = collection(userRef, 'transactions');
             await deleteCollection(transactionsRef);
         }
@@ -527,13 +486,11 @@ export const resetAllData = async () => {
 };
 
 
-// PROFILE FUNCTIONS
 export const updateUserProfile = async (
   userId: string,
   data: { displayName?: string; avatarGradient?: string }
 ) => {
   const userRef = doc(db, 'users', userId);
-  // Filter out undefined values to prevent errors
   const updateData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
@@ -553,10 +510,8 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
       throw new Error("User does not exist.");
     }
 
-    // Update point balance using increment for safety
     transaction.update(userRef, { lak: increment(amount) });
 
-    // Create a transaction history record
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
       date: Timestamp.now(),
@@ -570,7 +525,7 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
   });
 };
 
-export const updateUserRole = async (userId: string, newRole: 'student' | 'council') => {
+export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'council_booth') => {
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) {
@@ -593,8 +548,6 @@ export const deleteUser = async (userId: string) => {
     if (userDoc.data().role === 'admin') {
         throw new Error("Cannot delete an admin account through this action.");
     }
-    // Note: This does NOT delete the Firebase Auth user.
-    // That must be done manually in the Firebase console for security.
     await deleteDoc(userRef);
 };
 
@@ -612,7 +565,7 @@ export const submitInquiry = async (userId: string, content: string) => {
         senderDisplayName: userData.displayName,
         content,
         createdAt: Timestamp.now(),
-        status: 'open' // 'open', 'closed'
+        status: 'open'
     };
 
     await addDoc(collection(db, 'inquiries'), inquiryData);
@@ -678,7 +631,6 @@ export const submitWord = async (userId: string, word: string) => {
     }
 
     return await runTransaction(db, async (transaction) => {
-        // Get user data
         const userRef = doc(db, "users", userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) {
@@ -690,7 +642,6 @@ export const submitWord = async (userId: string, word: string) => {
             throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
         }
 
-        // Get game data
         const gameRef = doc(db, "games", "word-chain");
         const gameDoc = await transaction.get(gameRef);
         const gameData = gameDoc.exists() ? gameDoc.data() : null;
@@ -706,7 +657,6 @@ export const submitWord = async (userId: string, word: string) => {
             throw new Error("이미 사용된 단어입니다.");
         }
 
-        // All checks passed, update data
         const newTurn = {
             word,
             userId,
@@ -728,7 +678,6 @@ export const submitWord = async (userId: string, word: string) => {
             });
         }
 
-        // Give reward
         transaction.update(userRef, {
             lak: increment(1),
             lastWordChainDate: today
@@ -749,46 +698,44 @@ export const submitWord = async (userId: string, word: string) => {
     });
 }
 
+export const givePointsAtBooth = async (boothOperatorId: string, studentId: string, amount: number, reason: string) => {
+    return await runTransaction(db, async (transaction) => {
+        const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
+        const studentSnapshot = await getDocs(studentQuery);
 
-export const sendLetter = async (senderUid: string, receiverStudentId: string, content: string) => {
-    const userDocRef = doc(db, 'users', senderUid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      throw new Error('사용자 정보를 찾을 수 없습니다.');
-    }
-    const senderStudentId = userDoc.data().studentId;
+        if (studentSnapshot.empty) {
+            throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
+        }
+        
+        const studentDoc = studentSnapshot.docs[0];
+        const studentRef = studentDoc.ref;
 
-    if (senderStudentId === receiverStudentId) {
-      throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
-    }
-
-    const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
-    const receiverSnapshot = await getDocs(receiverQuery);
-    if (receiverSnapshot.empty) {
-      throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
-    }
-
-    await addDoc(collection(db, 'letters'), {
-      senderUid: senderUid,
-      senderStudentId: senderStudentId,
-      receiverStudentId: receiverStudentId,
-      content: content,
-      status: 'pending',
-      createdAt: Timestamp.now(),
-      isOffline: false,
+        transaction.update(studentRef, { lak: increment(amount) });
+        
+        const historyRef = doc(collection(studentRef, 'transactions'));
+        transaction.set(historyRef, {
+          date: Timestamp.now(),
+          description: `부스 이벤트: ${reason}`,
+          amount: amount,
+          type: 'credit',
+          operator: boothOperatorId
+        });
     });
-}
-
-
-export const getUserData = async (userId: string) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) {
-        throw new Error("User does not exist.");
-    }
-    return userDoc.data();
 };
 
+export const addBoothReason = async (reason: string) => {
+    const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
+    await updateDoc(reasonsRef, {
+        reasons: arrayUnion(reason)
+    });
+};
+
+export const deleteBoothReason = async (reason: string) => {
+    const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
+    await updateDoc(reasonsRef, {
+        reasons: arrayRemove(reason)
+    });
+};
 
 
 export { auth, db, storage };
