@@ -15,11 +15,11 @@ import {
 } from '@/components/ui/table';
 import { db, adjustUserLak, updateUserRole, deleteUser } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2 } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -68,6 +68,9 @@ export default function AdminUsersPage() {
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [newRole, setNewRole] = useState<'student' | 'council' | 'council_booth' | ''>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [gradeFilter, setGradeFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('');
 
 
   useEffect(() => {
@@ -93,6 +96,23 @@ export default function AdminUsersPage() {
 
     return () => unsubscribe();
   }, [toast]);
+  
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      if (user.role !== 'student' || !user.studentId) {
+        // 학생이 아니거나 학번이 없는 경우 필터링하지 않음 (항상 표시 또는 다른 로직)
+        return !gradeFilter && !classFilter;
+      }
+      const grade = user.studentId.substring(0, 1);
+      const studentClass = user.studentId.substring(1, 3);
+      
+      const gradeMatch = gradeFilter ? grade === gradeFilter : true;
+      const classMatch = classFilter ? studentClass === classFilter : true;
+      
+      return gradeMatch && classMatch;
+    });
+  }, [users, gradeFilter, classFilter]);
+
 
   const openAdjustDialog = (user: User) => {
     setSelectedUser(user);
@@ -201,10 +221,36 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      <div className="space-y-1 mb-6">
+      <div className="space-y-1 mb-4">
         <h1 className="text-2xl font-bold tracking-tight font-headline">사용자 관리</h1>
         <p className="text-muted-foreground">시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</p>
       </div>
+
+       <Card className="mb-4">
+        <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex items-center gap-2 flex-1">
+                <Filter className="h-4 w-4 text-muted-foreground"/>
+                <Label htmlFor="grade-filter" className="shrink-0">학년</Label>
+                <Input 
+                    id="grade-filter"
+                    placeholder="예: 1" 
+                    className="w-20"
+                    value={gradeFilter}
+                    onChange={(e) => setGradeFilter(e.target.value)}
+                />
+                <Label htmlFor="class-filter" className="shrink-0">반</Label>
+                <Input 
+                    id="class-filter"
+                    placeholder="예: 03" 
+                    className="w-20"
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                />
+            </div>
+             <Button variant="outline" onClick={() => { setGradeFilter(''); setClassFilter(''); }}>필터 초기화</Button>
+        </CardContent>
+       </Card>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -229,7 +275,7 @@ export default function AdminUsersPage() {
                   </TableRow>
                 ))
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
                     <TableCell>{user.email}</TableCell>
@@ -374,4 +420,6 @@ export default function AdminUsersPage() {
     </>
   );
 }
+    
+
     

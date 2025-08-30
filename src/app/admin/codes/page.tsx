@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Loader2, Download, Users, Sparkles, Ticket } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Download, Users, Sparkles, Ticket, Filter } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp, writeBatch, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -82,6 +82,9 @@ export default function AdminCodesPage() {
   const couponRef = useRef<HTMLDivElement>(null);
   const a4ContainerRef = useRef<HTMLDivElement>(null);
 
+  const [gradeFilter, setGradeFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('');
+
 
   const { toast } = useToast();
 
@@ -101,6 +104,46 @@ export default function AdminCodesPage() {
       setIsLoading(false);
     }
   }, [toast]);
+  
+  const filteredCodes = useMemo(() => {
+    if (!gradeFilter && !classFilter) {
+      return codes;
+    }
+    return codes.filter(code => {
+      const studentIds = new Set<string>();
+      
+      if (Array.isArray(code.usedBy)) {
+        code.usedBy.forEach(id => studentIds.add(id));
+      } else if (typeof code.usedBy === 'string') {
+        studentIds.add(code.usedBy);
+      }
+      
+      if (code.ownerStudentId) {
+        studentIds.add(code.ownerStudentId);
+      }
+      
+      if (code.participants) {
+        code.participants.forEach(id => studentIds.add(id));
+      }
+
+      for (const studentId of studentIds) {
+        if (typeof studentId !== 'string' || !/^\d{5}$/.test(studentId)) continue;
+        
+        const grade = studentId.substring(0, 1);
+        const studentClass = studentId.substring(1, 3);
+        
+        const gradeMatch = gradeFilter ? grade === gradeFilter : true;
+        const classMatch = classFilter ? studentClass === classFilter : true;
+
+        if (gradeMatch && classMatch) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
+  }, [codes, gradeFilter, classFilter]);
+
 
   useEffect(() => {
     fetchCodes();
@@ -426,12 +469,12 @@ export default function AdminCodesPage() {
   };
   
   const handleSelectAll = (checked: boolean) => {
-    setSelectedCodes(checked ? codes.map(c => c.id) : []);
+    setSelectedCodes(checked ? filteredCodes.map(c => c.id) : []);
   }
 
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight font-headline">코드 관리</h1>
           <p className="text-muted-foreground">발급된 모든 코드를 관리합니다.</p>
@@ -440,7 +483,7 @@ export default function AdminCodesPage() {
             <Button size="sm" variant="secondary" onClick={handleDownloadSelected} disabled={isDownloading || selectedCodes.length === 0}>
                 {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    선택 항목 다운로드
+                    선택 다운로드
                 </span>
             </Button>
              <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
@@ -532,7 +575,32 @@ export default function AdminCodesPage() {
         </div>
       </div>
       
-       <Card className="mt-4">
+       <Card className="mb-4">
+        <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex items-center gap-2 flex-1">
+                <Filter className="h-4 w-4 text-muted-foreground"/>
+                <Label htmlFor="grade-filter" className="shrink-0">학년</Label>
+                <Input 
+                    id="grade-filter"
+                    placeholder="예: 1" 
+                    className="w-20"
+                    value={gradeFilter}
+                    onChange={(e) => setGradeFilter(e.target.value)}
+                />
+                <Label htmlFor="class-filter" className="shrink-0">반</Label>
+                <Input 
+                    id="class-filter"
+                    placeholder="예: 03" 
+                    className="w-20"
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                />
+            </div>
+             <Button variant="outline" onClick={() => { setGradeFilter(''); setClassFilter(''); }}>필터 초기화</Button>
+        </CardContent>
+       </Card>
+
+       <Card>
           <CardContent className="p-0">
           <Table>
               <TableHeader>
@@ -540,7 +608,7 @@ export default function AdminCodesPage() {
                   <TableHead className="w-[50px]">
                   <Checkbox 
                       onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                      checked={selectedCodes.length === codes.length && codes.length > 0}
+                      checked={selectedCodes.length === filteredCodes.length && filteredCodes.length > 0}
                       aria-label="Select all"
                   />
                   </TableHead>
@@ -561,12 +629,12 @@ export default function AdminCodesPage() {
                       <TableCell colSpan={9}><Skeleton className="h-8 w-full" /></TableCell>
                   </TableRow>
                   ))
-              ) : codes.length === 0 ? (
+              ) : filteredCodes.length === 0 ? (
                   <TableRow>
-                  <TableCell colSpan={9} className="text-center h-24">생성된 코드가 없습니다.</TableCell>
+                  <TableCell colSpan={9} className="text-center h-24">조건에 맞는 코드가 없습니다.</TableCell>
                   </TableRow>
               ) : (
-                  codes.map((c) => (
+                  filteredCodes.map((c) => (
                   <TableRow key={c.id} data-state={selectedCodes.includes(c.id) && "selected"}>
                       <TableCell>
                       <Checkbox
@@ -656,3 +724,5 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
+    
