@@ -702,6 +702,44 @@ export const addPointsForGameWin = async (studentId: string) => {
     });
 };
 
+export const sendLetter = async (senderUid: string, receiverStudentId: string, content: string) => {
+    const userDocRef = doc(db, 'users', senderUid);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) {
+      throw new Error('사용자 정보를 찾을 수 없습니다.');
+    }
+    const senderStudentId = userDoc.data().studentId;
+
+    if (senderStudentId === receiverStudentId) {
+      throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
+    }
+
+    const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
+    const receiverSnapshot = await getDocs(receiverQuery);
+    if (receiverSnapshot.empty) {
+      throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
+    }
+
+    await addDoc(collection(db, 'letters'), {
+      senderUid: senderUid,
+      senderStudentId: senderStudentId,
+      receiverStudentId: receiverStudentId,
+      content: content,
+      status: 'pending',
+      createdAt: Timestamp.now(),
+      isOffline: false,
+    });
+};
+
+export const getUserData = async (userId: string) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+        throw new Error("User does not exist.");
+    }
+    return userDoc.data();
+};
+
 
 
 export { auth, db, storage };
