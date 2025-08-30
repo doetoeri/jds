@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Mail, QrCode, Gift, Users, Megaphone } from 'lucide-react';
+import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import Image from 'next/image';
 import QRCode from 'qrcode';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface NewUpdate {
   title: string;
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
+  const { toast } = useToast();
 
 
   // Effect for user data (lak, mateCode)
@@ -134,6 +137,36 @@ export default function DashboardPage() {
         return () => unsubscribe();
     }, []);
 
+    const handleShare = async () => {
+        if (!mateCode) return;
+    
+        const shareData = {
+          title: '종달샘 허브 메이트코드',
+          text: `제 메이트코드로 종달샘 허브에 가입하고 함께 포인트를 받아요!\n\n코드: ${mateCode}\n`,
+          url: 'https://jongdalsam.shop',
+        };
+    
+        try {
+          if (navigator.share) {
+            await navigator.share(shareData);
+          } else {
+            // Fallback for desktop browsers
+            await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+            toast({
+              title: '클립보드에 복사 완료!',
+              description: '메이트코드와 초대 메시지가 클립보드에 복사되었어요.',
+            });
+          }
+        } catch (error) {
+          console.error('Error sharing:', error);
+          toast({
+            title: '공유 실패',
+            description: '코드를 공유하는 중 오류가 발생했습니다.',
+            variant: 'destructive',
+          });
+        }
+      };
+
 
   return (
     <div className="space-y-6">
@@ -208,6 +241,10 @@ export default function DashboardPage() {
                    <p className="font-mono text-2xl font-bold">{mateCode}</p>
                    <p className="text-xs text-muted-foreground">친구에게 코드를 공유하고 함께 포인트를 받으세요!</p>
                 </div>
+                 <Button onClick={handleShare} size="sm" variant="outline">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    공유하기
+                </Button>
               </>
             ) : (
                <p className="text-sm text-muted-foreground py-10 text-center">메이트 코드를 불러올 수 없습니다.</p>
