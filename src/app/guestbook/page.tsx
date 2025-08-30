@@ -74,7 +74,7 @@ export default function GuestbookPage() {
                             <span className="ml-2">비밀 메시지 남기기</span>
                         </Button>
                          <Button variant="link" asChild>
-                            <Link href="/game/word-chain">AI 끝말잇기 하러가기</Link>
+                            <Link href="/game/word-chain">실시간 끝말잇기 하러가기</Link>
                         </Button>
                     </CardFooter>
                 </form>

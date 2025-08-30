@@ -672,35 +672,56 @@ export const postAnnouncement = async (
   await addDoc(collection(db, 'announcements'), announcementData);
 };
 
-export const addPointsForGameWin = async (studentId: string) => {
-    return await runTransaction(db, async (transaction) => {
-        const usersQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
-        const usersSnapshot = await getDocs(usersQuery);
+export const submitWord = async (uid: string, displayName: string, word: string) => {
+    const gameRef = doc(db, 'word-chain-game', 'current-game');
 
-        if (usersSnapshot.empty) {
-            throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
-        }
-        
-        const userDoc = usersSnapshot.docs[0];
-        const userRef = userDoc.ref;
-        const rewardAmount = 2;
+    if (!word || word.length < 2) {
+        throw new Error("단어는 두 글자 이상이어야 합니다.");
+    }
 
-        transaction.update(userRef, { lak: increment(rewardAmount) });
+    try {
+        await runTransaction(db, async (transaction) => {
+            const gameDoc = await transaction.get(gameRef);
 
-        const historyRef = doc(collection(userRef, 'transactions'));
-        transaction.set(historyRef, {
-            amount: rewardAmount,
-            date: Timestamp.now(),
-            description: '끝말잇기 챌린지 성공!',
-            type: 'credit',
+            if (!gameDoc.exists()) {
+                // First word in a new game
+                transaction.set(gameRef, {
+                    words: [{ uid, displayName, word, timestamp: Timestamp.now() }],
+                    lastWord: word,
+                    lastPlayerId: uid,
+                    gameId: new Date().getTime().toString()
+                });
+                return;
+            }
+
+            const gameData = gameDoc.data();
+            const lastWord = gameData.lastWord || '';
+            const lastPlayerId = gameData.lastPlayerId || '';
+            
+            // Check if it's the same player trying to go twice
+            if(lastPlayerId === uid) {
+                throw new Error("같은 사람이 연속으로 단어를 제출할 수 없습니다.");
+            }
+
+            // Check if the word continues
+            if (lastWord && lastWord.charAt(lastWord.length - 1) !== word.charAt(0)) {
+                throw new Error(`'${lastWord.slice(-1)}'(으)로 시작하는 단어를 입력해야 합니다.`);
+            }
+
+            // Update the game state
+            transaction.update(gameRef, {
+                words: arrayUnion({ uid, displayName, word, timestamp: Timestamp.now() }),
+                lastWord: word,
+                lastPlayerId: uid,
+            });
         });
-
-        return { success: true, message: `챌린지 성공! ${rewardAmount}포인트가 자동으로 적립되었습니다.` };
-    }).catch((error: any) => {
-        console.error("Game reward error: ", error);
-        return { success: false, message: error.message || "포인트 적립 중 오류가 발생했습니다." };
-    });
+    } catch (error: any) {
+        console.error("Word submission error:", error);
+        // Re-throw the error to be caught by the calling function
+        throw error;
+    }
 };
+
 
 export const sendLetter = async (senderUid: string, receiverStudentId: string, content: string) => {
     const userDocRef = doc(db, 'users', senderUid);
