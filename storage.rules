@@ -1,11 +1,25 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // 프로필 이미지: 인증된 사용자만 자신의 폴더에 접근 가능
-    match /profileImages/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // Only authenticated users can upload files
+    // Allow public read for images, as they are used in the app UI
+    match /{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null;
+    }
+
+    // More specific rules for product images
+    match /products/{imageId} {
+      allow read; // Anyone can read product images
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council'];
+    }
+
+    // More specific rules for announcement images
+     match /announcements/{imageId} {
+      allow read; // Anyone can read announcement images
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council'];
     }
   }
 }

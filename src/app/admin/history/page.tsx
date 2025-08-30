@@ -40,7 +40,7 @@ export default function AdminHistoryPage() {
       try {
         const transactionsGroupRef = collectionGroup(db, 'transactions');
         // orderBy is removed to prevent index error. Sorting will be done client-side.
-        const q = query(transactionsGroupRef);
+        const q = query(transactionsGroupRef, orderBy('date', 'desc'));
         const querySnapshot = await getDocs(q);
 
         const allTransactions = await Promise.all(querySnapshot.docs.map(async (doc) => {

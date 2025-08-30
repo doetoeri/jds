@@ -1,11 +1,83 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: This rule allows anyone to read and write to the database.
-    // It should be secured after stabilizing the signup functionality.
+    // Users can read their own data and public data
+    match /users/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
+    }
+    
+    // Allow users to read their own transaction history
+    match /users/{userId}/transactions/{transactionId} {
+        allow read, create: if request.auth.uid == userId;
+    }
+    
+    // Only authenticated users can use codes
+    match /codes/{codeId} {
+      allow read, update: if request.auth.uid != null;
+    }
+    
+    // Only authenticated users can access the word chain game
+    match /games/word-chain {
+      allow read, update, create: if request.auth.uid != null;
+    }
+
+    // Letters can be created by authenticated users
+    // Letters can be read by sender, receiver, or admin/council
+    match /letters/{letterId} {
+        allow create: if request.auth.uid != null;
+        allow read, update: if request.auth.uid != null && 
+          (resource.data.senderUid == request.auth.uid || 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentId == resource.data.receiverStudentId ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council']);
+    }
+    
+    // Products can be read by any authenticated user
+    match /products/{productId} {
+        allow read: if request.auth.uid != null;
+        allow update, create, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council'];
+    }
+
+    // Purchases can be created by the user, and read by the user or admin/council
+    match /purchases/{purchaseId} {
+        allow create: if request.auth.uid == request.resource.data.userId;
+        allow read, update: if request.auth.uid != null && 
+            (resource.data.userId == request.auth.uid || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council']);
+    }
+
+    // Admins and council can manage communication channel and announcements
+    match /communication_channel/{messageId} {
+        allow read: if request.auth.uid != null;
+        allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council'];
+    }
+    match /announcements/{announcementId} {
+        allow read: if request.auth.uid != null;
+        allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council'];
+    }
+
+    // Inquiries can be created by authenticated users, and read by admin/council
+    match /inquiries/{inquiryId} {
+        allow create: if request.auth.uid != null;
+        allow read, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'council'];
+    }
+    
+    // Guestbook can be created by any authenticated user, read only by admin
+    match /guestbook/{messageId} {
+        allow create: if request.auth.uid != null;
+        allow read, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // System settings can only be read/written by admins
+    match /system_settings/{settingId} {
+        allow read, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Fallback rule: Deny all other access
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
