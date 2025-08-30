@@ -9,7 +9,7 @@ import { auth, db } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, query, collection, where, Timestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return;
     }
     
-    const checkRole = async () => {
+    const checkRoleAndSetupNotifications = async () => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
@@ -56,8 +56,36 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             }
         }
         setIsAuthorized(true);
+        
+        // Setup notifications listener
+        const userDocData = userDoc.data();
+        if (!userDocData) return;
+
+        const lastCheck = userDocData.lastLetterCheckTimestamp || new Timestamp(0, 0);
+
+        const q = query(
+          collection(db, 'letters'),
+          where('receiverStudentId', '==', userDocData.studentId),
+          where('status', '==', 'approved'),
+          where('approvedAt', '>', lastCheck)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                    const letter = change.doc.data();
+                    new Notification('새로운 편지가 도착했어요!', {
+                        body: `${letter.senderStudentId}님으로부터 편지가 도착했습니다.`,
+                        icon: '/logo-192.png',
+                    });
+                }
+            });
+        });
+
+        return () => unsubscribe();
     };
-    checkRole();
+
+    checkRoleAndSetupNotifications();
 
   }, [user, loading, router, toast]);
 

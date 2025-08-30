@@ -15,10 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, sendLetter } from '@/lib/firebase';
 import {
   collection,
-  addDoc,
   query,
   where,
   getDocs,
@@ -111,6 +110,11 @@ export default function LettersView() {
     }
   }, [user, toast]);
 
+  useEffect(() => {
+    if (Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     // Only fetch letters when the component mounts and the inbox tab is active
@@ -142,40 +146,19 @@ export default function LettersView() {
 
     setIsLoading(true);
     try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-      if (!userDoc.exists()) {
-        throw new Error('사용자 정보를 찾을 수 없습니다.');
+      const result = await sendLetter(user.uid, receiverStudentId, content, isOffline);
+
+      if (result.success) {
+        toast({
+          title: '전송 완료!',
+          description: result.message,
+        });
+        setReceiverStudentId('');
+        setContent('');
+        setIsOffline(false);
+      } else {
+        throw new Error(result.message);
       }
-      const senderStudentId = userDoc.data().studentId;
-
-      if (senderStudentId === receiverStudentId) {
-        throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
-      }
-
-      const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
-      const receiverSnapshot = await getDocs(receiverQuery);
-      if (receiverSnapshot.empty) {
-        throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
-      }
-
-      await addDoc(collection(db, 'letters'), {
-        senderUid: user.uid,
-        senderStudentId: senderStudentId,
-        receiverStudentId: receiverStudentId,
-        content: content, // Always save the original content
-        status: 'pending',
-        createdAt: Timestamp.now(),
-        isOffline: isOffline,
-      });
-
-      toast({
-        title: '전송 완료!',
-        description: '편지가 성공적으로 전달되었습니다. 관리자 승인 후 처리됩니다.',
-      });
-      setReceiverStudentId('');
-      setContent('');
-      setIsOffline(false);
     } catch (error: any) {
       toast({
         title: '전송 실패',
@@ -213,8 +196,7 @@ export default function LettersView() {
               <Mail className="mr-2" /> 종달 우체국
             </CardTitle>
             <CardDescription>
-              친구에게 편지를 보내고 함께 포인트를 받아보세요. 관리자 승인 후 편지와
-              포인트가 지급됩니다.
+              친구에게 편지를 보내면 나와 친구 모두에게 포인트가 지급됩니다.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSendLetter}>
@@ -258,7 +240,7 @@ export default function LettersView() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>오프라인 편지 안내</AlertTitle>
                   <AlertDescription>
-                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 포인트는 승인 즉시 온라인으로 지급됩니다.
+                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 포인트는 편지 전송 즉시 온라인으로 지급됩니다.
                   </AlertDescription>
                 </Alert>
               )}

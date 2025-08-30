@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -15,7 +16,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'fire
 const firebaseConfig = {
   projectId: 'jongdalsem-hub',
   appId: '1:145118642611:web:3d29407e957e6ea4f18bc6',
-  storageBucket: 'jongdalsem-hub.appspot.com',
+  storageBucket: 'jongdalsam-hub.appspot.com',
   apiKey: 'AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc',
   authDomain: 'jongdalsem-hub.firebaseapp.com',
   measurementId: '',
@@ -735,6 +736,80 @@ export const deleteBoothReason = async (reason: string) => {
     await updateDoc(reasonsRef, {
         reasons: arrayRemove(reason)
     });
+};
+
+export const sendLetter = async (
+  senderUid: string,
+  receiverStudentId: string,
+  content: string,
+  isOffline: boolean
+) => {
+  return await runTransaction(db, async (transaction) => {
+    const senderRef = doc(db, 'users', senderUid);
+    const senderDoc = await transaction.get(senderRef);
+    if (!senderDoc.exists()) {
+      throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
+    }
+    const senderData = senderDoc.data();
+    const senderStudentId = senderData.studentId;
+
+    if (senderStudentId === receiverStudentId) {
+      throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
+    }
+
+    const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
+    const receiverSnapshot = await getDocs(receiverQuery);
+    if (receiverSnapshot.empty) {
+      throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
+    }
+    const receiverDoc = receiverSnapshot.docs[0];
+    const receiverRef = receiverDoc.ref;
+    const receiverData = receiverDoc.data();
+
+    // 1. Add the letter with 'approved' status
+    const letterRef = doc(collection(db, 'letters'));
+    const letterData = {
+      senderUid,
+      senderStudentId,
+      receiverStudentId,
+      content,
+      isOffline,
+      status: 'approved' as const,
+      createdAt: Timestamp.now(),
+      approvedAt: Timestamp.now(),
+    };
+    transaction.set(letterRef, letterData);
+
+    const reward = 2;
+
+    // 2. Update points for sender and receiver
+    transaction.update(senderRef, { lak: increment(reward) });
+    transaction.update(receiverRef, { lak: increment(reward) });
+
+    // 3. Add transaction history for sender
+    const senderHistoryRef = doc(collection(senderRef, 'transactions'));
+    transaction.set(senderHistoryRef, {
+      amount: reward,
+      date: Timestamp.now(),
+      description: `${isOffline ? '오프라인 ' : ''}편지 발신 보상 (받는 사람: ${receiverStudentId})`,
+      type: 'credit',
+    });
+
+    // 4. Add transaction history for receiver
+    const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
+    transaction.set(receiverHistoryRef, {
+      amount: reward,
+      date: Timestamp.now(),
+      description: `${isOffline ? '오프라인 ' : ''}편지 수신 (보낸 사람: ${senderStudentId})`,
+      type: 'credit',
+    });
+
+    return { success: true, message: '편지가 성공적으로 전송되고 포인트가 지급되었습니다!' };
+  }).catch((error) => {
+    console.error("Send letter error: ", error);
+    const errorMessage = typeof error === 'string' ? error : "편지 전송 중 오류가 발생했습니다.";
+    return { success: false, message: errorMessage };
+  });
 };
 
 

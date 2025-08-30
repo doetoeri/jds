@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle, Printer, Eye } from 'lucide-react';
+import { Loader2, Eye, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -51,7 +51,6 @@ interface Letter {
 export default function AdminLettersPage() {
   const [letters, setLetters] = useState<Letter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchLetters = async () => {
@@ -80,124 +79,24 @@ export default function AdminLettersPage() {
     fetchLetters();
   }, []);
 
-  const handleApproveLetter = async (letter: Letter) => {
-    setIsProcessing(letter.id);
-    try {
-      const letterRef = doc(db, 'letters', letter.id);
-      
-      const batch = writeBatch(db);
-      const usersRef = collection(db, 'users');
-      
-      const receiverQuery = query(
-        usersRef,
-        where('studentId', '==', letter.receiverStudentId)
-      );
-      const receiverSnapshot = await getDocs(receiverQuery);
-
-      if (receiverSnapshot.empty) {
-        throw new Error('받는 학생을 찾을 수 없습니다.');
-      }
-      const receiverDoc = receiverSnapshot.docs[0];
-      const receiverRef = receiverDoc.ref;
-      const receiverData = receiverDoc.data();
-
-      const senderRef = doc(db, 'users', letter.senderUid);
-      const senderDoc = await getDoc(senderRef);
-       if (!senderDoc.exists()) {
-        throw new Error('보낸 학생을 찾을 수 없습니다.');
-      }
-      const senderData = senderDoc.data();
-
-      batch.update(letterRef, { status: 'approved', approvedAt: Timestamp.now() });
-
-      // 오프라인 편지라도 포인트는 온라인으로 지급
-      if (!letter.isOffline) {
-        batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
-        batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
-
-        const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
-        batch.set(receiverTransactionRef, {
-          amount: 2,
-          date: Timestamp.now(),
-          description: `편지 수신 (보낸 사람: ${letter.senderStudentId})`,
-          type: 'credit',
-        });
-
-        const senderTransactionRef = doc(collection(senderRef, 'transactions'));
-        batch.set(senderTransactionRef, {
-          amount: 2,
-          date: Timestamp.now(),
-          description: `편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
-          type: 'credit',
-        });
-      } else { // 오프라인 편지일때도 포인트는 온라인으로 지급
-         batch.update(receiverRef, { lak: (receiverData.lak || 0) + 2 });
-        batch.update(senderRef, { lak: (senderData.lak || 0) + 2 });
-
-        const receiverTransactionRef = doc(collection(receiverRef, 'transactions'));
-        batch.set(receiverTransactionRef, {
-          amount: 2,
-          date: Timestamp.now(),
-          description: `오프라인 편지 수신 (보낸 사람: ${letter.senderStudentId})`,
-          type: 'credit',
-        });
-
-        const senderTransactionRef = doc(collection(senderRef, 'transactions'));
-        batch.set(senderTransactionRef, {
-          amount: 2,
-          date: Timestamp.now(),
-          description: `오프라인 편지 발신 보상 (받는 사람: ${letter.receiverStudentId})`,
-          type: 'credit',
-        });
-      }
-
-
-      await batch.commit();
-
-      toast({
-        title: '성공',
-        description: '편지를 승인하고 포인트를 지급했습니다.',
-      });
-      await fetchLetters();
-    } catch (error: any) {
-      toast({
-        title: '오류',
-        description: error.message || '편지 승인 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsProcessing(null);
-    }
+  const statusText = {
+      pending: '대기중',
+      approved: '전송됨',
+      rejected: '거절됨',
   };
 
-  const handleRejectLetter = async (letterId: string) => {
-     setIsProcessing(letterId);
-     try {
-        const letterRef = doc(db, 'letters', letterId);
-        await updateDoc(letterRef, { status: 'rejected' });
-        toast({
-            title: '성공',
-            description: '편지를 거절 처리했습니다.',
-            variant: 'default',
-        });
-        await fetchLetters();
-     } catch (error) {
-        toast({
-            title: '오류',
-            description: '편지 거절 중 오류가 발생했습니다.',
-            variant: 'destructive',
-        });
-     } finally {
-        setIsProcessing(null);
-     }
-  };
+  const statusVariant = {
+      pending: 'secondary',
+      approved: 'default',
+      rejected: 'destructive',
+  } as const;
 
   return (
     <div>
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">편지 관리</h1>
         <p className="text-muted-foreground">
-          학생들이 보낸 편지를 관리하고 승인합니다.
+          학생들이 보낸 모든 편지 목록입니다.
         </p>
       </div>
       <Card>
@@ -245,57 +144,20 @@ export default function AdminLettersPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          letter.status === 'approved'
-                            ? 'default'
-                            : letter.status === 'rejected'
-                            ? 'destructive'
-                            : 'secondary'
-                        }
-                      >
-                        {letter.status === 'pending' && '대기중'}
-                        {letter.status === 'approved' && '승인됨'}
-                        {letter.status === 'rejected' && '거절됨'}
+                      <Badge variant={statusVariant[letter.status]}>
+                        {statusText[letter.status]}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
-                       <div className="flex gap-2 justify-end">
-                            <Button asChild size="icon" variant="ghost">
-                              <Link href={`/admin/letters/${letter.id}`}>
-                                <Eye className="h-4 w-4" />
-                                <span className="sr-only">상세 보기</span>
-                              </Link>
-                            </Button>
-                          {isProcessing === letter.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : letter.status === 'pending' ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleApproveLetter(letter)}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                승인
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleRejectLetter(letter.id)}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                거절
-                              </Button>
-                            </>
-                          ) : (
-                            <span>완료</span>
-                          )}
-                        </div>
+                       <Button asChild size="icon" variant="ghost">
+                          <Link href={`/admin/letters/${letter.id}`}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">상세 보기</span>
+                          </Link>
+                        </Button>
                     </TableCell>
                   </TableRow>
                 ))
