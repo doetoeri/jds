@@ -157,13 +157,17 @@ export default function DashboardPage() {
               description: '메이트코드와 초대 메시지가 클립보드에 복사되었어요.',
             });
           }
-        } catch (error) {
-          console.error('Error sharing:', error);
-          toast({
-            title: '공유 실패',
-            description: '코드를 공유하는 중 오류가 발생했습니다.',
-            variant: 'destructive',
-          });
+        } catch (error: any) {
+            // Silently ignore AbortError which occurs when the user cancels the share sheet
+            if (error.name === 'AbortError') {
+              return;
+            }
+            console.error('Error sharing:', error);
+            toast({
+              title: '공유 실패',
+              description: '코드를 공유하는 중 오류가 발생했습니다.',
+              variant: 'destructive',
+            });
         }
       };
 
