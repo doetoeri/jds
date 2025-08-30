@@ -158,8 +158,8 @@ export default function DashboardPage() {
             });
           }
         } catch (error: any) {
-            // Silently ignore AbortError which occurs when the user cancels the share sheet
-            if (error.name === 'AbortError') {
+            // Silently ignore AbortError/NotAllowedError which occurs when the user cancels the share sheet
+            if (error.name === 'AbortError' || error.name === 'NotAllowedError') {
               return;
             }
             console.error('Error sharing:', error);
