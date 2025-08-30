@@ -18,7 +18,7 @@ const firebaseConfig = {
   appId: '1:145118642611:web:3d29407e957e6ea4f18bc6',
   storageBucket: 'jongdalsam-hub.appspot.com',
   apiKey: 'AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc',
-  authDomain: 'jongdalsem-hub.firebaseapp.com',
+  authDomain: 'jongdalsam-hub.firebaseapp.com',
   measurementId: '',
   messagingSenderId: '145118642611',
 };
@@ -571,23 +571,6 @@ export const submitInquiry = async (userId: string, content: string) => {
 
     await addDoc(collection(db, 'inquiries'), inquiryData);
 };
-
-export const submitGuestbookMessage = async (senderDisplayName: string, friendStudentId: string, message: string) => {
-    const q = query(collection(db, 'users'), where('studentId', '==', friendStudentId));
-    const userSnapshot = await getDocs(q);
-    if (userSnapshot.empty) {
-        throw new Error(`학번 ${friendStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
-    }
-    
-    const messageData = {
-        senderDisplayName,
-        friendStudentId,
-        message,
-        createdAt: Timestamp.now(),
-    };
-
-    await addDoc(collection(db, 'guestbook'), messageData);
-}
 
 export const postAnnouncement = async (
     authorId: string, 

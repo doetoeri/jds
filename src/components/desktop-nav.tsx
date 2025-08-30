@@ -43,7 +43,6 @@ const adminLinks = [
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
-  { name: '방명록 관리', href: '/admin/guestbook', icon: MessageCircleQuestion },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
   { name: '전체 내역', href: '/admin/history', icon: History },
 ];
