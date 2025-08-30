@@ -486,6 +486,16 @@ export const resetAllData = async () => {
     }
 };
 
+export const resetWordChainGame = async () => {
+    try {
+        const gameRef = doc(db, 'games', 'word-chain');
+        await deleteDoc(gameRef);
+    } catch (error) {
+        console.error("Error resetting word chain game: ", error);
+        throw new Error("끝말잇기 게임 초기화 중 오류가 발생했습니다.");
+    }
+};
+
 
 export const updateUserProfile = async (
   userId: string,
@@ -621,9 +631,18 @@ export const submitWord = async (userId: string, word: string) => {
             throw new Error("사용자를 찾을 수 없습니다.");
         }
         const userData = userDoc.data();
-        const today = new Date().toISOString().split('T')[0];
-        if (userData.lastWordChainDate === today) {
-            throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
+        
+        // Check last participation time
+        if (userData.lastWordChainTimestamp) {
+            const lastTime = userData.lastWordChainTimestamp.toDate();
+            const now = new Date();
+            // Set to midnight KST for comparison
+            const lastDateKST = new Date(lastTime.toLocaleString("en-US", { timeZone: "Asia/Seoul" })).setHours(0,0,0,0);
+            const nowDateKST = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })).setHours(0,0,0,0);
+            
+            if (lastDateKST === nowDateKST) {
+                 throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
+            }
         }
 
         const gameRef = doc(db, "games", "word-chain");
@@ -664,7 +683,7 @@ export const submitWord = async (userId: string, word: string) => {
 
         transaction.update(userRef, {
             lak: increment(1),
-            lastWordChainDate: today
+            lastWordChainTimestamp: Timestamp.now() // Store timestamp instead of date string
         });
         
         const txHistoryRef = doc(collection(userRef, "transactions"));
