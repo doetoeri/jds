@@ -38,27 +38,17 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
-      if (userDocSnap.exists()) {
-        const userRole = userDocSnap.data().role;
-        if (userRole === 'council' || userRole === 'council_booth') {
-          if (userRole === 'council_booth' && pathname !== '/council/booth') {
-             setTimeout(() => router.push('/council/booth'), 50);
-             return;
-          }
+      if (userDocSnap.exists() && userDocSnap.data().role === 'council') {
           setIsAuthorized(true);
-        } else {
-           toast({
-            title: '접근 권한 없음',
-            description: '학생회만 접근할 수 있는 페이지입니다.',
-            variant: 'destructive',
-          });
-          setIsAuthorized(false);
-          setTimeout(() => router.push('/dashboard'), 50);
-        }
       } else {
         // Fallback for users that might exist in auth but not firestore for some reason
-        toast({ title: '오류', description: '사용자 정보를 찾을 수 없습니다.', variant: 'destructive'});
-        setTimeout(() => router.push('/login'), 50);
+        toast({
+          title: '접근 권한 없음',
+          description: '학생회만 접근할 수 있는 페이지입니다.',
+          variant: 'destructive',
+        });
+        setIsAuthorized(false);
+        setTimeout(() => router.push('/dashboard'), 50);
       }
     };
     checkAuthorization();
