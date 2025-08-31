@@ -40,15 +40,13 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
 
       if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          if (userData.role === 'council') {
+          if (userData.role === 'council' || userData.role === 'council_booth') {
               setIsAuthorized(true);
           } else {
-            // This user does not have council role, redirect them to their correct dashboard.
             setIsAuthorized(false);
             let redirectPath = '/dashboard';
             if (userData.role === 'admin') redirectPath = '/admin';
             else if (userData.role === 'teacher') redirectPath = '/teacher/rewards';
-            else if (userData.role === 'council_booth') redirectPath = '/council/booth';
             
             toast({
               title: '접근 권한 없음',
@@ -58,7 +56,6 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
             setTimeout(() => router.push(redirectPath), 50);
           }
       } else {
-        // Fallback for users that might exist in auth but not firestore for some reason
         setIsAuthorized(false);
         toast({
           title: '접근 권한 없음',

@@ -99,8 +99,8 @@ export default function CouncilBoothPage() {
   };
 
   return (
-    <div className="grid md:grid-cols-2 h-full">
-        <div className="flex items-center justify-center p-4 md:p-8">
+    <div className="grid md:grid-cols-2 gap-6 h-full">
+        <div className="flex items-center justify-center">
              <Card className="w-full max-w-md">
                 <form onSubmit={handleGivePoints}>
                 <CardHeader>
@@ -154,7 +154,7 @@ export default function CouncilBoothPage() {
                 </form>
             </Card>
         </div>
-        <div className="p-4 md:p-8 border-l bg-muted/40">
+        <div className="h-full">
             <CommunicationChannel/>
         </div>
     </div>

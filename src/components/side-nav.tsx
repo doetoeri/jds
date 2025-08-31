@@ -24,6 +24,8 @@ import {
   MessageCircleQuestion,
   Megaphone,
   Languages,
+  ShoppingCart,
+  ListOrdered,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -55,11 +57,15 @@ const adminLinks = [
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
   { name: '전체 내역', href: '/admin/history', icon: History },
+  { name: '전체 주문 내역', href: '/admin/purchases', icon: ListOrdered },
 ];
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '사용자 관리', href: '/council/users', icon: Users },
+  { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
+  { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
+  { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
+  { name: '학생 사용자 관리', href: '/council/users', icon: Users },
 ];
 
 const teacherLinks = [
