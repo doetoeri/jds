@@ -728,9 +728,9 @@ export const givePointsAtBooth = async (boothOperatorId: string, studentId: stri
 
 export const addBoothReason = async (reason: string) => {
     const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
-    await updateDoc(reasonsRef, {
+    await setDoc(reasonsRef, {
         reasons: arrayUnion(reason)
-    });
+    }, { merge: true });
 };
 
 export const deleteBoothReason = async (reason: string) => {

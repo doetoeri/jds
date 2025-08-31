@@ -38,13 +38,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
             const role = userDoc.data().role;
-            // Allow student and council roles, redirect others
-            if (role === 'admin' || role === 'teacher' || role === 'council_booth') {
+            
+            if (role === 'council_booth') {
+                router.push('/council/booth');
+                return;
+            }
+
+            if (role === 'admin' || role === 'teacher') {
                 setIsAuthorized(false);
                 let redirectPath = '/dashboard';
                 if (role === 'admin') redirectPath = '/admin';
                 if (role === 'teacher') redirectPath = '/teacher/rewards';
-                if (role === 'council_booth') redirectPath = '/council/booth';
                 
                 toast({
                   title: "잘못된 접근",
@@ -63,16 +67,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         const lastCheck = userDocData.lastLetterCheckTimestamp || new Timestamp(0, 0);
         
-        // Query only by receiver to avoid composite index
         const q = query(
           collection(db, 'letters'),
-          where('receiverStudentId', '==', userDocData.studentId)
+          where('receiverStudentId', '==', userDocData.studentId),
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 const letter = change.doc.data();
-                // Filter on the client side
                 if (
                     change.type === "added" &&
                     letter.status === 'approved' &&
