@@ -4,19 +4,18 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Gift, BookOpen } from 'lucide-react';
+import { Gift, BookOpen, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
   const [unusedCodeCount, setUnusedCodeCount] = useState<number | null>(null);
-
-  const FADE_IN_ANIMATION_VARIANTS = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring' } },
-  };
+  const [user, loading] = useAuthState(auth);
+  const router = useRouter();
 
   useEffect(() => {
     const q = query(
@@ -38,6 +37,51 @@ export default function LandingPage() {
 
     return () => unsubscribe();
   }, []);
+  
+  useEffect(() => {
+    const handleRedirect = async () => {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+                const role = userDoc.data().role;
+                if (role === 'admin') {
+                    router.push('/admin');
+                } else if (role === 'teacher') {
+                    router.push('/teacher/rewards');
+                } else if (role === 'council') {
+                    router.push('/council');
+                } else if (role === 'council_booth') {
+                    router.push('/council/booth');
+                }
+                else {
+                    router.push('/dashboard');
+                }
+            } else {
+                 router.push('/dashboard');
+            }
+        }
+    }
+    
+    if (!loading) {
+        handleRedirect();
+    }
+  }, [user, loading, router]);
+
+
+  const FADE_IN_ANIMATION_VARIANTS = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring' } },
+  };
+
+
+  if (loading || user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden isolate">
