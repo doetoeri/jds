@@ -62,18 +62,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         if (!userDocData) return;
 
         const lastCheck = userDocData.lastLetterCheckTimestamp || new Timestamp(0, 0);
-
+        
+        // Query only by receiver to avoid composite index
         const q = query(
           collection(db, 'letters'),
-          where('receiverStudentId', '==', userDocData.studentId),
-          where('status', '==', 'approved'),
-          where('approvedAt', '>', lastCheck)
+          where('receiverStudentId', '==', userDocData.studentId)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
-                if (change.type === "added") {
-                    const letter = change.doc.data();
+                const letter = change.doc.data();
+                // Filter on the client side
+                if (
+                    change.type === "added" &&
+                    letter.status === 'approved' &&
+                    letter.approvedAt &&
+                    letter.approvedAt.toMillis() > lastCheck.toMillis()
+                ) {
                     new Notification('새로운 편지가 도착했어요!', {
                         body: `${letter.senderStudentId}님으로부터 편지가 도착했습니다.`,
                         icon: '/logo-192.png',

@@ -43,6 +43,7 @@ interface ReceivedLetter {
   content: string;
   approvedAt: Timestamp;
   isOffline: boolean;
+  status: 'pending' | 'approved' | 'rejected';
 }
 
 export default function LettersView() {
@@ -79,17 +80,18 @@ export default function LettersView() {
         const userData = userDocSnap.data();
         const currentUserStudentId = userData.studentId;
 
+        // Query only by receiver student ID to avoid composite index
         const q = query(
           collection(db, 'letters'),
-          where('receiverStudentId', '==', currentUserStudentId),
-          where('status', '==', 'approved'),
-          orderBy('approvedAt', 'desc')
+          where('receiverStudentId', '==', currentUserStudentId)
         );
         const querySnapshot = await getDocs(q);
-        const letters = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as ReceivedLetter[];
+        
+        // Filter and sort on the client side
+        const letters = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as ReceivedLetter))
+            .filter(letter => letter.status === 'approved')
+            .sort((a, b) => b.approvedAt.toMillis() - a.approvedAt.toMillis());
         
         setReceivedLetters(letters);
 
