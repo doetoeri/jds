@@ -63,7 +63,7 @@ export default function LandingPage() {
         }
     }
     
-    if (!loading) {
+    if (!loading && user) {
         handleRedirect();
     }
   }, [user, loading, router]);
