@@ -35,16 +35,31 @@ export default function CouncilBoothLayout({ children }: { children: ReactNode }
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
-      if (userDocSnap.exists() && userDocSnap.data().role === 'council_booth') {
-        setIsAuthorized(true);
+      if (userDocSnap.exists()) {
+        const role = userDocSnap.data().role;
+        if (role === 'council' || role === 'council_booth') {
+          setIsAuthorized(true);
+        } else {
+          toast({
+            title: '접근 권한 없음',
+            description: '학생회 계정만 접근할 수 있는 페이지입니다.',
+            variant: 'destructive',
+          });
+          setIsAuthorized(false);
+          // Redirect to the correct dashboard based on role
+          let redirectPath = '/dashboard';
+          if (role === 'admin') redirectPath = '/admin';
+          if (role === 'teacher') redirectPath = '/teacher/rewards';
+          setTimeout(() => router.push(redirectPath), 50);
+        }
       } else {
-        toast({
-          title: '접근 권한 없음',
-          description: '부스용 학생회 계정만 접근할 수 있는 페이지입니다.',
-          variant: 'destructive',
-        });
-        setIsAuthorized(false);
-        setTimeout(() => router.push('/dashboard'), 50);
+         toast({
+            title: '오류',
+            description: '사용자 정보를 찾을 수 없습니다.',
+            variant: 'destructive',
+          });
+          setIsAuthorized(false);
+          setTimeout(() => router.push('/login'), 50);
       }
     };
     checkAuthorization();
