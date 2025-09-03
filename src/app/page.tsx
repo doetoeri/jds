@@ -30,7 +30,7 @@ export default function HomePage() {
         >
             <motion.div variants={FADE_IN_VARIANTS}>
                  <div className="mb-4 flex items-center justify-center gap-2">
-                    <h1 className="text-5xl font-bold font-headline tracking-tighter text-primary">
+                    <h1 className="text-5xl font-bold font-batang tracking-tighter text-primary">
                         JongDalSam
                     </h1>
                  </div>
