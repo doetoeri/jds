@@ -482,7 +482,7 @@ export const resetAllData = async () => {
 export const resetWordChainGame = async () => {
     try {
         const gameRef = doc(db, 'games', 'word-chain');
-        await deleteDoc(gameRef);
+        await setDoc(gameRef, { history: [] }, { merge: true });
     } catch (error) {
         console.error("Error resetting word chain game: ", error);
         throw new Error("끝말잇기 게임 초기화 중 오류가 발생했습니다.");
@@ -789,5 +789,3 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
 
 
 export { auth, db, storage };
-
-    
