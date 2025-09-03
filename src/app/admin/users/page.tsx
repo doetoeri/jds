@@ -105,10 +105,13 @@ export default function AdminUsersPage() {
   const sortedAndFilteredUsers = useMemo(() => {
     let filtered = users.filter(user => {
       if (!gradeFilter && !classFilter) {
-          return true; // No filter, show all
+          return true;
       }
       if (user.role !== 'student' || !user.studentId) {
-        return false; // Filter is on, but user is not a student
+        return false; 
+      }
+      if (typeof user.studentId !== 'string' || user.studentId.length < 3) {
+        return false;
       }
       const grade = user.studentId.substring(0, 1);
       const studentClass = user.studentId.substring(1, 3);

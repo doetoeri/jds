@@ -144,8 +144,8 @@ export default function AdminLettersPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant[letter.status]}>
-                        {statusText[letter.status]}
+                      <Badge variant={statusVariant[letter.status] || 'secondary'}>
+                        {statusText[letter.status] || '알 수 없음'}
                       </Badge>
                     </TableCell>
                     <TableCell>
