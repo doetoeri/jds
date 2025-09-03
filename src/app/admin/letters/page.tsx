@@ -131,13 +131,13 @@ export default function AdminLettersPage() {
               ) : (
                 letters.map(letter => (
                   <TableRow key={letter.id}>
-                    <TableCell>{letter.senderStudentId}</TableCell>
-                    <TableCell>{letter.receiverStudentId}</TableCell>
+                    <TableCell>{letter.senderStudentId || 'N/A'}</TableCell>
+                    <TableCell>{letter.receiverStudentId || 'N/A'}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {letter.content}
                     </TableCell>
                     <TableCell>
-                      {letter.isOffline ? (
+                      {letter.isOffline === true ? (
                           <Badge variant="secondary"><Printer className="h-3 w-3 mr-1"/>오프라인</Badge>
                       ) : (
                           <Badge variant="outline">온라인</Badge>

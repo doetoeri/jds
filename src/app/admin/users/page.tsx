@@ -107,12 +107,12 @@ export default function AdminUsersPage() {
       if (!gradeFilter && !classFilter) {
           return true;
       }
-      if (user.role !== 'student' || !user.studentId) {
+      
+      // Only filter for students
+      if (user.role !== 'student' || !user.studentId || typeof user.studentId !== 'string' || user.studentId.length !== 5) {
         return false; 
       }
-      if (typeof user.studentId !== 'string' || user.studentId.length < 3) {
-        return false;
-      }
+      
       const grade = user.studentId.substring(0, 1);
       const studentClass = user.studentId.substring(1, 3);
       
