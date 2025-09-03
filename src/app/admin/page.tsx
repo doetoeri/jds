@@ -10,7 +10,7 @@ import {
   CardDescription,
   CardFooter
 } from '@/components/ui/card';
-import { Users, QrCode, Coins, AlertTriangle, Loader2, Trash2, ListPlus, PlusCircle, Gamepad2 } from 'lucide-react';
+import { Users, QrCode, Coins, AlertTriangle, Loader2, Trash2, ListPlus, PlusCircle, Gamepad2, Settings2, PowerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -24,13 +24,16 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { resetAllData, db, addBoothReason, deleteBoothReason, resetWordChainGame } from '@/lib/firebase';
+import { resetAllData, db, addBoothReason, deleteBoothReason, resetWordChainGame, setMaintenanceMode } from '@/lib/firebase';
 import { CommunicationChannel } from '@/components/communication-channel';
 import { AnnouncementPoster } from '@/components/announcement-poster';
 import { collection, onSnapshot, query, where, getDocs, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+
 
 interface Stats {
     totalUsers: number;
@@ -51,6 +54,8 @@ export default function AdminDashboardPage() {
   const [boothReasons, setBoothReasons] = useState<BoothReason[]>([]);
   const [newReason, setNewReason] = useState('');
   const [isAddingReason, setIsAddingReason] = useState(false);
+  const [maintenanceMode, setMaintenanceModeState] = useState(false);
+  const [isMaintenanceLoading, setIsMaintenanceLoading] = useState(true);
   
   const { toast } = useToast();
   
@@ -103,6 +108,14 @@ export default function AdminDashboardPage() {
         }
     });
 
+    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const unsubMaintenance = onSnapshot(maintenanceRef, (doc) => {
+        if (doc.exists()) {
+            setMaintenanceModeState(doc.data().isMaintenanceMode);
+        }
+        setIsMaintenanceLoading(false);
+    });
+
     Promise.all([getDocs(usersQuery), getDocs(codesQuery)]).then(() => {
         setIsLoading(false);
     }).catch(e => {
@@ -114,6 +127,7 @@ export default function AdminDashboardPage() {
         unsubUsers();
         unsubCodes();
         unsubReasons();
+        unsubMaintenance();
     };
 }, []);
 
@@ -178,6 +192,22 @@ export default function AdminDashboardPage() {
     } catch (error: any) {
         toast({ title: '오류', description: error.message, variant: 'destructive'});
     }
+  };
+
+  const handleMaintenanceToggle = async (checked: boolean) => {
+      setIsMaintenanceLoading(true);
+      try {
+          await setMaintenanceMode(checked);
+          toast({
+              title: `시스템이 ${checked ? '점검 모드' : '정상 모드'}로 전환되었습니다.`,
+          });
+      } catch (error: any) {
+           toast({ title: '오류', description: error.message, variant: 'destructive'});
+           // Revert state on failure
+           setMaintenanceModeState(!checked);
+      } finally {
+          setIsMaintenanceLoading(false);
+      }
   };
 
   return (
@@ -255,80 +285,101 @@ export default function AdminDashboardPage() {
                     위험 구역
                 </CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      아래 버튼은 시스템의 모든 활동 데이터를 영구적으로 삭제하고 초기화합니다.
-                    </p>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                        <Button variant="destructive" disabled={isResetting}>
-                            {isResetting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Trash2 className="mr-2 h-4 w-4" />
-                            )}
-                            전체 활동 데이터 초기화
-                        </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            이 작업은 모든 사용자의 포인트, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction
-                            className="bg-destructive hover:bg-destructive/90"
-                            onClick={handleReset}
-                            disabled={isResetting}
-                            >
-                            {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            네, 모든 활동 내역을 초기화합니다.
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                <CardContent className="space-y-6">
+                    <div className="p-4 border rounded-lg bg-red-50 border-red-200 space-y-4">
+                        <div className="flex items-center space-x-2">
+                            <Label htmlFor="maintenance-mode" className="flex items-center gap-2 font-bold text-lg text-red-800">
+                                <Settings2/>
+                                시스템 점검 모드
+                            </Label>
+                            {isMaintenanceLoading ? <Loader2 className="h-4 w-4 animate-spin"/> :
+                            <Switch
+                                id="maintenance-mode"
+                                checked={maintenanceMode}
+                                onCheckedChange={handleMaintenanceToggle}
+                                aria-label="점검 모드 토글"
+                                className="data-[state=checked]:bg-red-600"
+                            />}
+                        </div>
+                        <p className="text-sm text-red-700">
+                            점검 모드를 활성화하면 관리자, 로그인, 회원가입, 가이드 페이지를 제외한 모든 페이지가 점검중으로 표시됩니다.
+                        </p>
+                    </div>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          아래 버튼은 시스템의 모든 활동 데이터를 영구적으로 삭제하고 초기화합니다.
+                        </p>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={isResetting}>
+                                {isResetting ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                )}
+                                전체 활동 데이터 초기화
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                이 작업은 모든 사용자의 포인트, 거래 내역, 코드, 편지, 구매 기록을 영구적으로 삭제합니다. 사용자 계정 자체는 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction
+                                className="bg-destructive hover:bg-destructive/90"
+                                onClick={handleReset}
+                                disabled={isResetting}
+                                >
+                                {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                네, 모든 활동 내역을 초기화합니다.
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
 
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      아래 버튼은 끝말잇기 게임의 모든 기록을 삭제하고 초기화합니다.
-                    </p>
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                        <Button variant="destructive" disabled={isResettingGame}>
-                            {isResettingGame ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Gamepad2 className="mr-2 h-4 w-4" />
-                            )}
-                            끝말잇기 게임 초기화
-                        </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            이 작업은 끝말잇기 게임의 모든 단어 기록을 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction
-                            className="bg-destructive hover:bg-destructive/90"
-                            onClick={handleGameReset}
-                            disabled={isResettingGame}
-                            >
-                            {isResettingGame && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            네, 게임을 초기화합니다.
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          아래 버튼은 끝말잇기 게임의 모든 기록을 삭제하고 초기화합니다.
+                        </p>
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={isResettingGame}>
+                                {isResettingGame ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Gamepad2 className="mr-2 h-4 w-4" />
+                                )}
+                                끝말잇기 게임 초기화
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>정말로 초기화하시겠습니까?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                이 작업은 끝말잇기 게임의 모든 단어 기록을 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction
+                                className="bg-destructive hover:bg-destructive/90"
+                                onClick={handleGameReset}
+                                disabled={isResettingGame}
+                                >
+                                {isResettingGame && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                네, 게임을 초기화합니다.
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>

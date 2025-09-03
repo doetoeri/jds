@@ -9,10 +9,11 @@ import { auth, db } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
+import MaintenancePage from '../maintenance/page';
 
 export default function GameLayout({ children }: { children: ReactNode }) {
   const [user, loading] = useAuthState(auth);
@@ -20,8 +21,21 @@ export default function GameLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isMaintenanceMode, setMaintenanceMode] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
+    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
+        if (doc.exists()) {
+            setMaintenanceMode(doc.data().isMaintenanceMode);
+        }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    setCheckingAuth(true);
     if (loading) return; 
     if (!user) {
       toast({
@@ -33,9 +47,22 @@ export default function GameLayout({ children }: { children: ReactNode }) {
       return;
     }
     setIsAuthorized(true);
+    setCheckingAuth(false);
   }, [user, loading, router, toast]);
 
-  if (loading || !isAuthorized) {
+  if (loading || checkingAuth) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isMaintenanceMode) {
+      return <MaintenancePage />;
+  }
+
+  if (!isAuthorized) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

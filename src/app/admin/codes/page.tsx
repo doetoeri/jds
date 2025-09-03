@@ -724,5 +724,3 @@ export default function AdminCodesPage() {
     </>
   );
 }
-
-    

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -28,6 +27,8 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+const POINT_LIMIT = 25;
 
 
 // One-time function to add signup bonus to existing users
@@ -237,152 +238,119 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
   return await runTransaction(db, async (transaction) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
-    if (!userDoc.exists()) {
-      throw "존재하지 않는 사용자입니다.";
-    }
+    if (!userDoc.exists()) throw "존재하지 않는 사용자입니다.";
+    
     const userData = userDoc.data();
     const userStudentId = userData.studentId;
 
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
-    const codeSnapshot = await getDocs(codeQuery);
+    const codeSnapshot = await getDocs(codeQuery); // Use getDocs outside transaction for reads
 
-    if (codeSnapshot.empty) {
-      throw "유효하지 않은 코드입니다.";
-    }
+    if (codeSnapshot.empty) throw "유효하지 않은 코드입니다.";
 
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
     
     const freshCodeDoc = await transaction.get(codeRef);
     const freshCodeData = freshCodeDoc.data();
-    if (!freshCodeData) {
-        throw "코드를 찾을 수 없습니다.";
-    }
+    if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
+
+    const checkPointLimit = (currentPoints: number, pointsToAdd: number) => {
+      if (currentPoints + pointsToAdd > POINT_LIMIT) {
+          throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+      }
+    };
     
 
     switch (freshCodeData.type) {
       case '히든코드':
-        if (freshCodeData.used) {
-            throw "이미 사용된 코드입니다.";
-        }
-        if (!partnerStudentId) {
-          throw "파트너의 학번이 필요합니다.";
-        }
-        if (partnerStudentId === userStudentId) {
-          throw "자기 자신을 파트너로 지정할 수 없습니다.";
-        }
-        if (!/^\d{5}$/.test(partnerStudentId)) {
-          throw "파트너의 학번은 5자리 숫자여야 합니다.";
-        }
+        if (freshCodeData.used) throw "이미 사용된 코드입니다.";
+        if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
+        if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
+        if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
 
         const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
-        const partnerSnapshot = await getDocs(partnerQuery);
-        if (partnerSnapshot.empty) {
-          throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
-        }
+        const partnerSnapshot = await getDocs(partnerQuery); // Read outside transaction
+        if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
+        
         const partnerRef = partnerSnapshot.docs[0].ref;
+        const partnerDoc = await transaction.get(partnerRef);
+        if(!partnerDoc.exists()) throw `파트너(${partnerStudentId}) 정보를 찾을 수 없습니다.`;
+
+        checkPointLimit(userData.lak || 0, freshCodeData.value);
+        checkPointLimit(partnerDoc.data()?.lak || 0, freshCodeData.value);
 
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
         const userHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(userHistoryRef, {
-          date: Timestamp.now(),
-          description: `히든코드 사용 (파트너: ${partnerStudentId})`,
-          amount: freshCodeData.value,
-          type: 'credit',
+          date: Timestamp.now(), description: `히든코드 사용 (파트너: ${partnerStudentId})`, amount: freshCodeData.value, type: 'credit',
         });
 
         transaction.update(partnerRef, { lak: increment(freshCodeData.value) });
         const partnerHistoryRef = doc(collection(partnerRef, 'transactions'));
         transaction.set(partnerHistoryRef, {
-          date: Timestamp.now(),
-          description: `히든코드 파트너 보상 (사용자: ${userStudentId})`,
-          amount: freshCodeData.value,
-          type: 'credit',
+          date: Timestamp.now(), description: `히든코드 파트너 보상 (사용자: ${userStudentId})`, amount: freshCodeData.value, type: 'credit',
         });
 
-        transaction.update(codeRef, {
-          used: true,
-          usedBy: [userStudentId, partnerStudentId],
-        });
+        transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
 
         return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
 
       case '메이트코드':
-        if (freshCodeData.ownerUid === userId) {
-          throw "자신의 메이트 코드는 사용할 수 없습니다.";
-        }
-        if (freshCodeData.participants && freshCodeData.participants.includes(userStudentId)) {
-            throw "이미 사용한 메이트 코드입니다.";
-        }
+        if (freshCodeData.ownerUid === userId) throw "자신의 메이트 코드는 사용할 수 없습니다.";
+        if (freshCodeData.participants && freshCodeData.participants.includes(userStudentId)) throw "이미 사용한 메이트 코드입니다.";
+        
+        const ownerRef = doc(db, 'users', freshCodeData.ownerUid);
+        const ownerDoc = await transaction.get(ownerRef);
+        if (!ownerDoc.exists()) throw "코드 소유자 정보를 찾을 수 없습니다.";
+
+        checkPointLimit(userData.lak || 0, mateCodeReward);
+        checkPointLimit(ownerDoc.data()?.lak || 0, mateCodeReward);
 
         transaction.update(userRef, { lak: increment(mateCodeReward) });
         const mateUserHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(mateUserHistoryRef, {
-          date: Timestamp.now(),
-          description: `'${freshCodeData.ownerStudentId}'님의 메이트코드 사용`,
-          amount: mateCodeReward,
-          type: 'credit',
+          date: Timestamp.now(), description: `'${freshCodeData.ownerStudentId}'님의 메이트코드 사용`, amount: mateCodeReward, type: 'credit',
         });
 
-        const ownerRef = doc(db, 'users', freshCodeData.ownerUid);
         transaction.update(ownerRef, { lak: increment(mateCodeReward) });
         const ownerHistoryRef = doc(collection(ownerRef, 'transactions'));
         transaction.set(ownerHistoryRef, {
-          date: Timestamp.now(),
-          description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`,
-          amount: mateCodeReward,
-          type: 'credit',
+          date: Timestamp.now(), description: `'${userStudentId}'님이 메이트코드를 사용했습니다.`, amount: mateCodeReward, type: 'credit',
         });
 
-        transaction.update(codeRef, { 
-            participants: arrayUnion(userStudentId),
-            lastUsedAt: Timestamp.now()
-        });
+        transaction.update(codeRef, { participants: arrayUnion(userStudentId), lastUsedAt: Timestamp.now() });
 
         return { success: true, message: `메이트코드를 사용하여 ${mateCodeReward} 포인트를, 코드 주인도 ${mateCodeReward} 포인트를 받았습니다!` };
       
       case '선착순코드':
         const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
-        if (usedBy.includes(userStudentId)) {
-            throw "이미 이 코드를 사용했습니다.";
-        }
-        if (usedBy.length >= freshCodeData.limit) {
-            throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
-        }
+        if (usedBy.includes(userStudentId)) throw "이미 이 코드를 사용했습니다.";
+        if (usedBy.length >= freshCodeData.limit) throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
+
+        checkPointLimit(userData.lak || 0, freshCodeData.value);
 
         transaction.update(userRef, { lak: increment(freshCodeData.value) });
-
-        transaction.update(codeRef, {
-          usedBy: arrayUnion(userStudentId)
-        });
+        transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
 
         const fcfcHistoryRef = doc(collection(userRef, 'transactions'));
         transaction.set(fcfcHistoryRef, {
-          date: Timestamp.now(),
-          description: `선착순코드 "${freshCodeData.code}" 사용`,
-          amount: freshCodeData.value,
-          type: 'credit',
+          date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: freshCodeData.value, type: 'credit',
         });
         
         return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
 
       default:
-        if (freshCodeData.used) {
-            throw "이미 사용된 코드입니다.";
-        }
-        transaction.update(userRef, { lak: increment(freshCodeData.value) });
+        if (freshCodeData.used) throw "이미 사용된 코드입니다.";
 
-        transaction.update(codeRef, {
-          used: true,
-          usedBy: userStudentId,
-        });
+        checkPointLimit(userData.lak || 0, freshCodeData.value);
+
+        transaction.update(userRef, { lak: increment(freshCodeData.value) });
+        transaction.update(codeRef, { used: true, usedBy: userStudentId });
 
         const historyRef = doc(collection(userRef, 'transactions'));
         transaction.set(historyRef, {
-          date: Timestamp.now(),
-          description: `${freshCodeData.type} "${freshCodeData.code}" 사용`,
-          amount: freshCodeData.value,
-          type: 'credit',
+          date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: freshCodeData.value, type: 'credit',
         });
 
         return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
@@ -390,7 +358,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
   }).catch((error) => {
       console.error("Code redemption error: ", error);
-      const errorMessage = typeof error === 'string' ? error : "코드 사용 중 오류가 발생했습니다.";
+      const errorMessage = typeof error === 'string' ? error : (error.message || "코드 사용 중 오류가 발생했습니다.");
       return { success: false, message: errorMessage };
   });
 };
@@ -521,6 +489,11 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
       throw new Error("User does not exist.");
     }
 
+    const currentPoints = userDoc.data().lak || 0;
+    if (amount > 0 && currentPoints + amount > POINT_LIMIT) {
+        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다. 현재: ${currentPoints}, 지급 요청: ${amount}`);
+    }
+
     transaction.update(userRef, { lak: increment(amount) });
 
     const historyRef = doc(collection(userRef, 'transactions'));
@@ -627,22 +600,22 @@ export const submitWord = async (userId: string, word: string) => {
     return await runTransaction(db, async (transaction) => {
         const userRef = doc(db, "users", userId);
         const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) {
-            throw new Error("사용자를 찾을 수 없습니다.");
-        }
-        const userData = userDoc.data();
+        if (!userDoc.exists()) throw new Error("사용자를 찾을 수 없습니다.");
         
-        // Check last participation time
+        const userData = userDoc.data();
+        const currentPoints = userData.lak || 0;
+        
+        if (currentPoints + 1 > POINT_LIMIT) {
+            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+        }
+
         if (userData.lastWordChainTimestamp) {
             const lastTime = userData.lastWordChainTimestamp.toDate();
             const now = new Date();
-            // Set to midnight KST for comparison
             const lastDateKST = new Date(lastTime.toLocaleString("en-US", { timeZone: "Asia/Seoul" })).setHours(0,0,0,0);
             const nowDateKST = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })).setHours(0,0,0,0);
             
-            if (lastDateKST === nowDateKST) {
-                 throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
-            }
+            if (lastDateKST === nowDateKST) throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
         }
 
         const gameRef = doc(db, "games", "word-chain");
@@ -661,38 +634,19 @@ export const submitWord = async (userId: string, word: string) => {
         }
 
         const newTurn = {
-            word,
-            userId,
-            studentId: userData.studentId,
-            displayName: userData.displayName,
-            createdAt: Timestamp.now()
+            word, userId, studentId: userData.studentId, displayName: userData.displayName, createdAt: Timestamp.now()
         };
 
         if (gameDoc.exists()) {
-            transaction.update(gameRef, {
-                history: arrayUnion(newTurn),
-                lastUpdate: Timestamp.now()
-            });
+            transaction.update(gameRef, { history: arrayUnion(newTurn), lastUpdate: Timestamp.now() });
         } else {
-            transaction.set(gameRef, {
-                history: [newTurn],
-                createdAt: Timestamp.now(),
-                lastUpdate: Timestamp.now()
-            });
+            transaction.set(gameRef, { history: [newTurn], createdAt: Timestamp.now(), lastUpdate: Timestamp.now() });
         }
 
-        transaction.update(userRef, {
-            lak: increment(1),
-            lastWordChainTimestamp: Timestamp.now() // Store timestamp instead of date string
-        });
+        transaction.update(userRef, { lak: increment(1), lastWordChainTimestamp: Timestamp.now() });
         
         const txHistoryRef = doc(collection(userRef, "transactions"));
-        transaction.set(txHistoryRef, {
-            amount: 1,
-            date: Timestamp.now(),
-            description: "끝말잇기 참여 보상",
-            type: "credit",
-        });
+        transaction.set(txHistoryRef, { amount: 1, date: Timestamp.now(), description: "끝말잇기 참여 보상", type: "credit" });
         
         return { success: true, message: "성공! 1포인트를 획득했습니다." };
     }).catch((error) => {
@@ -712,17 +666,21 @@ export const givePointsAtBooth = async (boothOperatorId: string, studentId: stri
         
         const studentDoc = studentSnapshot.docs[0];
         const studentRef = studentDoc.ref;
+        const currentPoints = studentDoc.data().lak || 0;
+
+        if (currentPoints + amount > POINT_LIMIT) {
+            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+        }
 
         transaction.update(studentRef, { lak: increment(amount) });
         
         const historyRef = doc(collection(studentRef, 'transactions'));
         transaction.set(historyRef, {
-          date: Timestamp.now(),
-          description: `부스 이벤트: ${reason}`,
-          amount: amount,
-          type: 'credit',
-          operator: boothOperatorId
+          date: Timestamp.now(), description: `부스 이벤트: ${reason}`, amount: amount, type: 'credit', operator: boothOperatorId
         });
+    }).catch((error: any) => {
+        console.error("Booth point error:", error);
+        throw new Error(error.message || '부스 포인트 지급 중 오류가 발생했습니다.');
     });
 };
 
@@ -749,69 +707,59 @@ export const sendLetter = async (
   return await runTransaction(db, async (transaction) => {
     const senderRef = doc(db, 'users', senderUid);
     const senderDoc = await transaction.get(senderRef);
-    if (!senderDoc.exists()) {
-      throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
-    }
+    if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
+    
     const senderData = senderDoc.data();
     const senderStudentId = senderData.studentId;
 
-    if (senderStudentId === receiverStudentId) {
-      throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
-    }
+    if (senderStudentId === receiverStudentId) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
 
     const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
     const receiverSnapshot = await getDocs(receiverQuery);
-    if (receiverSnapshot.empty) {
-      throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
-    }
+    if (receiverSnapshot.empty) throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
+    
     const receiverDoc = receiverSnapshot.docs[0];
     const receiverRef = receiverDoc.ref;
-    const receiverData = receiverDoc.data();
+    const receiverData = await transaction.get(receiverRef);
+    if (!receiverData.exists()) throw new Error('받는 사람의 정보를 찾을 수 없습니다.');
+    
+    const reward = 2;
+    const senderPoints = senderData.lak || 0;
+    const receiverPoints = receiverData.data()?.lak || 0;
 
-    // 1. Add the letter with 'approved' status
+    if (senderPoints + reward > POINT_LIMIT) throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+    if (receiverPoints + reward > POINT_LIMIT) throw new Error(`상대방의 포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
-      senderUid,
-      senderStudentId,
-      receiverStudentId,
-      content,
-      isOffline,
-      status: 'approved' as const,
-      createdAt: Timestamp.now(),
-      approvedAt: Timestamp.now(),
+      senderUid, senderStudentId, receiverStudentId, content, isOffline, status: 'approved' as const, createdAt: Timestamp.now(), approvedAt: Timestamp.now(),
     };
     transaction.set(letterRef, letterData);
 
-    const reward = 2;
-
-    // 2. Update points for sender and receiver
     transaction.update(senderRef, { lak: increment(reward) });
     transaction.update(receiverRef, { lak: increment(reward) });
 
-    // 3. Add transaction history for sender
     const senderHistoryRef = doc(collection(senderRef, 'transactions'));
     transaction.set(senderHistoryRef, {
-      amount: reward,
-      date: Timestamp.now(),
-      description: `${isOffline ? '오프라인 ' : ''}편지 발신 보상 (받는 사람: ${receiverStudentId})`,
-      type: 'credit',
+      amount: reward, date: Timestamp.now(), description: `${isOffline ? '오프라인 ' : ''}편지 발신 보상 (받는 사람: ${receiverStudentId})`, type: 'credit',
     });
 
-    // 4. Add transaction history for receiver
     const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
     transaction.set(receiverHistoryRef, {
-      amount: reward,
-      date: Timestamp.now(),
-      description: `${isOffline ? '오프라인 ' : ''}편지 수신 (보낸 사람: ${senderStudentId})`,
-      type: 'credit',
+      amount: reward, date: Timestamp.now(), description: `${isOffline ? '오프라인 ' : ''}편지 수신 (보낸 사람: ${senderStudentId})`, type: 'credit',
     });
 
     return { success: true, message: '편지가 성공적으로 전송되고 포인트가 지급되었습니다!' };
   }).catch((error) => {
     console.error("Send letter error: ", error);
-    const errorMessage = typeof error === 'string' ? error : "편지 전송 중 오류가 발생했습니다.";
+    const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";
     return { success: false, message: errorMessage };
   });
+};
+
+export const setMaintenanceMode = async (isMaintenance: boolean) => {
+    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
 };
 
 

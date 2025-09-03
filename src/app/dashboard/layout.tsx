@@ -13,6 +13,7 @@ import { doc, getDoc, onSnapshot, query, collection, where, Timestamp } from 'fi
 import { Loader2 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
+import MaintenancePage from '../maintenance/page';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, loading] = useAuthState(auth);
@@ -20,8 +21,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isMaintenanceMode, setMaintenanceMode] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
+    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
+        if (doc.exists()) {
+            setMaintenanceMode(doc.data().isMaintenanceMode);
+        }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    setCheckingAuth(true);
     if (loading) return; 
     if (!user) {
       toast({
@@ -60,6 +74,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             }
         }
         setIsAuthorized(true);
+        setCheckingAuth(false);
         
         // Setup notifications listener
         const userDocData = userDoc.data();
@@ -96,12 +111,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   }, [user, loading, router, toast]);
 
-  if (loading || !isAuthorized) {
+  if (loading || checkingAuth) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (isMaintenanceMode) {
+      return <MaintenancePage />;
+  }
+
+  if (!isAuthorized) {
+       return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+        );
   }
 
   return (

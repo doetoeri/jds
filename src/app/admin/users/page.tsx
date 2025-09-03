@@ -19,7 +19,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -54,6 +54,9 @@ interface User {
   role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth';
 }
 
+type SortKey = 'lak';
+type SortDirection = 'asc' | 'desc';
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +74,8 @@ export default function AdminUsersPage() {
   
   const [gradeFilter, setGradeFilter] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('lak');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
 
   useEffect(() => {
@@ -97,11 +102,13 @@ export default function AdminUsersPage() {
     return () => unsubscribe();
   }, [toast]);
   
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
+  const sortedAndFilteredUsers = useMemo(() => {
+    let filtered = users.filter(user => {
+      if (!gradeFilter && !classFilter) {
+          return true; // No filter, show all
+      }
       if (user.role !== 'student' || !user.studentId) {
-        // 학생이 아니거나 학번이 없는 경우 필터링하지 않음 (항상 표시 또는 다른 로직)
-        return !gradeFilter && !classFilter;
+        return false; // Filter is on, but user is not a student
       }
       const grade = user.studentId.substring(0, 1);
       const studentClass = user.studentId.substring(1, 3);
@@ -111,7 +118,29 @@ export default function AdminUsersPage() {
       
       return gradeMatch && classMatch;
     });
-  }, [users, gradeFilter, classFilter]);
+
+    return filtered.sort((a, b) => {
+        const aValue = a[sortKey] || 0;
+        const bValue = b[sortKey] || 0;
+
+        if (aValue < bValue) {
+            return sortDirection === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+            return sortDirection === 'asc' ? 1 : -1;
+        }
+        return 0;
+    });
+  }, [users, gradeFilter, classFilter, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+        setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+        setSortKey(key);
+        setSortDirection('desc');
+    }
+  };
 
 
   const openAdjustDialog = (user: User) => {
@@ -259,7 +288,12 @@ export default function AdminUsersPage() {
                 <TableHead>학번/성함</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
-                <TableHead className="text-right">보유 포인트</TableHead>
+                <TableHead className="text-right">
+                    <Button variant="ghost" onClick={() => handleSort('lak')}>
+                        보유 포인트
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
                 <TableHead className="text-right">작업</TableHead>
               </TableRow>
             </TableHeader>
@@ -275,7 +309,7 @@ export default function AdminUsersPage() {
                   </TableRow>
                 ))
               ) : (
-                filteredUsers.map((user) => (
+                sortedAndFilteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
                     <TableCell>{user.email}</TableCell>
@@ -420,6 +454,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-    
-
-    

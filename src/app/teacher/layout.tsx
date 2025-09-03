@@ -9,10 +9,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Loader2 } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
+import MaintenancePage from '../maintenance/page';
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -20,9 +21,22 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [user, loading] = useAuthState(auth);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isMaintenanceMode, setMaintenanceMode] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
+        if (doc.exists()) {
+            setMaintenanceMode(doc.data().isMaintenanceMode);
+        }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const checkAuthorization = async () => {
+      setCheckingAuth(true);
       if (loading) return;
       if (!user) {
         toast({
@@ -48,11 +62,24 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         setIsAuthorized(false);
         setTimeout(() => router.push('/dashboard'), 50);
       }
+      setCheckingAuth(false);
     };
     checkAuthorization();
   }, [user, loading, router, toast]);
 
-  if (loading || !isAuthorized) {
+  if (loading || checkingAuth) {
+    return (
+       <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (isMaintenanceMode) {
+      return <MaintenancePage />;
+  }
+  
+  if (!isAuthorized) {
     return (
        <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
