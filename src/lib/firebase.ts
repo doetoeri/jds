@@ -268,9 +268,34 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
         if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
         if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
+        
+        // 1. Find all mate codes current user is a part of
+        const mateCodesQuery = query(
+            collection(db, 'codes'),
+            where('type', '==', '메이트코드'),
+            where('participants', 'array-contains', userStudentId)
+        );
+        const mateCodesSnapshot = await getDocs(mateCodesQuery);
+        
+        // 2. Extract all unique friend student IDs
+        const friendStudentIds = new Set<string>();
+        mateCodesSnapshot.docs.forEach(doc => {
+            const participants = doc.data().participants as string[];
+            participants.forEach(pId => {
+                if (pId !== userStudentId) {
+                    friendStudentIds.add(pId);
+                }
+            });
+        });
 
-        const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
-        const partnerSnapshot = await getDocs(partnerQuery); // Read outside transaction
+        // 3. Check if the specified partner is in the friends list
+        if (!friendStudentIds.has(partnerStudentId)) {
+            throw new Error(`학생(${partnerStudentId})은 친구 목록에 없습니다. 메이트 코드를 먼저 교환해주세요.`);
+        }
+
+        // 4. Verify the partner user actually exists
+        const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId), where('role', '==', 'student'));
+        const partnerSnapshot = await getDocs(partnerQuery);
         if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
         
         const partnerRef = partnerSnapshot.docs[0].ref;
@@ -764,3 +789,5 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
 
 
 export { auth, db, storage };
+
+    

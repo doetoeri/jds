@@ -113,8 +113,10 @@ export default function LettersView() {
   }, [user, toast]);
 
   useEffect(() => {
-    if (Notification.permission === 'default') {
-        Notification.requestPermission();
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+          Notification.requestPermission();
+      }
     }
   }, []);
 
@@ -294,3 +296,5 @@ export default function LettersView() {
     </Tabs>
   );
 }
+
+    

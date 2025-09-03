@@ -1,10 +1,13 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -16,9 +19,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
-import { collectionGroup, getDocs, orderBy, query, Timestamp, getDoc } from 'firebase/firestore';
+import { collectionGroup, getDocs, query, Timestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface Transaction {
   id: string;
@@ -32,6 +37,7 @@ interface Transaction {
 export default function AdminHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -39,8 +45,7 @@ export default function AdminHistoryPage() {
       setIsLoading(true);
       try {
         const transactionsGroupRef = collectionGroup(db, 'transactions');
-        // orderBy is removed to prevent index error. Sorting will be done client-side.
-        const q = query(transactionsGroupRef, orderBy('date', 'desc'));
+        const q = query(transactionsGroupRef);
         const querySnapshot = await getDocs(q);
 
         const allTransactions = await Promise.all(querySnapshot.docs.map(async (doc) => {
@@ -62,9 +67,8 @@ export default function AdminHistoryPage() {
           } as Transaction;
         }));
 
-        // Sort transactions by date in descending order on the client side
+        // 클라이언트 측에서 날짜순으로 정렬
         allTransactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
-
         setTransactions(allTransactions);
 
       } catch (error) {
@@ -76,6 +80,16 @@ export default function AdminHistoryPage() {
     };
     fetchAllTransactions();
   }, [toast]);
+  
+  const filteredTransactions = useMemo(() => {
+    if (!filter) return transactions;
+    return transactions.filter(
+      (t) =>
+        t.studentId.includes(filter) ||
+        t.description.toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [transactions, filter]);
+
 
   return (
     <div>
@@ -83,6 +97,27 @@ export default function AdminHistoryPage() {
         <h1 className="text-2xl font-bold tracking-tight font-headline">전체 내역</h1>
         <p className="text-muted-foreground">시스템의 모든 포인트 사용 및 적립 내역입니다.</p>
       </div>
+
+       <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>내역 필터링</CardTitle>
+          <CardDescription>학번 또는 내용으로 내역을 검색할 수 있습니다.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-sm">
+            <Label htmlFor="filter-input" className="sr-only">
+              검색
+            </Label>
+            <Input
+              id="filter-input"
+              placeholder="학번 또는 내용으로 검색..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+        </CardContent>
+       </Card>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -104,17 +139,17 @@ export default function AdminHistoryPage() {
                       <TableCell className="text-right"><Skeleton className="h-7 w-16 ml-auto" /></TableCell>
                     </TableRow>
                   ))
-              ) : transactions.length === 0 ? (
+              ) : filteredTransactions.length === 0 ? (
                    <TableRow>
                     <TableCell colSpan={4} className="text-center h-24">
-                      거래 내역이 없습니다.
+                      {filter ? '검색 결과가 없습니다.' : '거래 내역이 없습니다.'}
                     </TableCell>
                   </TableRow>
               ) : (
-                transactions.map((transaction) => (
+                filteredTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="font-medium">{transaction.studentId}</TableCell>
-                    <TableCell>{transaction.date?.toDate ? transaction.date.toDate().toLocaleDateString() : '날짜 없음'}</TableCell>
+                    <TableCell>{transaction.date?.toDate ? transaction.date.toDate().toLocaleString() : '날짜 없음'}</TableCell>
                     <TableCell>{transaction.description}</TableCell>
                     <TableCell className="text-right">
                       <Badge
@@ -134,3 +169,5 @@ export default function AdminHistoryPage() {
     </div>
   );
 }
+
+    
