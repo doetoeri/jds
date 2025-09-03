@@ -38,50 +38,50 @@ export default function LandingPage() {
     return () => unsubscribe();
   }, []);
   
-  useEffect(() => {
-    const handleRedirect = async () => {
-        if (user) {
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-                const role = userDoc.data().role;
-                if (role === 'admin') {
-                    router.push('/admin');
-                } else if (role === 'teacher') {
-                    router.push('/teacher/rewards');
-                } else if (role === 'council') {
-                    router.push('/council');
-                } else if (role === 'council_booth') {
-                    router.push('/council/booth');
-                }
-                else {
-                    router.push('/dashboard');
-                }
-            } else {
-                 router.push('/dashboard');
-            }
-        }
-    }
-    
-    if (!loading && user) {
-        handleRedirect();
-    }
-  }, [user, loading, router]);
-
-
-  const FADE_IN_ANIMATION_VARIANTS = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring' } },
-  };
-
-
-  if (loading || user) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     );
   }
+  
+  if (user) {
+    // This logic runs on the client after loading is false and user is determined.
+    // It's better to have a dedicated loading/redirect component or handle it in a layout if possible.
+    // For now, this direct push is fine, but can cause a flash of the landing page.
+    getDoc(doc(db, 'users', user.uid)).then(userDoc => {
+         if (userDoc.exists()) {
+            const role = userDoc.data().role;
+            if (role === 'admin') {
+                router.push('/admin');
+            } else if (role === 'teacher') {
+                router.push('/teacher/rewards');
+            } else if (role === 'council') {
+                router.push('/council');
+            } else if (role === 'council_booth') {
+                router.push('/council/booth');
+            }
+            else {
+                router.push('/dashboard');
+            }
+        } else {
+             router.push('/dashboard');
+        }
+    });
+
+     return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+
+  const FADE_IN_ANIMATION_VARIANTS = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring' } },
+  };
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden isolate">

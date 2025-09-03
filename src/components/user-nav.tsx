@@ -52,10 +52,6 @@ export function UserNav() {
           if (userDoc.exists()) {
             const data = userDoc.data() as UserData;
             setUserData(data);
-            if (data.role === 'council') {
-              const savedMode = localStorage.getItem('councilMode') as 'council' | 'student' | null;
-              setCouncilMode(savedMode || 'council');
-            }
           } else {
             setUserData({email: user.email}); // Fallback for special accounts not yet in firestore
           }
@@ -71,6 +67,13 @@ export function UserNav() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (userData?.role === 'council') {
+        const savedMode = localStorage.getItem('councilMode') as 'council' | 'student' | null;
+        setCouncilMode(savedMode || 'council');
+    }
+  }, [userData?.role]);
 
   const handleModeSwitch = () => {
     const newMode = councilMode === 'council' ? 'student' : 'council';
