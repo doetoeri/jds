@@ -14,3 +14,5 @@
 - Font: Use the locally provided 'font.woff2' font for a consistent and unique visual identity.
 - Employ Google Material Icons for intuitive and consistent UI elements.
 - Incorporate rounded rectangle components with smoothly curved corners for a soft and modern aesthetic.
+
+A small change to trigger the commit window.
