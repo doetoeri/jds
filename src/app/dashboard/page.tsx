@@ -191,18 +191,18 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="animate-in fade-in duration-500">
+        <Card className="animate-in fade-in duration-500 bg-primary/10 border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">종달새의 선물</CardTitle>
-                <Gift className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-primary">종달새의 선물</CardTitle>
+                <Gift className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
                 {unusedHiddenCodeCount === null ? (
                     <Skeleton className="h-8 w-20" />
                 ) : (
-                    <div className="text-2xl font-bold">{unusedHiddenCodeCount} 개</div>
+                    <div className="text-2xl font-bold text-primary">{unusedHiddenCodeCount} 개</div>
                 )}
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-primary/80">
                     학교 어딘가에 숨겨진 코드를 찾아보세요!
                 </p>
             </CardContent>
