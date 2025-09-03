@@ -30,16 +30,16 @@ export default function HomePage() {
         >
             <motion.div variants={FADE_IN_VARIANTS}>
                  <div className="mb-4 flex items-center justify-center gap-2">
-                    <h1 className="text-5xl font-bold font-batang tracking-tighter text-primary">
+                    <h1 className="text-6xl font-bold font-batang tracking-tighter text-primary">
                         JongDalSam
                     </h1>
                  </div>
-                <p className="text-2xl text-muted-foreground font-semibold">
+                <p className="text-xl text-muted-foreground font-semibold">
                     고촌중학교 학생들을 위한 포인트 & 커뮤니티
                 </p>
             </motion.div>
 
-            <motion.p variants={FADE_IN_VARIANTS} className="mt-6 max-w-2xl mx-auto text-lg text-foreground/80">
+            <motion.p variants={FADE_IN_VARIANTS} className="mt-6 max-w-2xl mx-auto text-base text-foreground/80">
                 다양한 학교 활동에 참여하여 포인트를 쌓고, 친구들과 소통하며 즐거운 학교 생활을 만들어보세요. 종달샘 허브는 여러분의 모든 활동을 응원합니다.
             </motion.p>
             
