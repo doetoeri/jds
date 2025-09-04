@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -707,7 +708,7 @@ export const deleteBoothReason = async (reason: string) => {
 
 export const sendLetter = async (
   senderUid: string,
-  receiverStudentId: string,
+  receiverIdentifier: string, // Can be studentId or teacher's name
   content: string,
   isOffline: boolean
 ) => {
@@ -720,57 +721,71 @@ export const sendLetter = async (
     const senderStudentId = senderData.studentId;
     const senderPoints = senderData.lak || 0;
 
-    if (senderStudentId === receiverStudentId) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
-
-    const receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverStudentId));
-    const receiverSnapshot = await getDocs(receiverQuery);
-    if (receiverSnapshot.empty) throw new Error(`학번 ${receiverStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
+    let receiverQuery;
+    let receiverIdentifierDisplay: string;
     
+    // Check if it's a student ID (5 digits)
+    if (/^\d{5}$/.test(receiverIdentifier)) {
+        if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
+        receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
+        receiverIdentifierDisplay = receiverIdentifier;
+    } else { // Assume it's a teacher's name
+        receiverQuery = query(collection(db, 'users'), where('name', '==', receiverIdentifier), where('role', '==', 'teacher'));
+        receiverIdentifierDisplay = receiverIdentifier;
+    }
+
+    const receiverSnapshot = await getDocs(receiverQuery);
+    if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifierDisplay}'에 해당하는 사용자를 찾을 수 없습니다.`);
+    if (receiverSnapshot.size > 1) throw new Error(`'${receiverIdentifierDisplay}' 이름을 가진 사용자가 여러 명 있습니다. 더 구체적인 정보로 시도해주세요.`);
+
     const receiverDoc = receiverSnapshot.docs[0];
     const receiverRef = receiverDoc.ref;
-    const receiverData = await transaction.get(receiverRef);
-    if (!receiverData.exists()) throw new Error('받는 사람의 정보를 찾을 수 없습니다.');
-    
-    const reward = 2;
-    const receiverPoints = receiverData.data()?.lak || 0;
+    const receiverData = receiverDoc.data();
 
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
-      senderUid, senderStudentId, receiverStudentId, content, isOffline, status: 'approved' as const, createdAt: Timestamp.now(), approvedAt: Timestamp.now(),
+      senderUid, 
+      senderStudentId, 
+      receiverStudentId: receiverData.studentId || receiverData.name, // Use name for teacher for display
+      content, 
+      isOffline, 
+      status: 'approved' as const, 
+      createdAt: Timestamp.now(), 
+      approvedAt: Timestamp.now(),
     };
     transaction.set(letterRef, letterData);
 
+    const reward = 2;
     let senderRewarded = false;
     if (senderPoints < POINT_LIMIT) {
         if (senderPoints + reward > POINT_LIMIT) throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
         transaction.update(senderRef, { lak: increment(reward) });
         const senderHistoryRef = doc(collection(senderRef, 'transactions'));
         transaction.set(senderHistoryRef, {
-            amount: reward, date: Timestamp.now(), description: `${isOffline ? '오프라인 ' : ''}편지 발신 보상 (받는 사람: ${receiverStudentId})`, type: 'credit',
+            amount: reward, date: Timestamp.now(), description: `편지 발신 보상 (받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
         });
         senderRewarded = true;
     }
-
-    let receiverRewarded = false;
-    if (receiverPoints < POINT_LIMIT) {
-        if (receiverPoints + reward > POINT_LIMIT) throw new Error(`상대방의 포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-        transaction.update(receiverRef, { lak: increment(reward) });
-        const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
-        transaction.set(receiverHistoryRef, {
-            amount: reward, date: Timestamp.now(), description: `${isOffline ? '오프라인 ' : ''}편지 수신 (보낸 사람: ${senderStudentId})`, type: 'credit',
-        });
-        receiverRewarded = true;
+    
+    // Only give points to receiver if they are a student
+    if (receiverData.role === 'student') {
+        const receiverPoints = receiverData.lak || 0;
+        if (receiverPoints < POINT_LIMIT) {
+            if (receiverPoints + reward <= POINT_LIMIT) {
+                 transaction.update(receiverRef, { lak: increment(reward) });
+                 const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
+                 transaction.set(receiverHistoryRef, {
+                    amount: reward, date: Timestamp.now(), description: `편지 수신 (보낸 사람: ${senderStudentId})`, type: 'credit',
+                 });
+            }
+        }
     }
 
     let message = '편지가 성공적으로 전송되었습니다!';
-    if (senderRewarded && receiverRewarded) {
-        message = '편지가 성공적으로 전송되고 양쪽 모두에게 포인트가 지급되었습니다!';
-    } else if (senderRewarded) {
-        message = '편지가 전송되고 발신자에게 포인트가 지급되었습니다. (수신자 한도 초과)';
-    } else if (receiverRewarded) {
-        message = '편지가 전송되고 수신자에게 포인트가 지급되었습니다. (발신자 한도 초과)';
+    if (senderRewarded) {
+        message = '편지가 성공적으로 전송되고 포인트가 지급되었습니다!';
     } else {
-        message = '편지가 전송되었습니다. (양쪽 모두 포인트 한도 초과)';
+        message = '편지가 전송되었습니다. (포인트 한도 초과)';
     }
 
     return { success: true, message };
@@ -781,6 +796,7 @@ export const sendLetter = async (
   });
 };
 
+
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
     await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
@@ -788,5 +804,3 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
 
 
 export { auth, db, storage };
-
-    
