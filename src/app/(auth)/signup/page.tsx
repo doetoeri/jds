@@ -43,6 +43,7 @@ export default function SignupPage() {
   // Form state
   const [studentId, setStudentId] = useState('');
   const [teacherName, setTeacherName] = useState('');
+  const [teacherNickname, setTeacherNickname] = useState('');
   const [officeFloor, setOfficeFloor] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -63,8 +64,8 @@ export default function SignupPage() {
         toast({ title: '오류', description: '학번은 5자리 숫자로 입력해주세요.', variant: 'destructive' });
         return;
       }
-       if (userType === 'teacher' && (!teacherName || !officeFloor)) {
-        toast({ title: '오류', description: '성함과 교무실 층수를 입력해주세요.', variant: 'destructive' });
+       if (userType === 'teacher' && (!teacherName || !officeFloor || !teacherNickname)) {
+        toast({ title: '오류', description: '성함, 닉네임, 교무실 층수를 모두 입력해주세요.', variant: 'destructive' });
         return;
       }
     }
@@ -87,7 +88,7 @@ export default function SignupPage() {
     
     const signupData = userType === 'student' 
       ? { studentId }
-      : { name: teacherName, officeFloor };
+      : { name: teacherName, nickname: teacherNickname, officeFloor };
 
     try {
       await signUp(userType, signupData, password, email);
@@ -171,6 +172,10 @@ export default function SignupPage() {
                         <div className="space-y-2">
                         <Label htmlFor="teacherName">성함</Label>
                         <Input id="teacherName" placeholder="예: 홍길동" required value={teacherName} onChange={(e) => setTeacherName(e.target.value)} className="h-12 text-base" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="teacherNickname">닉네임</Label>
+                          <Input id="teacherNickname" placeholder="편지에 표시될 닉네임" required value={teacherNickname} onChange={(e) => setTeacherNickname(e.target.value)} className="h-12 text-base" />
                         </div>
                         <div className="space-y-2">
                         <Label htmlFor="officeFloor">교무실 층수</Label>

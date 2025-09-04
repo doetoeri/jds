@@ -47,8 +47,8 @@ interface ReceivedLetter {
 }
 
 interface UserSearchResult {
-  value: string; // studentId or name
-  label: string; // "홍길동 선생님" or "10101 (김민준)"
+  value: string; // studentId or nickname
+  label: string; // "홍길동 선생님 (nickname)" or "10101 (김민준)"
   type: 'student' | 'teacher';
 }
 
@@ -89,8 +89,6 @@ export default function LettersView() {
       try {
         const lowercasedQuery = searchQuery.toLowerCase();
         
-        // This is not perfectly efficient, but good enough for this scale.
-        // It fetches all students/teachers and filters client-side.
         const studentQuery = query(collection(db, 'users'), where('role', '==', 'student'));
         const teacherQuery = query(collection(db, 'users'), where('role', '==', 'teacher'));
 
@@ -113,10 +111,10 @@ export default function LettersView() {
         
         const teachers = teacherSnapshot.docs
           .map(doc => doc.data())
-          .filter(data => data.name?.toLowerCase().includes(lowercasedQuery))
+          .filter(data => data.nickname?.toLowerCase().includes(lowercasedQuery) || data.name?.toLowerCase().includes(lowercasedQuery))
           .map(data => ({
-            value: data.name,
-            label: `${data.name} 선생님`,
+            value: data.nickname,
+            label: `${data.name} 선생님 (${data.nickname})`,
             type: 'teacher'
           } as UserSearchResult));
         
@@ -243,7 +241,7 @@ export default function LettersView() {
           <form onSubmit={handleSendLetter}>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="receiverId">받는 사람 (학번 또는 이름)</Label>
+                <Label htmlFor="receiverId">받는 사람 (학번 또는 선생님 닉네임)</Label>
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Input
@@ -365,5 +363,3 @@ export default function LettersView() {
     </Tabs>
   );
 }
-
-    

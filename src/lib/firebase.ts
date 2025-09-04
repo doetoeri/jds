@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -77,7 +76,7 @@ const addSignupBonusToExistingUsers = async () => {
 // Sign up function
 export const signUp = async (
     userType: 'student' | 'teacher' | 'pending_teacher',
-    userData: { studentId?: string; name?: string; officeFloor?: string; },
+    userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string },
     password: string,
     email: string
 ) => {
@@ -112,6 +111,12 @@ export const signUp = async (
         const teacherSnapshot = await getDocs(teacherQuery);
         if (!teacherSnapshot.empty) {
             throw new Error("이미 가입 신청되었거나 등록된 이메일입니다.");
+        }
+
+        const nicknameQuery = query(collection(db, 'users'), where('nickname', '==', userData.nickname), where('role', '==', 'teacher'));
+        const nicknameSnapshot = await getDocs(nicknameQuery);
+        if (!nicknameSnapshot.empty) {
+            throw new Error("이미 사용 중인 닉네임입니다.");
         }
     }
 
@@ -159,6 +164,7 @@ export const signUp = async (
     } else { 
         await setDoc(userDocRef, {
             name: userData.name,
+            nickname: userData.nickname,
             displayName: `${userData.name} 선생님`,
             officeFloor: userData.officeFloor,
             email: email,
@@ -716,7 +722,7 @@ export const deleteBoothReason = async (reason: string) => {
 
 export const sendLetter = async (
   senderUid: string,
-  receiverIdentifier: string, // Can be studentId or teacher's name
+  receiverIdentifier: string, // Can be studentId or teacher's nickname
   content: string,
   isOffline: boolean
 ) => {
@@ -730,22 +736,21 @@ export const sendLetter = async (
 
     let receiverQuery;
     
-    // Check if it's a student ID (5 digits)
+    // Check if it's a student ID (5 digits) or a teacher nickname (not 5 digits)
     if (/^\d{5}$/.test(receiverIdentifier)) {
         if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
         receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
-    } else { // Assume it's a teacher's name
-        receiverQuery = query(collection(db, 'users'), where('name', '==', receiverIdentifier), where('role', '==', 'teacher'));
+    } else {
+        receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
     }
 
     const receiverSnapshot = await getDocs(receiverQuery);
     if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
-    if (receiverSnapshot.size > 1) throw new Error(`'${receiverIdentifier}' 이름을 가진 사용자가 여러 명 있습니다. 더 구체적인 정보로 시도해주세요.`);
-
+    
     const receiverDoc = receiverSnapshot.docs[0];
     const receiverRef = receiverDoc.ref;
     const receiverData = receiverDoc.data();
-    const receiverIdentifierDisplay = receiverData.studentId || receiverData.name;
+    const receiverIdentifierDisplay = receiverData.role === 'student' ? receiverData.studentId : receiverData.nickname;
 
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
