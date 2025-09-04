@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -26,7 +26,7 @@ import {
   updateDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { Loader2, Mail, Send, Inbox, Info, Users } from 'lucide-react';
+import { Loader2, Mail, Send, Inbox, Info, User, Briefcase } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +36,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSearchParams } from 'next/navigation';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-
 
 interface ReceivedLetter {
   id: string;
@@ -48,9 +47,9 @@ interface ReceivedLetter {
 }
 
 interface UserSearchResult {
-    value: string; // studentId or name
-    label: string; // "홍길동 선생님" or "10101 (김민준)"
-    type: 'student' | 'teacher';
+  value: string; // studentId or name
+  label: string; // "홍길동 선생님" or "10101 (김민준)"
+  type: 'student' | 'teacher';
 }
 
 export default function LettersView() {
@@ -71,7 +70,6 @@ export default function LettersView() {
   const [isSearching, setIsSearching] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
-
   // Set initial receiver from URL params
   useEffect(() => {
     if (initialReceiver) {
@@ -80,142 +78,109 @@ export default function LettersView() {
     }
   }, [initialReceiver]);
 
-   useEffect(() => {
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
     const searchUsers = async () => {
-        if (searchQuery.trim().length < 1) {
-            setSearchResults([]);
-            return;
-        }
-        setIsSearching(true);
+      setIsSearching(true);
+      try {
+        const lowercasedQuery = searchQuery.toLowerCase();
         
-        try {
-            const studentQuery = query(collection(db, 'users'), where('role', '==', 'student'));
-            const teacherQuery = query(collection(db, 'users'), where('role', '==', 'teacher'));
-            
-            const [studentSnapshot, teacherSnapshot] = await Promise.all([
-                getDocs(studentQuery),
-                getDocs(teacherQuery)
-            ]);
-            
-            const lowercasedQuery = searchQuery.toLowerCase();
+        // This is not perfectly efficient, but good enough for this scale.
+        // It fetches all students/teachers and filters client-side.
+        const studentQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+        const teacherQuery = query(collection(db, 'users'), where('role', '==', 'teacher'));
 
-            const students = studentSnapshot.docs
-                .map(doc => doc.data())
-                .filter(data => 
-                    data.studentId?.includes(lowercasedQuery) || 
-                    data.displayName?.toLowerCase().includes(lowercasedQuery)
-                )
-                .map(data => ({
-                    value: data.studentId,
-                    label: `${data.displayName} (${data.studentId})`,
-                    type: 'student'
-                } as UserSearchResult));
-            
-            const teachers = teacherSnapshot.docs
-                .map(doc => doc.data())
-                .filter(data => data.name?.toLowerCase().includes(lowercasedQuery))
-                .map(data => ({
-                    value: data.name,
-                    label: `${data.name} 선생님`,
-                    type: 'teacher'
-                } as UserSearchResult));
-            
-            setSearchResults([...students, ...teachers]);
+        const [studentSnapshot, teacherSnapshot] = await Promise.all([
+          getDocs(studentQuery),
+          getDocs(teacherQuery)
+        ]);
 
-        } catch (error) {
-            console.error("Error searching users:", error);
-            toast({ title: "오류", description: "사용자 검색에 실패했습니다.", variant: "destructive" });
-        } finally {
-            setIsSearching(false);
-        }
+        const students = studentSnapshot.docs
+          .map(doc => doc.data())
+          .filter(data => 
+            data.studentId?.includes(lowercasedQuery) || 
+            data.displayName?.toLowerCase().includes(lowercasedQuery)
+          )
+          .map(data => ({
+            value: data.studentId,
+            label: `${data.displayName} (${data.studentId})`,
+            type: 'student'
+          } as UserSearchResult));
+        
+        const teachers = teacherSnapshot.docs
+          .map(doc => doc.data())
+          .filter(data => data.name?.toLowerCase().includes(lowercasedQuery))
+          .map(data => ({
+            value: data.name,
+            label: `${data.name} 선생님`,
+            type: 'teacher'
+          } as UserSearchResult));
+        
+        setSearchResults([...students, ...teachers]);
+      } catch (error) {
+        console.error("Error searching users:", error);
+        toast({ title: "오류", description: "사용자 검색에 실패했습니다.", variant: "destructive" });
+      } finally {
+        setIsSearching(false);
+      }
     };
 
     const debounce = setTimeout(() => {
-        searchUsers();
+      searchUsers();
     }, 300);
 
     return () => clearTimeout(debounce);
   }, [searchQuery, toast]);
 
-
   const fetchAndProcessLetters = useCallback(async () => {
-    if (user) {
-      setIsInboxLoading(true);
-      try {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
+    if (!user) return;
+    setIsInboxLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
 
-        if (!userDocSnap.exists()) {
-            throw new Error("User data not found.");
-        }
-        const userData = userDocSnap.data();
-        const currentUserStudentId = userData.studentId;
+      if (!userDocSnap.exists()) throw new Error("User data not found.");
+      
+      const userData = userDocSnap.data();
+      const currentUserStudentId = userData.studentId;
 
-        // Query only by receiver student ID to avoid composite index
-        const q = query(
-          collection(db, 'letters'),
-          where('receiverStudentId', '==', currentUserStudentId)
-        );
-        const querySnapshot = await getDocs(q);
-        
-        // Filter and sort on the client side
-        const letters = querySnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as ReceivedLetter))
-            .filter(letter => letter.status === 'approved')
-            .sort((a, b) => b.approvedAt.toMillis() - a.approvedAt.toMillis());
-        
-        setReceivedLetters(letters);
+      const q = query(
+        collection(db, 'letters'),
+        where('receiverStudentId', '==', currentUserStudentId),
+        where('status', '==', 'approved')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const letters = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as ReceivedLetter))
+        .sort((a, b) => b.approvedAt.toMillis() - a.approvedAt.toMillis());
+      
+      setReceivedLetters(letters);
 
-        await updateDoc(userDocRef, {
-          lastLetterCheckTimestamp: Timestamp.now()
-        });
-        
-      } catch (error) {
-        console.error('Error fetching/processing received letters:', error);
-        toast({
-          title: '오류',
-          description: '받은 편지를 불러오는 데 실패했습니다.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsInboxLoading(false);
-      }
-    }
-  }, [user, toast]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-          Notification.requestPermission();
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    // Only fetch letters when the component mounts and the inbox tab is active
-    if (initialTab === 'inbox') {
-      fetchAndProcessLetters();
-    } else {
+      await updateDoc(userDocRef, {
+        lastLetterCheckTimestamp: Timestamp.now()
+      });
+      
+    } catch (error) {
+      console.error('Error fetching/processing received letters:', error);
+      toast({ title: '오류', description: '받은 편지를 불러오는 데 실패했습니다.', variant: 'destructive' });
+    } finally {
       setIsInboxLoading(false);
     }
-  }, [initialTab, fetchAndProcessLetters]);
+  }, [user, toast]);
 
   const handleSendLetter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiverIdentifier || !content) {
-      toast({
-        title: '입력 오류',
-        description: '모든 필드를 채워주세요.',
-        variant: 'destructive',
-      });
+      toast({ title: '입력 오류', description: '모든 필드를 채워주세요.', variant: 'destructive' });
       return;
     }
     if (!user) {
-      toast({
-        title: '오류',
-        description: '로그인이 필요합니다.',
-        variant: 'destructive',
-      });
+      toast({ title: '오류', description: '로그인이 필요합니다.', variant: 'destructive' });
       return;
     }
 
@@ -224,10 +189,7 @@ export default function LettersView() {
       const result = await sendLetter(user.uid, receiverIdentifier, content, isOffline);
 
       if (result.success) {
-        toast({
-          title: '전송 완료!',
-          description: result.message,
-        });
+        toast({ title: '전송 완료!', description: result.message });
         setReceiverIdentifier('');
         setSearchQuery('');
         setContent('');
@@ -236,22 +198,25 @@ export default function LettersView() {
         throw new Error(result.message);
       }
     } catch (error: any) {
-      toast({
-        title: '전송 실패',
-        description: error.message || '알 수 없는 오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      toast({ title: '전송 실패', description: error.message || '알 수 없는 오류가 발생했습니다.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
   
-  // This function is called when the user clicks on the inbox tab.
-  const handleTabChange = (value: string) => {
-      if (value === 'inbox') {
-          fetchAndProcessLetters();
-      }
-  }
+  const handleTabChange = useCallback((value: string) => {
+    if (value === 'inbox') {
+      fetchAndProcessLetters();
+    }
+  }, [fetchAndProcessLetters]);
+
+  useEffect(() => {
+    if (initialTab === 'inbox') {
+        handleTabChange('inbox');
+    } else {
+        setIsInboxLoading(false);
+    }
+  }, [initialTab, handleTabChange]);
 
   return (
     <Tabs defaultValue={initialTab} value={initialReceiver ? 'send' : undefined} className="w-full max-w-2xl mx-auto" onValueChange={handleTabChange}>
@@ -283,7 +248,7 @@ export default function LettersView() {
                   <PopoverTrigger asChild>
                     <Input
                       id="receiverId"
-                      placeholder="학번 또는 이름으로 검색..."
+                      placeholder="두 글자 이상 검색..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       disabled={isLoading}
@@ -295,7 +260,7 @@ export default function LettersView() {
                     <Command>
                       <CommandList>
                         {isSearching && <CommandEmpty>검색 중...</CommandEmpty>}
-                        {!isSearching && searchResults.length === 0 && searchQuery.length > 0 && (
+                        {!isSearching && searchResults.length === 0 && searchQuery.length > 1 && (
                             <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
                         )}
                         <CommandGroup>
@@ -309,7 +274,7 @@ export default function LettersView() {
                               }}
                               className="flex items-center gap-2"
                             >
-                                {result.type === 'teacher' ? <Users className="h-4 w-4 text-primary"/> : <Users className="h-4 w-4 text-muted-foreground"/>}
+                                {result.type === 'teacher' ? <Briefcase className="h-4 w-4 text-primary"/> : <User className="h-4 w-4 text-muted-foreground"/>}
                                 {result.label}
                             </CommandItem>
                           ))}

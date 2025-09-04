@@ -258,7 +258,14 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
 
     const checkAndIncrementPoints = (ref: any, currentPoints: number, pointsToAdd: number, historyDesc: string) => {
-      if (currentPoints >= POINT_LIMIT) return; // 한도 도달 시 포인트 추가 안함
+      if (currentPoints >= POINT_LIMIT) {
+          // Record participation even if points are not added
+           const historyRef = doc(collection(ref, 'transactions'));
+            transaction.set(historyRef, {
+                date: Timestamp.now(), description: `${historyDesc} (포인트 한도 초과)`, amount: 0, type: 'credit',
+            });
+           return;
+      };
 
       if (currentPoints + pointsToAdd > POINT_LIMIT) {
           throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
@@ -487,6 +494,10 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
     }
 
     const currentPoints = userDoc.data().lak || 0;
+    if (amount > 0 && currentPoints >= POINT_LIMIT) {
+      throw new Error(`포인트 한도(${POINT_LIMIT}포인트)에 도달하여 더 이상 포인트를 지급할 수 없습니다.`);
+    }
+
     if (amount > 0 && currentPoints + amount > POINT_LIMIT) {
         throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다. 현재: ${currentPoints}, 지급 요청: ${amount}`);
     }
@@ -637,17 +648,14 @@ export const submitWord = async (userId: string, word: string) => {
         }
 
         if (currentPoints < POINT_LIMIT) {
-            if (currentPoints + 1 > POINT_LIMIT) {
-                throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-            }
             transaction.update(userRef, { lak: increment(1), lastWordChainTimestamp: Timestamp.now() });
             const txHistoryRef = doc(collection(userRef, "transactions"));
             transaction.set(txHistoryRef, { amount: 1, date: Timestamp.now(), description: "끝말잇기 참여 보상", type: "credit" });
+            return { success: true, message: "성공! 1포인트를 획득했습니다."};
         } else {
              transaction.update(userRef, { lastWordChainTimestamp: Timestamp.now() });
+             return { success: true, message: "성공! 포인트 한도에 도달했지만 참여가 기록되었습니다." };
         }
-        
-        return { success: true, message: currentPoints < POINT_LIMIT ? "성공! 1포인트를 획득했습니다." : "성공! 포인트 한도에 도달했지만 참여가 기록되었습니다." };
     }).catch((error) => {
         console.error("Word chain submission error: ", error);
         return { success: false, message: error.message || "단어 제출 중 오류가 발생했습니다." };
@@ -719,34 +727,31 @@ export const sendLetter = async (
     
     const senderData = senderDoc.data();
     const senderStudentId = senderData.studentId;
-    const senderPoints = senderData.lak || 0;
 
     let receiverQuery;
-    let receiverIdentifierDisplay: string;
     
     // Check if it's a student ID (5 digits)
     if (/^\d{5}$/.test(receiverIdentifier)) {
         if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
         receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
-        receiverIdentifierDisplay = receiverIdentifier;
     } else { // Assume it's a teacher's name
         receiverQuery = query(collection(db, 'users'), where('name', '==', receiverIdentifier), where('role', '==', 'teacher'));
-        receiverIdentifierDisplay = receiverIdentifier;
     }
 
     const receiverSnapshot = await getDocs(receiverQuery);
-    if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifierDisplay}'에 해당하는 사용자를 찾을 수 없습니다.`);
-    if (receiverSnapshot.size > 1) throw new Error(`'${receiverIdentifierDisplay}' 이름을 가진 사용자가 여러 명 있습니다. 더 구체적인 정보로 시도해주세요.`);
+    if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
+    if (receiverSnapshot.size > 1) throw new Error(`'${receiverIdentifier}' 이름을 가진 사용자가 여러 명 있습니다. 더 구체적인 정보로 시도해주세요.`);
 
     const receiverDoc = receiverSnapshot.docs[0];
     const receiverRef = receiverDoc.ref;
     const receiverData = receiverDoc.data();
+    const receiverIdentifierDisplay = receiverData.studentId || receiverData.name;
 
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
       senderUid, 
       senderStudentId, 
-      receiverStudentId: receiverData.studentId || receiverData.name, // Use name for teacher for display
+      receiverStudentId: receiverIdentifierDisplay,
       content, 
       isOffline, 
       status: 'approved' as const, 
@@ -756,28 +761,42 @@ export const sendLetter = async (
     transaction.set(letterRef, letterData);
 
     const reward = 2;
+    const senderPoints = senderData.lak || 0;
     let senderRewarded = false;
+
     if (senderPoints < POINT_LIMIT) {
-        if (senderPoints + reward > POINT_LIMIT) throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+        if (senderPoints + reward > POINT_LIMIT) {
+            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+        }
         transaction.update(senderRef, { lak: increment(reward) });
         const senderHistoryRef = doc(collection(senderRef, 'transactions'));
         transaction.set(senderHistoryRef, {
             amount: reward, date: Timestamp.now(), description: `편지 발신 보상 (받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
         });
         senderRewarded = true;
+    } else {
+        const senderHistoryRef = doc(collection(senderRef, 'transactions'));
+        transaction.set(senderHistoryRef, {
+            amount: 0, date: Timestamp.now(), description: `편지 발신 (포인트 한도 초과, 받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
+        });
     }
     
     // Only give points to receiver if they are a student
     if (receiverData.role === 'student') {
         const receiverPoints = receiverData.lak || 0;
         if (receiverPoints < POINT_LIMIT) {
-            if (receiverPoints + reward <= POINT_LIMIT) {
+             if (receiverPoints + reward <= POINT_LIMIT) {
                  transaction.update(receiverRef, { lak: increment(reward) });
                  const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
                  transaction.set(receiverHistoryRef, {
                     amount: reward, date: Timestamp.now(), description: `편지 수신 (보낸 사람: ${senderStudentId})`, type: 'credit',
                  });
-            }
+             }
+        } else {
+            const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
+            transaction.set(receiverHistoryRef, {
+                amount: 0, date: Timestamp.now(), description: `편지 수신 (포인트 한도 초과, 보낸 사람: ${senderStudentId})`, type: 'credit',
+            });
         }
     }
 
@@ -785,7 +804,7 @@ export const sendLetter = async (
     if (senderRewarded) {
         message = '편지가 성공적으로 전송되고 포인트가 지급되었습니다!';
     } else {
-        message = '편지가 전송되었습니다. (포인트 한도 초과)';
+        message = '편지가 전송되었습니다. (포인트 한도 초과로 포인트 미지급)';
     }
 
     return { success: true, message };
