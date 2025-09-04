@@ -523,6 +523,57 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
   });
 };
 
+export const bulkAdjustUserLak = async (userIds: string[], amount: number, reason: string) => {
+    const batch = writeBatch(db);
+
+    for (const userId of userIds) {
+        const userRef = doc(db, 'users', userId);
+        
+        // Note: Reading inside a loop is not ideal, but necessary here without denormalizing lak.
+        // For high-frequency bulk operations, a different data model might be better.
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const currentPoints = userData.lak || 0;
+
+             if (amount < 0 || (currentPoints < POINT_LIMIT && currentPoints + amount <= POINT_LIMIT)) {
+                batch.update(userRef, { lak: increment(amount) });
+
+                const historyRef = doc(collection(userRef, 'transactions'));
+                batch.set(historyRef, {
+                    date: Timestamp.now(),
+                    description: `관리자 일괄 조정: ${reason}`,
+                    amount: amount,
+                    type: amount > 0 ? 'credit' : 'debit',
+                });
+            } else if (amount > 0 && currentPoints >= POINT_LIMIT) {
+                // User is already at limit, just add history
+                const historyRef = doc(collection(userRef, 'transactions'));
+                batch.set(historyRef, {
+                    date: Timestamp.now(),
+                    description: `관리자 일괄 조정 (한도 초과): ${reason}`,
+                    amount: 0,
+                    type: 'credit',
+                });
+            } else if (amount > 0 && currentPoints + amount > POINT_LIMIT) {
+                 // User would exceed limit, so adjust to reach the limit exactly.
+                const adjustedAmount = POINT_LIMIT - currentPoints;
+                batch.update(userRef, { lak: POINT_LIMIT });
+                
+                const historyRef = doc(collection(userRef, 'transactions'));
+                batch.set(historyRef, {
+                    date: Timestamp.now(),
+                    description: `관리자 일괄 조정 (한도 도달): ${reason}`,
+                    amount: adjustedAmount,
+                    type: 'credit',
+                });
+            }
+        }
+    }
+    await batch.commit();
+};
+
+
 export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'council_booth') => {
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);

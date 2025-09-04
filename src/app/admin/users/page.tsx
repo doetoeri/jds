@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,6 +44,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 interface User {
   id: string;
@@ -64,8 +66,11 @@ export default function AdminUsersPage() {
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [isBulkAdjustDialogOpen, setIsBulkAdjustDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
 
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
@@ -163,6 +168,12 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
+  
+  const openBulkAdjustDialog = () => {
+    setAdjustmentAmount('');
+    setAdjustmentReason('');
+    setIsBulkAdjustDialogOpen(true);
+  }
 
 
   const handleAdjustLak = async () => {
@@ -196,6 +207,31 @@ export default function AdminUsersPage() {
         setIsProcessing(false);
     }
   }
+  
+  const handleBulkAdjustLak = async () => {
+    if (!adjustmentAmount || !adjustmentReason) {
+        toast({ title: '입력 오류', description: '모든 필드를 채워주세요.', variant: 'destructive' });
+        return;
+    }
+    const amount = Number(adjustmentAmount);
+     if (isNaN(amount) || amount === 0) {
+        toast({ title: '입력 오류', description: '유효한 숫자를 입력해주세요 (0 제외).', variant: 'destructive' });
+        return;
+    }
+
+    setIsProcessing(true);
+    try {
+        await bulkAdjustUserLak(selectedUsers, amount, adjustmentReason);
+        toast({ title: "성공", description: `${selectedUsers.length}명의 사용자 포인트를 조정했습니다.` });
+        setIsBulkAdjustDialogOpen(false);
+        setSelectedUsers([]);
+    } catch (error: any) {
+         toast({ title: "오류", description: error.message || '일괄 포인트 조정 중 오류가 발생했습니다.', variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
+    }
+  }
+
 
   const handleUpdateRole = async () => {
     if (!selectedUser || !newRole) {
@@ -249,13 +285,37 @@ export default function AdminUsersPage() {
     student: '학생',
     pending_teacher: '승인 대기',
   };
+  
+  const handleSelectUser = (userId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedUsers(prev => [...prev, userId]);
+    } else {
+      setSelectedUsers(prev => prev.filter(id => id !== userId));
+    }
+  };
+
+  const handleSelectAll = (isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedUsers(sortedAndFilteredUsers.map(u => u.id));
+    } else {
+      setSelectedUsers([]);
+    }
+  };
 
 
   return (
     <>
-      <div className="space-y-1 mb-4">
-        <h1 className="text-2xl font-bold tracking-tight font-headline">사용자 관리</h1>
-        <p className="text-muted-foreground">시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</p>
+      <div className="space-y-1 mb-4 flex justify-between items-start">
+        <div>
+            <h1 className="text-2xl font-bold tracking-tight font-headline">사용자 관리</h1>
+            <p className="text-muted-foreground">시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</p>
+        </div>
+        <div>
+            <Button onClick={openBulkAdjustDialog} disabled={selectedUsers.length === 0}>
+                <Coins className="mr-2 h-4 w-4"/>
+                선택 사용자 포인트 조정 ({selectedUsers.length})
+            </Button>
+        </div>
       </div>
 
        <Card className="mb-4">
@@ -288,6 +348,13 @@ export default function AdminUsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                 <TableHead className="w-[50px]">
+                  <Checkbox 
+                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                    checked={sortedAndFilteredUsers.length > 0 && selectedUsers.length === sortedAndFilteredUsers.length}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead>학번/성함</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
@@ -297,13 +364,14 @@ export default function AdminUsersPage() {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </TableHead>
-                <TableHead className="text-right">작업</TableHead>
+                <TableHead className="text-right">개별 작업</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={index}>
+                    <TableCell><Skeleton className="h-5 w-5" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
@@ -313,7 +381,14 @@ export default function AdminUsersPage() {
                 ))
               ) : (
                 sortedAndFilteredUsers.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? "selected" : ""}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUsers.includes(user.id)}
+                        onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
+                        aria-label={`Select user ${renderIdentifier(user)}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
@@ -385,6 +460,56 @@ export default function AdminUsersPage() {
             <Button type="button" onClick={handleAdjustLak} disabled={isProcessing}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               조정하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+       {/* Bulk Lak Adjust Dialog */}
+      <Dialog open={isBulkAdjustDialogOpen} onOpenChange={setIsBulkAdjustDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>선택 사용자 일괄 포인트 조정 ({selectedUsers.length}명)</DialogTitle>
+            <DialogDescription>
+              선택된 모든 사용자의 포인트를 직접 추가하거나 차감합니다. 각 사용자별로 내역이 기록됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bulk-amount" className="text-right">
+                조정값
+              </Label>
+              <Input
+                id="bulk-amount"
+                type="number"
+                placeholder="예: 10 (추가), -5 (차감)"
+                className="col-span-3"
+                value={adjustmentAmount}
+                onChange={(e) => setAdjustmentAmount(e.target.value)}
+                disabled={isProcessing}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bulk-reason" className="text-right">
+                조정 사유
+              </Label>
+              <Input
+                id="bulk-reason"
+                placeholder="예: 단체 이벤트 보상"
+                className="col-span-3"
+                value={adjustmentReason}
+                onChange={(e) => setAdjustmentReason(e.target.value)}
+                disabled={isProcessing}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isProcessing}>취소</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleBulkAdjustLak} disabled={isProcessing || selectedUsers.length === 0}>
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              일괄 조정하기
             </Button>
           </DialogFooter>
         </DialogContent>
