@@ -246,7 +246,7 @@ export default function LettersView() {
                   <PopoverTrigger asChild>
                     <Input
                       id="receiverId"
-                      placeholder="두 글자 이상 검색..."
+                      placeholder="학번 또는 닉네임을 2자 이상 검색하세요."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       disabled={isLoading}
