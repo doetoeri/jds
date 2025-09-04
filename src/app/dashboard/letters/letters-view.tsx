@@ -25,7 +25,7 @@ import {
   updateDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { Loader2, Mail, Send, Inbox, Info, User, Briefcase } from 'lucide-react';
+import { Loader2, Mail, Send, Inbox, Info } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -33,8 +33,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSearchParams } from 'next/navigation';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 
 interface ReceivedLetter {
@@ -44,12 +42,6 @@ interface ReceivedLetter {
   approvedAt: Timestamp;
   isOffline: boolean;
   status: 'pending' | 'approved' | 'rejected';
-}
-
-interface UserSearchResult {
-  value: string; // studentId or nickname
-  label: string; // "홍길동 선생님 (nickname)" or "10101 (김민준)"
-  type: 'student' | 'teacher';
 }
 
 export default function LettersView() {
@@ -65,74 +57,12 @@ export default function LettersView() {
   const initialTab = searchParams.get('tab') || 'send';
   const initialReceiver = searchParams.get('to') || '';
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
   // Set initial receiver from URL params
   useEffect(() => {
     if (initialReceiver) {
       setReceiverIdentifier(initialReceiver);
-      setSearchQuery(initialReceiver);
     }
   }, [initialReceiver]);
-
-  useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const searchUsers = async () => {
-      setIsSearching(true);
-      try {
-        const lowercasedQuery = searchQuery.toLowerCase();
-        
-        const studentQuery = query(collection(db, 'users'), where('role', '==', 'student'));
-        const teacherQuery = query(collection(db, 'users'), where('role', '==', 'teacher'));
-
-        const [studentSnapshot, teacherSnapshot] = await Promise.all([
-          getDocs(studentQuery),
-          getDocs(teacherQuery)
-        ]);
-
-        const students = studentSnapshot.docs
-          .map(doc => doc.data())
-          .filter(data => 
-            data.studentId?.includes(lowercasedQuery) || 
-            data.displayName?.toLowerCase().includes(lowercasedQuery)
-          )
-          .map(data => ({
-            value: data.studentId,
-            label: `${data.displayName} (${data.studentId})`,
-            type: 'student'
-          } as UserSearchResult));
-        
-        const teachers = teacherSnapshot.docs
-          .map(doc => doc.data())
-          .filter(data => data.nickname?.toLowerCase().includes(lowercasedQuery) || data.name?.toLowerCase().includes(lowercasedQuery))
-          .map(data => ({
-            value: data.nickname,
-            label: `${data.name} 선생님 (${data.nickname})`,
-            type: 'teacher'
-          } as UserSearchResult));
-        
-        setSearchResults([...students, ...teachers]);
-      } catch (error) {
-        console.error("Error searching users:", error);
-        toast({ title: "오류", description: "사용자 검색에 실패했습니다.", variant: "destructive" });
-      } finally {
-        setIsSearching(false);
-      }
-    };
-
-    const debounce = setTimeout(() => {
-      searchUsers();
-    }, 300);
-
-    return () => clearTimeout(debounce);
-  }, [searchQuery, toast]);
 
   const fetchAndProcessLetters = useCallback(async () => {
     if (!user) return;
@@ -189,7 +119,6 @@ export default function LettersView() {
       if (result.success) {
         toast({ title: '전송 완료!', description: result.message });
         setReceiverIdentifier('');
-        setSearchQuery('');
         setContent('');
         setIsOffline(false);
       } else {
@@ -242,47 +171,15 @@ export default function LettersView() {
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="receiverId">받는 사람 (학번 또는 선생님 닉네임)</Label>
-                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Input
-                      id="receiverId"
-                      placeholder="학번 또는 닉네임을 2자 이상 검색하세요"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      disabled={isLoading}
-                      required
-                      autoComplete="off"
-                    />
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-                    <Command>
-                      <CommandList>
-                        {isSearching && <CommandEmpty>검색 중...</CommandEmpty>}
-                        {!isSearching && searchResults.length === 0 && searchQuery.length > 1 && (
-                            <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
-                        )}
-                        <CommandGroup>
-                          {searchResults.map((result) => (
-                            <CommandItem
-                              key={result.value}
-                              onSelect={(currentValue) => {
-                                // currentValue is the label
-                                setReceiverIdentifier(result.value);
-                                setSearchQuery(result.label);
-                                setPopoverOpen(false);
-                              }}
-                              className="flex items-center gap-2"
-                            >
-                                {result.type === 'teacher' ? <Briefcase className="h-4 w-4 text-primary"/> : <User className="h-4 w-4 text-muted-foreground"/>}
-                                {result.label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
+                <Input
+                  id="receiverId"
+                  placeholder="학생의 5자리 학번 또는 선생님의 닉네임을 입력하세요."
+                  value={receiverIdentifier}
+                  onChange={(e) => setReceiverIdentifier(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  autoComplete="off"
+                />
               </div>
               <div>
                 <Label htmlFor="content">편지 내용</Label>
