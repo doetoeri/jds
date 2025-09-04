@@ -246,7 +246,7 @@ export default function LettersView() {
                   <PopoverTrigger asChild>
                     <Input
                       id="receiverId"
-                      placeholder="학번 또는 닉네임을 2자 이상 검색하세요."
+                      placeholder="학번 또는 닉네임을 2자 이상 검색하세요"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       disabled={isLoading}
@@ -265,7 +265,8 @@ export default function LettersView() {
                           {searchResults.map((result) => (
                             <CommandItem
                               key={result.value}
-                              onSelect={() => {
+                              onSelect={(currentValue) => {
+                                // currentValue is the label
                                 setReceiverIdentifier(result.value);
                                 setSearchQuery(result.label);
                                 setPopoverOpen(false);
