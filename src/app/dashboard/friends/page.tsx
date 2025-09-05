@@ -48,29 +48,52 @@ export default function FriendsPage() {
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
       if (!userDocSnap.exists()) throw new Error('현재 사용자 정보를 찾을 수 없습니다.');
+      
       const userData = userDocSnap.data();
       const currentUserStudentId = userData.studentId;
-      setMateCode(userData.mateCode);
+      const currentUserMateCode = userData.mateCode;
+      setMateCode(currentUserMateCode);
 
-      const mateCodesQuery = query(
+      const friendStudentIds = new Set<string>();
+
+      // 1. Find users whose mate codes I have used. (They are my friends)
+      const usedMateCodesQuery = query(
         collection(db, 'codes'),
         where('type', '==', '메이트코드'),
         where('participants', 'array-contains', currentUserStudentId)
       );
-      const mateCodesSnapshot = await getDocs(mateCodesQuery);
-
-      if (mateCodesSnapshot.empty) {
-        setIsLoading(false);
-        return;
+      const usedMateCodesSnapshot = await getDocs(usedMateCodesQuery);
+      usedMateCodesSnapshot.forEach(doc => {
+        const codeData = doc.data();
+        // The owner of the code is a friend.
+        if (codeData.ownerStudentId !== currentUserStudentId) {
+          friendStudentIds.add(codeData.ownerStudentId);
+        }
+      });
+      
+      // 2. Find users who have used my mate code. (They are my friends)
+      if (currentUserMateCode) {
+          const myMateCodeQuery = query(
+              collection(db, 'codes'),
+              where('type', '==', '메이트코드'),
+              where('code', '==', currentUserMateCode)
+          );
+          const myMateCodeSnapshot = await getDocs(myMateCodeQuery);
+          if (!myMateCodeSnapshot.empty) {
+              const myCodeDoc = myMateCodeSnapshot.docs[0];
+              const participants = myCodeDoc.data().participants as string[];
+              participants.forEach(pId => {
+                  if (pId !== currentUserStudentId) {
+                      friendStudentIds.add(pId);
+                  }
+              });
+          }
       }
-      
-      const friendStudentIds = mateCodesSnapshot.docs
-        .flatMap(doc => doc.data().participants as string[])
-        .filter(pId => pId !== currentUserStudentId);
-      
-      const uniqueFriendIds = [...new Set(friendStudentIds)];
+
+      const uniqueFriendIds = Array.from(friendStudentIds);
       
       if (uniqueFriendIds.length === 0) {
+          setFriends([]);
           setIsLoading(false);
           return;
       }
