@@ -523,6 +523,38 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
   });
 };
 
+export const setUserLak = async (userId: string, amount: number, reason: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error("User does not exist.");
+    }
+    
+    if (amount > POINT_LIMIT) {
+        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 설정할 수 없습니다.`);
+    }
+
+    const currentLak = userDoc.data().lak || 0;
+    const difference = amount - currentLak;
+
+    transaction.update(userRef, { lak: amount });
+
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+      date: Timestamp.now(),
+      description: `관리자 설정: ${reason}`,
+      amount: difference,
+      type: difference >= 0 ? 'credit' : 'debit',
+    });
+  }).catch((error: any) => {
+    console.error("Point setting error:", error);
+    throw new Error(error.message || "Failed to set points.");
+  });
+};
+
+
 export const bulkAdjustUserLak = async (userIds: string[], amount: number, reason: string) => {
     const batch = writeBatch(db);
 

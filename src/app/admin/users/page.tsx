@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,6 +45,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 interface User {
@@ -207,6 +208,38 @@ export default function AdminUsersPage() {
         setIsProcessing(false);
     }
   }
+
+  const handleSetLak = async () => {
+    if (!selectedUser || !adjustmentAmount || !adjustmentReason) {
+        toast({ title: '입력 오류', description: '모든 필드를 채워주세요.', variant: 'destructive' });
+        return;
+    }
+
+    const amount = Number(adjustmentAmount);
+    if (isNaN(amount) || amount < 0) {
+        toast({ title: '입력 오류', description: '유효한 양수 또는 0을 입력해주세요.', variant: 'destructive' });
+        return;
+    }
+
+    setIsProcessing(true);
+    try {
+        const displayName = renderIdentifier(selectedUser);
+        await setUserLak(selectedUser.id, amount, adjustmentReason);
+        toast({
+            title: '성공',
+            description: `${displayName} 님의 포인트를 ${amount}으로 설정했습니다.`
+        });
+        setIsAdjustDialogOpen(false);
+    } catch (error: any) {
+        toast({
+            title: '오류',
+            description: error.message || '포인트 설정 중 오류가 발생했습니다.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
   
   const handleBulkAdjustLak = async () => {
     if (!adjustmentAmount || !adjustmentReason) {
@@ -419,49 +452,97 @@ export default function AdminUsersPage() {
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>포인트 조정: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
-            <DialogDescription>
-              사용자의 포인트를 직접 추가하거나 차감합니다. 모든 내역은 기록됩니다.
+            <DialogTitle>포인트 관리: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
+             <DialogDescription>
+              현재 보유 포인트: {selectedUser?.lak.toLocaleString() ?? 0}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amount" className="text-right">
-                조정값
-              </Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="예: 10 (추가), -5 (차감)"
-                className="col-span-3"
-                value={adjustmentAmount}
-                onChange={(e) => setAdjustmentAmount(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="reason" className="text-right">
-                조정 사유
-              </Label>
-              <Input
-                id="reason"
-                placeholder="예: 이벤트 보상, 오류 수정 등"
-                className="col-span-3"
-                value={adjustmentReason}
-                onChange={(e) => setAdjustmentReason(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isProcessing}>취소</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleAdjustLak} disabled={isProcessing}>
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              조정하기
-            </Button>
-          </DialogFooter>
+          <Tabs defaultValue="adjust" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="adjust">포인트 증감</TabsTrigger>
+              <TabsTrigger value="set">포인트 설정</TabsTrigger>
+            </TabsList>
+            <TabsContent value="adjust">
+               <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount_adjust" className="text-right">
+                    조정값
+                  </Label>
+                  <Input
+                    id="amount_adjust"
+                    type="number"
+                    placeholder="예: 10 (추가), -5 (차감)"
+                    className="col-span-3"
+                    value={adjustmentAmount}
+                    onChange={(e) => setAdjustmentAmount(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="reason_adjust" className="text-right">
+                    조정 사유
+                  </Label>
+                  <Input
+                    id="reason_adjust"
+                    placeholder="예: 이벤트 보상, 오류 수정 등"
+                    className="col-span-3"
+                    value={adjustmentReason}
+                    onChange={(e) => setAdjustmentReason(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={isProcessing}>취소</Button>
+                </DialogClose>
+                <Button type="button" onClick={handleAdjustLak} disabled={isProcessing}>
+                  {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  조정하기
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+            <TabsContent value="set">
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount_set" className="text-right">
+                    설정값
+                  </Label>
+                  <Input
+                    id="amount_set"
+                    type="number"
+                    placeholder="새로운 포인트 값"
+                    className="col-span-3"
+                    value={adjustmentAmount}
+                    onChange={(e) => setAdjustmentAmount(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="reason_set" className="text-right">
+                    설정 사유
+                  </Label>
+                  <Input
+                    id="reason_set"
+                    placeholder="예: 데이터 이관, 초기화 등"
+                    className="col-span-3"
+                    value={adjustmentReason}
+                    onChange={(e) => setAdjustmentReason(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={isProcessing}>취소</Button>
+                </DialogClose>
+                <Button type="button" onClick={handleSetLak} disabled={isProcessing}>
+                  {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  설정하기
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
       
