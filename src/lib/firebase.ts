@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -605,6 +606,37 @@ export const bulkAdjustUserLak = async (userIds: string[], amount: number, reaso
     await batch.commit();
 };
 
+export const bulkSetUserLak = async (userIds: string[], amount: number, reason: string) => {
+  if (amount > POINT_LIMIT) {
+    throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 설정할 수 없습니다.`);
+  }
+
+  const batch = writeBatch(db);
+
+  for (const userId of userIds) {
+    const userRef = doc(db, "users", userId);
+    
+    // We still need to read the document to calculate the difference for the history.
+    const userDoc = await getDoc(userRef);
+    if (userDoc.exists()) {
+      const currentLak = userDoc.data().lak || 0;
+      const difference = amount - currentLak;
+
+      batch.update(userRef, { lak: amount });
+
+      const historyRef = doc(collection(userRef, 'transactions'));
+      batch.set(historyRef, {
+        date: Timestamp.now(),
+        description: `관리자 일괄 설정: ${reason}`,
+        amount: difference,
+        type: difference >= 0 ? 'credit' : 'debit',
+      });
+    }
+  }
+
+  await batch.commit();
+};
+
 
 export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'council_booth') => {
   const userRef = doc(db, 'users', userId);
@@ -911,5 +943,3 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
 
 
 export { auth, db, storage };
-
-    
