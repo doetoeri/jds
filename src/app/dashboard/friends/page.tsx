@@ -51,45 +51,35 @@ export default function FriendsPage() {
       
       const userData = userDocSnap.data();
       const currentUserStudentId = userData.studentId;
-      const currentUserMateCode = userData.mateCode;
-      setMateCode(currentUserMateCode);
+      setMateCode(userData.mateCode);
 
       const friendStudentIds = new Set<string>();
 
-      // 1. Find users whose mate codes I have used. (They are my friends)
-      const usedMateCodesQuery = query(
+      // Find all mate codes where the current user is a participant
+      const involvedMateCodesQuery = query(
         collection(db, 'codes'),
         where('type', '==', '메이트코드'),
         where('participants', 'array-contains', currentUserStudentId)
       );
-      const usedMateCodesSnapshot = await getDocs(usedMateCodesQuery);
-      usedMateCodesSnapshot.forEach(codeDoc => {
+      const involvedMateCodesSnapshot = await getDocs(involvedMateCodesQuery);
+
+      involvedMateCodesSnapshot.forEach(codeDoc => {
         const codeData = codeDoc.data();
-        // The owner of the code is a friend, as long as it's not my own code.
-        if (codeData.ownerStudentId !== currentUserStudentId) {
+        
+        // Case 1: It's my own mate code. My friends are the other participants.
+        if (codeData.ownerStudentId === currentUserStudentId) {
+          (codeData.participants as string[]).forEach(participantId => {
+            if (participantId !== currentUserStudentId) {
+              friendStudentIds.add(participantId);
+            }
+          });
+        } 
+        // Case 2: It's someone else's mate code that I used. The owner is my friend.
+        else {
           friendStudentIds.add(codeData.ownerStudentId);
         }
       });
       
-      // 2. Find users who have used my mate code. (They are my friends)
-      if (currentUserMateCode) {
-          const myMateCodeQuery = query(
-              collection(db, 'codes'),
-              where('type', '==', '메이트코드'),
-              where('code', '==', currentUserMateCode)
-          );
-          const myMateCodeSnapshot = await getDocs(myMateCodeQuery);
-          if (!myMateCodeSnapshot.empty) {
-              const myCodeDoc = myMateCodeSnapshot.docs[0];
-              const participants = myCodeDoc.data().participants as string[];
-              participants.forEach(pId => {
-                  if (pId !== currentUserStudentId) {
-                      friendStudentIds.add(pId);
-                  }
-              });
-          }
-      }
-
       const uniqueFriendIds = Array.from(friendStudentIds);
       
       if (uniqueFriendIds.length === 0) {
@@ -98,6 +88,7 @@ export default function FriendsPage() {
           return;
       }
 
+      // Fetch user data for all unique friend IDs
       const usersQuery = query(collection(db, 'users'), where('studentId', 'in', uniqueFriendIds));
       const usersSnapshot = await getDocs(usersQuery);
 
