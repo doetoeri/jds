@@ -46,9 +46,6 @@ export default function GuidePage() {
                     <strong>포인트</strong>은 종달샘 허브에서 사용하는 공식 포인트 단위입니다.
                     학교 행사 참여, 코드 등록, 편지 쓰기, 친구 초대 등 다양한 활동을 통해 포인트를 적립할 수 있으며, 적립한 포인트는 '종달 상점'에서 원하는 상품으로 교환할 수 있습니다.
                     </p>
-                    <p className="font-bold text-primary">
-                    (1 포인트 = 약 500원)의 가치를 가집니다.
-                    </p>
                 </AccordionContent>
                 </AccordionItem>
 

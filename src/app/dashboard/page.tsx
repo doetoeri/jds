@@ -186,7 +186,7 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold">{lakBalance?.toLocaleString() ?? 0} 포인트</div>
             )}
             <p className="text-xs text-muted-foreground">
-              (1 포인트 = 약 500원)
+              다양한 활동으로 포인트를 모아보세요.
             </p>
           </CardContent>
         </Card>
