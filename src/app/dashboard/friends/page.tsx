@@ -63,9 +63,9 @@ export default function FriendsPage() {
         where('participants', 'array-contains', currentUserStudentId)
       );
       const usedMateCodesSnapshot = await getDocs(usedMateCodesQuery);
-      usedMateCodesSnapshot.forEach(doc => {
-        const codeData = doc.data();
-        // The owner of the code is a friend.
+      usedMateCodesSnapshot.forEach(codeDoc => {
+        const codeData = codeDoc.data();
+        // The owner of the code is a friend, as long as it's not my own code.
         if (codeData.ownerStudentId !== currentUserStudentId) {
           friendStudentIds.add(codeData.ownerStudentId);
         }
