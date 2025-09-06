@@ -7,11 +7,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { signIn, db } from '@/lib/firebase';
+import { signIn, db, auth } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { sendPasswordResetEmail } from 'firebase/auth';
+
 
 const FADE_IN_VARIANTS = {
   hidden: { opacity: 0, y: 10 },
@@ -22,6 +35,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+
   const router = useRouter();
   const { toast } = useToast();
 
@@ -65,7 +81,6 @@ export default function LoginPage() {
       if (userDoc.exists()) {
         userRole = userDoc.data().role;
       } else if (email === 'admin@jongdalsem.com') {
-        // Create admin doc on the fly if it doesn't exist
         await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
         userRole = 'admin';
       }
@@ -82,6 +97,29 @@ export default function LoginPage() {
     } 
   };
   
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast({ title: '오류', description: '이메일을 입력해주세요.', variant: 'destructive' });
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast({
+        title: '전송 완료',
+        description: `${resetEmail}으로 비밀번호 재설정 링크를 보냈습니다. 이메일을 확인해주세요.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: '전송 실패',
+        description: error.message || '오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   return (
     <motion.div
       className="w-full"
@@ -128,7 +166,40 @@ export default function LoginPage() {
           </motion.div>
             <motion.div variants={FADE_IN_VARIANTS}>
               <div className="space-y-2">
-                <Label htmlFor="password">비밀번호</Label>
+                <div className="flex justify-between items-center">
+                    <Label htmlFor="password">비밀번호</Label>
+                     <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button type="button" className="text-xs text-muted-foreground hover:text-primary underline">비밀번호를 잊으셨나요?</button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>비밀번호 재설정</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            가입하신 이메일 주소를 입력하시면, 비밀번호를 재설정할 수 있는 링크를 보내드립니다.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-4">
+                            <Label htmlFor="reset-email">이메일 주소</Label>
+                             <Input
+                                id="reset-email"
+                                type="email"
+                                placeholder="hello@example.com"
+                                value={resetEmail}
+                                onChange={(e) => setResetEmail(e.target.value)}
+                                disabled={isResettingPassword}
+                            />
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isResettingPassword}>취소</AlertDialogCancel>
+                          <AlertDialogAction onClick={handlePasswordReset} disabled={isResettingPassword}>
+                            {isResettingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <KeyRound className="mr-2 h-4 w-4"/>}
+                            재설정 링크 보내기
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                </div>
                 <Input
                   id="password"
                   type="password"

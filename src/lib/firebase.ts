@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit, arrayRemove } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -966,4 +967,4 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
 };
 
 
-export { auth, db, storage };
+export { auth, db, storage, sendPasswordResetEmail };

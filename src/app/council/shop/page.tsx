@@ -24,8 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -116,12 +114,8 @@ export default function CouncilShopPage() {
 
   const handleSubmit = async () => {
     if (!productName || !productPrice || !productStock) {
-      toast({ title: "입력 오류", description: "모든 필드를 채워주세요.", variant: "destructive" });
+      toast({ title: "입력 오류", description: "상품명, 가격, 재고는 필수입니다.", variant: "destructive" });
       return;
-    }
-    if (!currentProduct?.id && !productImage) {
-        toast({ title: "입력 오류", description: "새 상품은 이미지가 필요합니다.", variant: "destructive" });
-        return;
     }
     
     setIsProcessing(true);
@@ -163,7 +157,6 @@ export default function CouncilShopPage() {
       }
 
       setIsDialogOpen(false);
-      resetForm();
       fetchProducts();
 
     } catch (error) {
@@ -181,7 +174,7 @@ export default function CouncilShopPage() {
       // Delete image from storage
       if (product.imagePath) {
         const imageRef = ref(storage, product.imagePath);
-        await deleteObject(imageRef);
+        await deleteObject(imageRef).catch(err => console.warn("Image deletion failed, maybe it didn't exist.", err));
       }
       // Delete doc from firestore
       await deleteDoc(doc(db, 'products', product.id));
@@ -239,13 +232,19 @@ export default function CouncilShopPage() {
                 products.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="hidden sm:table-cell">
-                      <Image
-                        alt={p.name}
-                        className="aspect-square rounded-md object-cover"
-                        height="64"
-                        src={p.imageUrl}
-                        width="64"
-                      />
+                      {p.imageUrl ? (
+                        <Image
+                          alt={p.name}
+                          className="aspect-square rounded-md object-cover"
+                          height="64"
+                          src={p.imageUrl}
+                          width="64"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground"/>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>{p.price} 포인트</TableCell>
@@ -272,7 +271,7 @@ export default function CouncilShopPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) resetForm(); setIsDialogOpen(isOpen);}}>
           <DialogContent>
             <DialogHeader>
                 <DialogTitle>{currentProduct?.id ? '상품 수정' : '새 상품 추가'}</DialogTitle>
@@ -294,7 +293,7 @@ export default function CouncilShopPage() {
                     </div>
                  </div>
                  <div className="space-y-2">
-                     <Label>상품 이미지</Label>
+                     <Label>상품 이미지 (선택)</Label>
                      <div className="flex items-center gap-4">
                         {imagePreview ? (
                             <Image src={imagePreview} alt="preview" width={80} height={80} className="rounded-md object-cover"/>
@@ -308,9 +307,7 @@ export default function CouncilShopPage() {
                  </div>
             </div>
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button variant="outline" disabled={isProcessing}>취소</Button>
-                </DialogClose>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isProcessing}>취소</Button>
                 <Button onClick={handleSubmit} disabled={isProcessing}>
                     {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                     {currentProduct?.id ? '수정하기' : '추가하기'}
@@ -321,5 +318,3 @@ export default function CouncilShopPage() {
     </>
   );
 }
-
-    
