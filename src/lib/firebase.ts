@@ -242,7 +242,7 @@ export const handleSignOut = async () => {
 // Use Code function
 export const useCode = async (userId: string, inputCode: string, partnerStudentId?: string) => {
   const upperCaseCode = inputCode.toUpperCase();
-  const mateCodeReward = 2;
+  const mateCodeReward = 1;
 
   return await runTransaction(db, async (transaction) => {
     const userRef = doc(db, 'users', userId);
