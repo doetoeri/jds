@@ -3,14 +3,6 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
@@ -92,6 +84,7 @@ export default function LoginPage() {
   
   return (
     <motion.div
+      className="w-full"
       initial="hidden"
       animate="show"
       viewport={{ once: true }}
@@ -104,70 +97,68 @@ export default function LoginPage() {
         },
       }}
     >
-      <Card className="bg-background/80 backdrop-blur-sm">
-        <CardHeader className="text-center">
-          <motion.div variants={FADE_IN_VARIANTS}>
-            <CardTitle className="text-4xl font-headline font-bold text-primary tracking-tighter">환영합니다!</CardTitle>
-          </motion.div>
-          <motion.div variants={FADE_IN_VARIANTS}>
-          <CardDescription className="text-lg text-muted-foreground">
+      <div className="text-center mb-8">
+        <motion.div variants={FADE_IN_VARIANTS}>
+          <h1 className="text-4xl font-headline font-bold text-primary tracking-tighter">환영합니다!</h1>
+        </motion.div>
+        <motion.div variants={FADE_IN_VARIANTS}>
+          <p className="text-lg text-muted-foreground mt-2">
             종달샘 허브 계정으로 로그인하세요.
-          </CardDescription>
-          </motion.div>
-        </CardHeader>
+          </p>
+        </motion.div>
+      </div>
 
-        <form onSubmit={handleLogin}>
-          <CardContent className="space-y-4">
-             <motion.div variants={FADE_IN_VARIANTS}>
-                <div className="space-y-2">
-                  <Label htmlFor="email">이메일</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="hello@example.com"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading}
+      <form onSubmit={handleLogin}>
+        <div className="space-y-4">
+            <motion.div variants={FADE_IN_VARIANTS}>
+              <div className="space-y-2">
+                <Label htmlFor="email">이메일</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="hello@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  className="h-12 text-base"
+                />
+              </div>
+          </motion.div>
+            <motion.div variants={FADE_IN_VARIANTS}>
+              <div className="space-y-2">
+                <Label htmlFor="password">비밀번호</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                     className="h-12 text-base"
-                  />
-                </div>
-            </motion.div>
-             <motion.div variants={FADE_IN_VARIANTS}>
-                <div className="space-y-2">
-                  <Label htmlFor="password">비밀번호</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                     className="h-12 text-base"
-                  />
-                </div>
-             </motion.div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4 mt-4">
-             <motion.div variants={FADE_IN_VARIANTS} className="w-full">
-              <Button type="submit" className="w-full font-bold h-12 text-base" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                로그인
-              </Button>
-            </motion.div>
-             <motion.div variants={FADE_IN_VARIANTS}>
-              <div className="text-center text-sm text-muted-foreground">
-                계정이 없으신가요?{' '}
-                <Link href="/signup" className={`font-semibold text-primary underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
-                  회원가입
-                </Link>
+                />
               </div>
             </motion.div>
-          </CardFooter>
-        </form>
-      </Card>
+        </div>
+        <div className="flex flex-col gap-4 mt-8">
+            <motion.div variants={FADE_IN_VARIANTS} className="w-full">
+            <Button type="submit" className="w-full font-bold h-12 text-base" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              로그인
+            </Button>
+          </motion.div>
+            <motion.div variants={FADE_IN_VARIANTS}>
+            <div className="text-center text-sm text-muted-foreground">
+              계정이 없으신가요?{' '}
+              <Link href="/signup" className={`font-semibold text-primary underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
+                회원가입
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </form>
     </motion.div>
   );
 }
