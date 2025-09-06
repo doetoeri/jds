@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -36,10 +36,21 @@ export default function CouncilUsersPage() {
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
-    const q = query(usersCollection, where('role', '==', 'student'), orderBy('studentId', 'asc'));
+    // Firestore's inequality filter and orderBy on different fields require a composite index.
+    // To avoid this requirement for this specific view, we remove the ordering and sort client-side.
+    const q = query(usersCollection, where('role', '==', 'student'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      
+      // Sort client-side
+      userList.sort((a, b) => {
+        if (a.studentId && b.studentId) {
+          return a.studentId.localeCompare(b.studentId);
+        }
+        return 0;
+      });
+
       setUsers(userList);
       setIsLoading(false);
     }, (error) => {
@@ -99,5 +110,3 @@ export default function CouncilUsersPage() {
     </div>
   );
 }
-
-    
