@@ -783,42 +783,66 @@ export const submitWord = async (userId: string, word: string) => {
     });
 }
 
-export const givePointsAtBooth = async (boothOperatorId: string, studentId: string, amount: number, reason: string) => {
-    return await runTransaction(db, async (transaction) => {
-        const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
-        const studentSnapshot = await getDocs(studentQuery);
+export const givePointsToMultipleStudentsAtBooth = async (boothOperatorId: string, studentIds: string[], amount: number, reason: string) => {
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
 
-        if (studentSnapshot.empty) {
-            throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
-        }
-        
-        const studentDoc = studentSnapshot.docs[0];
-        const studentRef = studentDoc.ref;
-        const currentPoints = studentDoc.data().lak || 0;
-
-        if (currentPoints >= POINT_LIMIT) {
-             // 한도 도달 시에도 기록은 남기지만 포인트는 미지급
-             const historyRef = doc(collection(studentRef, 'transactions'));
-             transaction.set(historyRef, {
-               date: Timestamp.now(), description: `부스 이벤트 (포인트 한도 초과): ${reason}`, amount: 0, type: 'credit', operator: boothOperatorId
-             });
-             return; // 성공 처리
-        }
-
-        if (currentPoints + amount > POINT_LIMIT) {
-            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-        }
-
-        transaction.update(studentRef, { lak: increment(amount) });
-        
-        const historyRef = doc(collection(studentRef, 'transactions'));
-        transaction.set(historyRef, {
-          date: Timestamp.now(), description: `부스 이벤트: ${reason}`, amount: amount, type: 'credit', operator: boothOperatorId
-        });
-    }).catch((error: any) => {
-        console.error("Booth point error:", error);
-        throw new Error(error.message || '부스 포인트 지급 중 오류가 발생했습니다.');
+    const studentDocs = new Map<string, any>();
+    // Batch read all unique students first to minimize reads
+    const uniqueStudentIds = [...new Set(studentIds)];
+    const studentQuery = query(collection(db, 'users'), where('studentId', 'in', uniqueStudentIds), where('role', '==', 'student'));
+    const studentSnapshot = await getDocs(studentQuery);
+    studentSnapshot.forEach(doc => {
+        studentDocs.set(doc.data().studentId, { ref: doc.ref, data: doc.data() });
     });
+
+    for (const studentId of studentIds) {
+        try {
+            await runTransaction(db, async (transaction) => {
+                const studentInfo = studentDocs.get(studentId);
+                if (!studentInfo) {
+                    throw new Error(`학생(${studentId}) 없음`);
+                }
+
+                const studentRef = studentInfo.ref;
+                // We need to get the fresh data inside the transaction
+                const studentDoc = await transaction.get(studentRef);
+                if (!studentDoc.exists()) {
+                     throw new Error(`학생(${studentId}) 없음`);
+                }
+
+                const currentPoints = studentDoc.data().lak || 0;
+
+                if (currentPoints >= POINT_LIMIT) {
+                    const historyRef = doc(collection(studentRef, 'transactions'));
+                    transaction.set(historyRef, {
+                        date: Timestamp.now(), description: `부스 이벤트 (포인트 한도 초과): ${reason}`, amount: 0, type: 'credit', operator: boothOperatorId
+                    });
+                    // This is a "successful" operation in the sense that it was processed.
+                    return; 
+                }
+
+                if (currentPoints + amount > POINT_LIMIT) {
+                    throw new Error(`학생(${studentId}) 한도 초과`);
+                }
+
+                transaction.update(studentRef, { lak: increment(amount) });
+                
+                const historyRef = doc(collection(studentRef, 'transactions'));
+                transaction.set(historyRef, {
+                    date: Timestamp.now(), description: `부스 이벤트: ${reason}`, amount: amount, type: 'credit', operator: boothOperatorId
+                });
+            });
+            successCount++;
+        } catch (error: any) {
+            console.error(`Failed to give points to ${studentId}:`, error);
+            failCount++;
+            errors.push(error.message || `학생(${studentId}) 처리 실패`);
+        }
+    }
+
+    return { successCount, failCount, errors: [...new Set(errors)] };
 };
 
 export const addBoothReason = async (reason: string) => {
