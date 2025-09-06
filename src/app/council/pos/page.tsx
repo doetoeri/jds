@@ -1,143 +1,232 @@
 
-
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardFooter
 } from '@/components/ui/card';
+import { ShoppingCart, Plus, Minus, Loader2, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { db, auth, processPosPayment } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import Image from 'next/image';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { auth, processPosPayment } from '@/lib/firebase';
-import { Loader2, ShoppingCart, Minus, Plus } from 'lucide-react';
-import { useAuthState } from 'react-firebase-hooks/auth';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  imageUrl: string;
+}
+
+interface CartItem extends Product {
+  quantity: number;
+}
 
 export default function CouncilPosPage() {
+  const [products, setProducts] = useState<Product[]>([]);
   const [studentId, setStudentId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('매점 물품 구매');
-  const [isLoading, setIsLoading] = useState(false);
-  const [user] = useAuthState(auth);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [totalCost, setTotalCost] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+
   const { toast } = useToast();
+  const [user] = useAuthState(auth);
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentId || !amount || !reason) {
-      toast({ title: '입력 오류', description: '모든 필드를 채워주세요.', variant: 'destructive' });
-      return;
-    }
-    if (!/^\d{5}$/.test(studentId)) {
-      toast({ title: "입력 오류", description: "학번은 5자리 숫자여야 합니다.", variant: "destructive" });
-      return;
-    }
-    const paymentAmount = Number(amount);
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      toast({ title: "입력 오류", description: "유효한 포인트를 입력해주세요.", variant: "destructive" });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      if (!user) throw new Error("계산원 정보가 없습니다.");
-      const result = await processPosPayment(user.uid, studentId, paymentAmount, reason);
-      if (result.success) {
-        toast({ title: '결제 완료', description: result.message });
-        setStudentId('');
-        setAmount('');
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error: any) {
-      toast({ title: '결제 실패', description: error.message, variant: 'destructive' });
-    } finally {
+  useEffect(() => {
+    const q = query(collection(db, "products"), where("stock", ">", 0));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Product));
+      setProducts(productsData);
       setIsLoading(false);
-    }
+    }, (error) => {
+      console.error(error);
+      toast({ title: "상품 목록 로딩 실패", description: "상품을 불러오는 중 오류가 발생했습니다.", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
+
+  useEffect(() => {
+    const newTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    setTotalCost(newTotal);
+  }, [cart]);
+
+  const addToCart = (product: Product) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === product.id);
+      if (existingItem) {
+        if (existingItem.quantity < product.stock) {
+          return prevCart.map(item =>
+            item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          );
+        } else {
+          toast({ title: "재고 부족", description: `'${product.name}'의 재고가 부족합니다.`, variant: 'destructive' });
+          return prevCart;
+        }
+      }
+      return [...prevCart, { ...product, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === productId);
+      if (existingItem && existingItem.quantity > 1) {
+        return prevCart.map(item =>
+          item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
+        );
+      }
+      return prevCart.filter(item => item.id !== productId);
+    });
   };
   
-  const quickAdd = (val: number) => {
-      setAmount(prev => String((Number(prev) || 0) + val));
-  }
+  const handlePurchase = async () => {
+    if (!user) {
+      toast({ title: '오류', description: '계산원 정보가 없습니다. 다시 로그인해주세요.', variant: 'destructive' });
+      return;
+    }
+    if (!studentId || !/^\d{5}$/.test(studentId)) {
+      toast({ title: '입력 오류', description: '올바른 학생 학번 5자리를 입력해주세요.', variant: 'destructive' });
+      return;
+    }
+    if (cart.length === 0) {
+      toast({ title: '장바구니 비어있음', description: '판매할 상품을 선택해주세요.', variant: 'destructive' });
+      return;
+    }
+
+    setIsPurchasing(true);
+    
+    const itemsForPurchase = cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+    }));
+    
+    const result = await processPosPayment(user.uid, studentId, itemsForPurchase, totalCost);
+    
+    if (result.success) {
+      toast({ title: '결제 완료!', description: result.message });
+      setCart([]);
+      setStudentId('');
+    } else {
+      toast({ title: '결제 실패', description: result.message, variant: 'destructive' });
+    }
+    setIsPurchasing(false);
+  };
 
   return (
-    <div>
+    <div className="pb-48">
       <div className="space-y-1 mb-6">
-        <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
-            <ShoppingCart className="mr-2 h-6 w-6"/>
+        <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2">
+            <ShoppingCart className="h-6 w-6"/>
             종달매점 계산원
         </h1>
-        <p className="text-muted-foreground">오프라인 매점 결제를 처리하는 시스템입니다.</p>
+        <p className="text-muted-foreground">
+            상품을 선택하고 학생의 학번을 입력하여 결제를 진행하세요.
+        </p>
       </div>
 
-       <Card className="w-full max-w-md mx-auto">
-         <form onSubmit={handlePayment}>
-          <CardHeader>
-            <CardTitle>결제 처리</CardTitle>
-            <CardDescription>결제할 학생의 학번과 포인트를 입력하세요.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="studentId">학생 학번 (5자리)</Label>
-              <Input
-                id="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                placeholder="예: 10203"
-                disabled={isLoading}
-                required
-              />
+        <Card className="mb-6">
+            <CardHeader>
+                <CardTitle>결제 대상 학생</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Label htmlFor="studentId">학생 학번 (5자리)</Label>
+                <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="studentId"
+                      value={studentId}
+                      onChange={(e) => setStudentId(e.target.value)}
+                      placeholder="결제할 학생의 학번 입력"
+                      disabled={isPurchasing}
+                      required
+                      className="pl-9"
+                    />
+                </div>
+            </CardContent>
+        </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
+        ) : products.length === 0 ? (
+            <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
+        ) : (
+            products.map((product) => (
+              <Card key={product.id} className="flex flex-col overflow-hidden">
+                <div className="relative w-full h-32 bg-muted">
+                    {product.imageUrl ? (
+                        <Image src={product.imageUrl} alt={product.name} layout="fill" objectFit="cover" />
+                    ): (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <span>이미지 없음</span>
+                        </div>
+                    )}
+                </div>
+                <CardContent className="p-4 flex flex-col flex-grow">
+                  <div className="flex-grow">
+                    <h3 className="font-bold text-lg">{product.name}</h3>
+                    <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
+                    <p className="text-xs text-muted-foreground">남은 수량: {product.stock}개</p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    <Button variant="outline" size="icon" onClick={() => removeFromCart(product.id)} disabled={!cart.some(item => item.id === product.id) || isPurchasing}>
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="font-bold w-10 text-center text-lg">{cart.find(item => item.id === product.id)?.quantity || 0}</span>
+                    <Button variant="outline" size="icon" onClick={() => addToCart(product)} disabled={isPurchasing}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+        )}
+      </div>
+
+       {cart.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] lg:left-[280px] bg-background/80 backdrop-blur-sm border-t p-4 shadow-lg">
+          <div className="container mx-auto max-w-6xl">
+            <h3 className="text-lg font-semibold mb-2">결제 내역</h3>
+            <div className="max-h-32 overflow-y-auto pr-2">
+                {cart.map(item => (
+                    <div key={item.id} className="flex justify-between items-center text-sm mb-1">
+                        <span>{item.name} x{item.quantity}</span>
+                        <span>{item.price * item.quantity} 포인트</span>
+                    </div>
+                ))}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="amount">차감할 포인트</Label>
-               <div className="flex items-center gap-2">
-                 <Button type="button" variant="outline" size="icon" onClick={() => quickAdd(-1)} disabled={isLoading || Number(amount) <= 1}>
-                    <Minus className="h-4 w-4"/>
-                 </Button>
-                <Input
-                    id="amount"
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="차감할 포인트 금액"
-                    className="text-center font-bold text-lg"
-                    disabled={isLoading}
-                    required
-                />
-                 <Button type="button" variant="outline" size="icon" onClick={() => quickAdd(1)} disabled={isLoading}>
-                    <Plus className="h-4 w-4"/>
-                 </Button>
-               </div>
-               <div className="grid grid-cols-3 gap-2 pt-2">
-                  <Button type="button" variant="secondary" onClick={() => quickAdd(5)} disabled={isLoading}>+5</Button>
-                  <Button type="button" variant="secondary" onClick={() => quickAdd(10)} disabled={isLoading}>+10</Button>
-                  <Button type="button" variant="destructive" onClick={() => setAmount('')} disabled={isLoading}>초기화</Button>
-               </div>
+            <Separator className="my-2"/>
+            <div className="flex justify-between items-center font-bold text-xl">
+              <span>총 금액:</span>
+              <span>{totalCost} 포인트</span>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="reason">결제 사유</Label>
-              <Input
-                id="reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full font-bold" disabled={isLoading || !studentId || !amount}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {amount ? `${amount} 포인트 결제하기` : '결제하기'}
+            <Button className="w-full mt-3 font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId}>
+              {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {studentId ? `${studentId} 학생 / ${totalCost} 포인트 결제하기` : '학생 학번을 입력하세요'}
             </Button>
-          </CardFooter>
-         </form>
-       </Card>
+          </div>
+        </div>
+       )}
     </div>
   );
 }

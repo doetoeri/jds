@@ -966,7 +966,12 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
     await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
 };
 
-export const processPosPayment = async (operatorId: string, studentId: string, amount: number, reason: string) => {
+export const processPosPayment = async (
+    operatorId: string, 
+    studentId: string, 
+    items: { name: string, quantity: number, price: number, id: string }[],
+    totalCost: number
+) => {
   return await runTransaction(db, async (transaction) => {
     const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
     const studentSnapshot = await getDocs(studentQuery);
@@ -983,19 +988,29 @@ export const processPosPayment = async (operatorId: string, studentId: string, a
     }
 
     const currentPoints = studentDoc.data()?.lak || 0;
-    if (currentPoints < amount) {
-      throw new Error(`포인트가 부족합니다. 현재 보유: ${currentPoints}, 필요: ${amount}`);
+    if (currentPoints < totalCost) {
+      throw new Error(`포인트가 부족합니다. 현재 보유: ${currentPoints}, 필요: ${totalCost}`);
+    }
+
+    for (const item of items) {
+        const productRef = doc(db, 'products', item.id);
+        const productDoc = await transaction.get(productRef);
+        if (!productDoc.exists() || productDoc.data().stock < item.quantity) {
+            throw new Error(`'${item.name}' 상품의 재고가 부족합니다.`);
+        }
+        transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
     // Deduct points
-    transaction.update(studentRef, { lak: increment(-amount) });
+    transaction.update(studentRef, { lak: increment(-totalCost) });
 
     // Add transaction history
+    const itemsDescription = items.map(item => `${item.name}x${item.quantity}`).join(', ');
     const historyRef = doc(collection(studentRef, 'transactions'));
     transaction.set(historyRef, {
       date: Timestamp.now(),
-      description: `매점 결제: ${reason}`,
-      amount: -amount,
+      description: `매점 결제: ${itemsDescription}`,
+      amount: -totalCost,
       type: 'debit',
       operator: operatorId,
     });
@@ -1005,15 +1020,15 @@ export const processPosPayment = async (operatorId: string, studentId: string, a
     transaction.set(purchaseRef, {
         userId: studentDoc.id,
         studentId: studentId,
-        items: [{ name: reason, quantity: 1, price: amount }],
-        totalCost: amount,
+        items: items,
+        totalCost: totalCost,
         createdAt: Timestamp.now(),
         status: 'completed', // POS transactions are completed instantly
         operatorId: operatorId
     });
 
 
-    return { success: true, message: `${studentId} 학생에게서 ${amount} 포인트를 성공적으로 차감했습니다.` };
+    return { success: true, message: `${studentId} 학생에게서 ${totalCost} 포인트를 성공적으로 차감했습니다.` };
   }).catch((error: any) => {
     console.error("POS Payment error:", error);
     return { success: false, message: error.message || "결제 중 오류가 발생했습니다." };
