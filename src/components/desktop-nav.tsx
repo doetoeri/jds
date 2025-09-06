@@ -53,7 +53,8 @@ const adminLinks = [
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
   { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
-  { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
+  { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
+  { name: '상점 관리', href: '/council/shop', icon: Cog },
   { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
   { name: '학생 사용자 관리', href: '/council/users', icon: Users },
 ];
