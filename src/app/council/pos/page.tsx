@@ -100,14 +100,14 @@ export default function CouncilPosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>주문자 학번</TableHead>
-                <TableHead>주문 시간</TableHead>
+                <TableHead>주문일시</TableHead>
                 <TableHead>주문 내역</TableHead>
                 <TableHead>총 사용 포인트</TableHead>
                 <TableHead className="text-right">상태</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading && isPending ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
                       <TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell>

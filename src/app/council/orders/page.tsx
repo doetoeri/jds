@@ -89,7 +89,7 @@ export default function CouncilOrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>주문자 학번</TableHead>
-                <TableHead>주문 시간</TableHead>
+                <TableHead>주문일시</TableHead>
                 <TableHead>주문 내역</TableHead>
                 <TableHead>총 사용 포인트</TableHead>
                 <TableHead className="text-right">상태</TableHead>
