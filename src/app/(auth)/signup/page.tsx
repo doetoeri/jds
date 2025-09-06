@@ -108,7 +108,7 @@ export default function SignupPage() {
   const progressValue = (step / 3) * 100;
 
   return (
-    <Card className="bg-transparent border-none shadow-none">
+    <Card className="bg-background/80 backdrop-blur-sm">
         <motion.div
             initial="hidden"
             animate="show"

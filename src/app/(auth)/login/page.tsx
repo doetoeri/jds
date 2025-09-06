@@ -104,7 +104,7 @@ export default function LoginPage() {
         },
       }}
     >
-      <Card className="bg-transparent border-none shadow-none">
+      <Card className="bg-background/80 backdrop-blur-sm">
         <CardHeader className="text-center">
           <motion.div variants={FADE_IN_VARIANTS}>
             <CardTitle className="text-4xl font-headline font-bold text-primary tracking-tighter">환영합니다!</CardTitle>

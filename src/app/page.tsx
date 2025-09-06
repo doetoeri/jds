@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 
 export default function HomePage() {
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen p-4 text-center overflow-hidden bg-primary text-black">
+    <div className="relative flex flex-col items-center justify-center min-h-screen p-4 text-center overflow-hidden">
       <motion.div
         className="w-full"
         initial={{ opacity: 0, y: 20 }}
@@ -19,7 +19,7 @@ export default function HomePage() {
           <Button
             asChild
             size="lg"
-            className="font-bold w-full sm:w-auto bg-black text-primary hover:bg-black/80"
+            className="font-bold w-full sm:w-auto"
           >
             <Link href="/login">
               로그인하여 시작하기 <ChevronRight className="ml-2" />
@@ -28,8 +28,8 @@ export default function HomePage() {
           <Button
             asChild
             size="lg"
-            variant="ghost"
-            className="w-full sm:w-auto bg-black text-primary hover:bg-black/80"
+            variant="outline"
+            className="w-full sm:w-auto"
           >
             <Link href="/guide">
               <HelpCircle className="mr-2" /> 사용 가이드
@@ -56,7 +56,7 @@ export default function HomePage() {
             dy=".35em"
             textAnchor="middle"
             className="font-batang font-black"
-            style={{ fontSize: '180px', fill: 'black' }}
+            style={{ fontSize: '180px', fill: 'hsl(var(--primary))' }}
           >
             JongDalSam
           </text>
