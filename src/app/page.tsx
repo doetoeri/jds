@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ChevronRight, HelpCircle } from 'lucide-react';
@@ -22,7 +21,7 @@ export default function HomePage() {
         </div>
         
         <div className="w-full select-none" aria-hidden="true">
-           <svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMid meet" className="w-full">
+           <svg viewBox="0 0 1100 220" preserveAspectRatio="xMidYMid meet" className="w-full">
                 <text 
                     x="50%" 
                     y="50%" 
