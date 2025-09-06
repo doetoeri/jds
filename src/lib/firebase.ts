@@ -966,5 +966,59 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
     await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
 };
 
+export const processPosPayment = async (operatorId: string, studentId: string, amount: number, reason: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
+    const studentSnapshot = await getDocs(studentQuery);
+
+    if (studentSnapshot.empty) {
+      throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
+    }
+
+    const studentRef = studentSnapshot.docs[0].ref;
+    const studentDoc = await transaction.get(studentRef);
+
+    if (!studentDoc.exists()) {
+      throw new Error("결제 중 학생 정보를 다시 확인하는 데 실패했습니다.");
+    }
+
+    const currentPoints = studentDoc.data()?.lak || 0;
+    if (currentPoints < amount) {
+      throw new Error(`포인트가 부족합니다. 현재 보유: ${currentPoints}, 필요: ${amount}`);
+    }
+
+    // Deduct points
+    transaction.update(studentRef, { lak: increment(-amount) });
+
+    // Add transaction history
+    const historyRef = doc(collection(studentRef, 'transactions'));
+    transaction.set(historyRef, {
+      date: Timestamp.now(),
+      description: `매점 결제: ${reason}`,
+      amount: -amount,
+      type: 'debit',
+      operator: operatorId,
+    });
+    
+     // Log the purchase in a separate collection
+    const purchaseRef = doc(collection(db, 'purchases'));
+    transaction.set(purchaseRef, {
+        userId: studentDoc.id,
+        studentId: studentId,
+        items: [{ name: reason, quantity: 1, price: amount }],
+        totalCost: amount,
+        createdAt: Timestamp.now(),
+        status: 'completed', // POS transactions are completed instantly
+        operatorId: operatorId
+    });
+
+
+    return { success: true, message: `${studentId} 학생에게서 ${amount} 포인트를 성공적으로 차감했습니다.` };
+  }).catch((error: any) => {
+    console.error("POS Payment error:", error);
+    return { success: false, message: error.message || "결제 중 오류가 발생했습니다." };
+  });
+};
+
 
 export { auth, db, storage, sendPasswordResetEmail };

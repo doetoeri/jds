@@ -1,163 +1,69 @@
 
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, orderBy, query, Timestamp, doc, updateDoc, where } from 'firebase/firestore';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { CheckCircle, Loader2, ShoppingCart } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-
-interface Purchase {
-  id: string;
-  studentId: string;
-  createdAt: Timestamp;
-  items: { name: string; quantity: number; price: number }[];
-  totalCost: number;
-  status: 'pending' | 'completed';
-}
+import { auth, processPosPayment } from '@/lib/firebase';
+import { Loader2, ShoppingCart, Minus, Plus } from 'lucide-react';
+import { useAuthState } from 'react-firebase-hooks/auth';
 
 export default function CouncilPosPage() {
-  const [pendingPurchases, setPendingPurchases] = useState<Purchase[]>([]);
-  const [completedPurchases, setCompletedPurchases] = useState<Purchase[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('매점 물품 구매');
+  const [isLoading, setIsLoading] = useState(false);
+  const [user] = useAuthState(auth);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const purchasesCollectionRef = collection(db, 'purchases');
-    
-    const pendingQuery = query(purchasesCollectionRef, where('status', '==', 'pending'), orderBy('createdAt', 'desc'));
-    const completedQuery = query(purchasesCollectionRef, where('status', '==', 'completed'), orderBy('createdAt', 'desc'));
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentId || !amount || !reason) {
+      toast({ title: '입력 오류', description: '모든 필드를 채워주세요.', variant: 'destructive' });
+      return;
+    }
+    if (!/^\d{5}$/.test(studentId)) {
+      toast({ title: "입력 오류", description: "학번은 5자리 숫자여야 합니다.", variant: "destructive" });
+      return;
+    }
+    const paymentAmount = Number(amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      toast({ title: "입력 오류", description: "유효한 포인트를 입력해주세요.", variant: "destructive" });
+      return;
+    }
 
-    const unsubPending = onSnapshot(pendingQuery, (querySnapshot) => {
-        const pendingList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Purchase));
-        setPendingPurchases(pendingList);
-        setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching pending purchases: ", error);
-        toast({ title: "오류", description: "대기중인 주문을 불러오는 데 실패했습니다.", variant: "destructive" });
-        setIsLoading(false);
-    });
-
-    const unsubCompleted = onSnapshot(completedQuery, (querySnapshot) => {
-        const completedList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Purchase));
-        setCompletedPurchases(completedList);
-    }, (error) => {
-        console.error("Error fetching completed purchases: ", error);
-        toast({ title: "오류", description: "완료된 주문을 불러오는 데 실패했습니다.", variant: "destructive" });
-    });
-
-    return () => {
-        unsubPending();
-        unsubCompleted();
-    };
-  }, [toast]);
-  
-  const handleCompleteOrder = async (purchaseId: string) => {
-    setIsProcessing(purchaseId);
+    setIsLoading(true);
     try {
-        const purchaseRef = doc(db, 'purchases', purchaseId);
-        await updateDoc(purchaseRef, {
-            status: 'completed'
-        });
-        toast({ title: '처리 완료', description: '주문을 완료 처리했습니다.' });
-    } catch(error) {
-        toast({ title: '오류', description: '주문 처리 중 오류가 발생했습니다.', variant: 'destructive' });
+      if (!user) throw new Error("계산원 정보가 없습니다.");
+      const result = await processPosPayment(user.uid, studentId, paymentAmount, reason);
+      if (result.success) {
+        toast({ title: '결제 완료', description: result.message });
+        setStudentId('');
+        setAmount('');
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error: any) {
+      toast({ title: '결제 실패', description: error.message, variant: 'destructive' });
     } finally {
-        setIsProcessing(null);
+      setIsLoading(false);
     }
   };
-
-  const formatItems = (items: Purchase['items']) => {
-    if (!Array.isArray(items)) return 'N/A';
-    return items.map(item => `${item.name} x${item.quantity}`).join(', ');
+  
+  const quickAdd = (val: number) => {
+      setAmount(prev => String((Number(prev) || 0) + val));
   }
-
-  const renderTable = (data: Purchase[], isPending: boolean) => (
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>주문자 학번</TableHead>
-                <TableHead>주문일시</TableHead>
-                <TableHead>주문 내역</TableHead>
-                <TableHead>총 사용 포인트</TableHead>
-                <TableHead className="text-right">상태</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && isPending ? (
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <TableRow key={index}>
-                      <TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell>
-                    </TableRow>
-                  ))
-              ) : data.length === 0 ? (
-                   <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24">
-                      {isPending ? '처리 대기 중인 주문이 없습니다.' : '완료된 주문이 없습니다.'}
-                    </TableCell>
-                  </TableRow>
-              ) : (
-                data.map((purchase) => (
-                  <TableRow key={purchase.id} className={!isPending ? 'bg-muted/50' : ''}>
-                    <TableCell className="font-medium">{purchase.studentId}</TableCell>
-                    <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
-                    <TableCell className="max-w-[250px] truncate">{formatItems(purchase.items)}</TableCell>
-                    <TableCell>
-                      <Badge variant="destructive">
-                        {purchase.totalCost} 포인트
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isPending ? (
-                         <Button 
-                          size="sm" 
-                          variant="default"
-                          onClick={() => handleCompleteOrder(purchase.id)} 
-                          disabled={isProcessing === purchase.id}
-                          className="bg-green-600 hover:bg-green-700"
-                          >
-                          {isProcessing === purchase.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin"/>
-                          ) : (
-                              <CheckCircle className="h-4 w-4"/>
-                          )}
-                          <span className="ml-2">처리 완료</span>
-                         </Button>
-                      ) : (
-                          <Badge variant="secondary">완료됨</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-  );
 
   return (
     <div>
@@ -166,21 +72,72 @@ export default function CouncilPosPage() {
             <ShoppingCart className="mr-2 h-6 w-6"/>
             종달매점 계산원
         </h1>
-        <p className="text-muted-foreground">실시간 주문 내역입니다. 상품 전달 후 '처리 완료'를 눌러주세요.</p>
+        <p className="text-muted-foreground">오프라인 매점 결제를 처리하는 시스템입니다.</p>
       </div>
 
-       <Tabs defaultValue="pending" className="w-full">
-            <TabsList>
-                <TabsTrigger value="pending">처리 대기중 ({pendingPurchases.length})</TabsTrigger>
-                <TabsTrigger value="completed">처리 완료</TabsTrigger>
-            </TabsList>
-            <TabsContent value="pending" className="mt-4">
-               {renderTable(pendingPurchases, true)}
-            </TabsContent>
-            <TabsContent value="completed" className="mt-4">
-                {renderTable(completedPurchases, false)}
-            </TabsContent>
-        </Tabs>
+       <Card className="w-full max-w-md mx-auto">
+         <form onSubmit={handlePayment}>
+          <CardHeader>
+            <CardTitle>결제 처리</CardTitle>
+            <CardDescription>결제할 학생의 학번과 포인트를 입력하세요.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="studentId">학생 학번 (5자리)</Label>
+              <Input
+                id="studentId"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                placeholder="예: 10203"
+                disabled={isLoading}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="amount">차감할 포인트</Label>
+               <div className="flex items-center gap-2">
+                 <Button type="button" variant="outline" size="icon" onClick={() => quickAdd(-1)} disabled={isLoading || Number(amount) <= 1}>
+                    <Minus className="h-4 w-4"/>
+                 </Button>
+                <Input
+                    id="amount"
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="차감할 포인트 금액"
+                    className="text-center font-bold text-lg"
+                    disabled={isLoading}
+                    required
+                />
+                 <Button type="button" variant="outline" size="icon" onClick={() => quickAdd(1)} disabled={isLoading}>
+                    <Plus className="h-4 w-4"/>
+                 </Button>
+               </div>
+               <div className="grid grid-cols-3 gap-2 pt-2">
+                  <Button type="button" variant="secondary" onClick={() => quickAdd(5)} disabled={isLoading}>+5</Button>
+                  <Button type="button" variant="secondary" onClick={() => quickAdd(10)} disabled={isLoading}>+10</Button>
+                  <Button type="button" variant="destructive" onClick={() => setAmount('')} disabled={isLoading}>초기화</Button>
+               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reason">결제 사유</Label>
+              <Input
+                id="reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className="w-full font-bold" disabled={isLoading || !studentId || !amount}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {amount ? `${amount} 포인트 결제하기` : '결제하기'}
+            </Button>
+          </CardFooter>
+         </form>
+       </Card>
     </div>
   );
 }
