@@ -4,7 +4,6 @@
 import { ChevronRight, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 
 export default function HomePage() {
   return (
@@ -22,11 +21,19 @@ export default function HomePage() {
             </Button>
         </div>
         
-        <div 
-            className="w-full select-none text-center font-batang font-black text-[18vw] sm:text-[15vw] md:text-[12vw] leading-none text-primary"
-            aria-hidden="true"
-        >
-            JongDalSam
+        <div className="w-full select-none" aria-hidden="true">
+           <svg viewBox="0 0 1200 180" preserveAspectRatio="xMidYMid meet" className="w-full">
+                <text 
+                    x="50%" 
+                    y="50%" 
+                    dy=".35em"
+                    textAnchor="middle" 
+                    className="font-batang font-black fill-current text-primary" 
+                    style={{ fontSize: '180px' }}
+                >
+                    JongDalSam
+                </text>
+            </svg>
         </div>
     </div>
   );
