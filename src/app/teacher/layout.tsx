@@ -25,6 +25,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
+    document.documentElement.className = 'theme-teacher';
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {

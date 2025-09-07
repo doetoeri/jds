@@ -1,23 +1,27 @@
-import type {Metadata} from 'next';
+
+'use client';
+
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import Script from 'next/script';
-import Head from 'next/head';
-
-export const metadata: Metadata = {
-  title: '고촌중학교 학생자치회 종달샘',
-  description: '고촌중학교 학생들을 위한 포인트 및 커뮤니티 허브입니다. 다양한 활동에 참여하고 포인트를 관리해보세요.',
-  icons: {
-    icon: './favicon.ico',
-  },
-  manifest: '/manifest.json',
-};
+import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    let theme = 'theme-student'; // Default theme
+    if (pathname.startsWith('/teacher')) {
+      theme = 'theme-teacher';
+    }
+    document.documentElement.className = theme;
+  }, [pathname]);
+
   return (
     <html lang="en">
       <head>
@@ -28,6 +32,10 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF781F" />
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8017235617839629"
      crossOrigin="anonymous"></script>
+        <title>고촌중학교 학생자치회 종달샘</title>
+        <meta name="description" content="고촌중학교 학생들을 위한 포인트 및 커뮤니티 허브입니다. 다양한 활동에 참여하고 포인트를 관리해보세요."/>
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="font-body antialiased">
         <Script async src="https://www.googletagmanager.com/gtag/js?id=G-0B6DFH42ML"></Script>

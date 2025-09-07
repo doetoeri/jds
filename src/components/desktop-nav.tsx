@@ -21,6 +21,7 @@ import {
   Languages,
   ShoppingCart,
   ListOrdered,
+  HelpCircle,
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -59,7 +60,10 @@ const councilLinks = [
   { name: '학생 사용자 관리', href: '/council/users', icon: Users },
 ];
 
-const teacherLinks = [{ name: '학생 보상', href: '/teacher/rewards', icon: Award }];
+const teacherLinks = [
+    { name: '학생 보상', href: '/teacher/rewards', icon: Award },
+    { name: '사용 가이드', href: '/guide/teachers', icon: HelpCircle },
+];
 
 const navConfig = {
   student: studentLinks,

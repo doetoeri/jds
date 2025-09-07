@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 21 100% 88%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -57,6 +57,28 @@
     --announcement-fg: 210 100% 70%;
     --announcement-border: 210 100% 25%;
   }
+
+  .theme-teacher {
+    --background: 128 28% 90%; 
+    --foreground: 128 77% 10%;
+    --card: 128 28% 98%;
+    --card-foreground: 128 77% 10%;
+    --popover: 128 28% 98%;
+    --popover-foreground: 128 77% 10%;
+    --primary: 128 77% 27%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 128 20% 96%;
+    --secondary-foreground: 128 20% 20%;
+    --muted: 128 20% 96%;
+    --muted-foreground: 128 20% 45%;
+    --accent: 128 20% 92%;
+    --accent-foreground: 128 20% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 128 20% 90%;
+    --input: 128 20% 90%;
+    --ring: 128 77% 27%;
+  }
 }
 
 @layer base {
@@ -65,9 +87,15 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: linear-gradient(to bottom, hsl(21, 100%, 88%), hsl(0, 0%, 100%));
-    min-height: 100vh;
   }
+
+  body.theme-student {
+      background-image: linear-gradient(to bottom, hsl(21, 100%, 88%), hsl(0, 0%, 100%));
+  }
+  body.theme-teacher {
+      background-image: linear-gradient(to bottom, hsl(128, 28%, 80%), hsl(0, 0%, 100%));
+  }
+
   .card {
      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }

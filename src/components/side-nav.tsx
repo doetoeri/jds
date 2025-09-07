@@ -26,6 +26,7 @@ import {
   Languages,
   ShoppingCart,
   ListOrdered,
+  HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -70,7 +71,8 @@ const councilLinks = [
 ];
 
 const teacherLinks = [
-  { name: '학생 보상', href: '/teacher/rewards', icon: Award },
+    { name: '학생 보상', href: '/teacher/rewards', icon: Award },
+    { name: '사용 가이드', href: '/guide/teachers', icon: HelpCircle },
 ];
 
 const navConfig = {
