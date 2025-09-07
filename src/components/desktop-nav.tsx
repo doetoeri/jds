@@ -62,6 +62,7 @@ const councilLinks = [
 
 const teacherLinks = [
     { name: '학생 보상', href: '/teacher/rewards', icon: Award },
+    { name: '종달 우체국', href: '/teacher/letters', icon: Mail },
     { name: '사용 가이드', href: '/guide/teachers', icon: HelpCircle },
 ];
 

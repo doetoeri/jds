@@ -172,7 +172,8 @@ export const signUp = async (
             email: email,
             role: 'pending_teacher',
             createdAt: Timestamp.now(),
-            avatarGradient: 'blue', 
+            avatarGradient: 'blue',
+            lak: 0,
         });
     }
 
@@ -873,14 +874,16 @@ export const sendLetter = async (
     
     const senderData = senderDoc.data();
     const senderStudentId = senderData.studentId;
+    const senderIdentifier = senderData.role === 'teacher' ? senderData.nickname : senderData.studentId;
+
 
     let receiverQuery;
     
-    // Check if it's a student ID (5 digits) or a teacher nickname (not 5 digits)
     if (/^\d{5}$/.test(receiverIdentifier)) {
         if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
         receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
     } else {
+        if (senderIdentifier === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
         receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
     }
 
@@ -895,7 +898,7 @@ export const sendLetter = async (
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
       senderUid, 
-      senderStudentId, 
+      senderStudentId: senderIdentifier, 
       receiverStudentId: receiverIdentifierDisplay,
       content, 
       isOffline, 
@@ -910,15 +913,14 @@ export const sendLetter = async (
     let senderRewarded = false;
 
     if (senderPoints < POINT_LIMIT) {
-        if (senderPoints + reward > POINT_LIMIT) {
-            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+        if (senderPoints + reward <= POINT_LIMIT) {
+            transaction.update(senderRef, { lak: increment(reward) });
+            const senderHistoryRef = doc(collection(senderRef, 'transactions'));
+            transaction.set(senderHistoryRef, {
+                amount: reward, date: Timestamp.now(), description: `편지 발신 보상 (받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
+            });
+            senderRewarded = true;
         }
-        transaction.update(senderRef, { lak: increment(reward) });
-        const senderHistoryRef = doc(collection(senderRef, 'transactions'));
-        transaction.set(senderHistoryRef, {
-            amount: reward, date: Timestamp.now(), description: `편지 발신 보상 (받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
-        });
-        senderRewarded = true;
     } else {
         const senderHistoryRef = doc(collection(senderRef, 'transactions'));
         transaction.set(senderHistoryRef, {
@@ -926,23 +928,20 @@ export const sendLetter = async (
         });
     }
     
-    // Only give points to receiver if they are a student
-    if (receiverData.role === 'student') {
-        const receiverPoints = receiverData.lak || 0;
-        if (receiverPoints < POINT_LIMIT) {
-             if (receiverPoints + reward <= POINT_LIMIT) {
-                 transaction.update(receiverRef, { lak: increment(reward) });
-                 const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
-                 transaction.set(receiverHistoryRef, {
-                    amount: reward, date: Timestamp.now(), description: `편지 수신 (보낸 사람: ${senderStudentId})`, type: 'credit',
-                 });
-             }
-        } else {
-            const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
-            transaction.set(receiverHistoryRef, {
-                amount: 0, date: Timestamp.now(), description: `편지 수신 (포인트 한도 초과, 보낸 사람: ${senderStudentId})`, type: 'credit',
-            });
-        }
+    const receiverPoints = receiverData.lak || 0;
+    if (receiverPoints < POINT_LIMIT) {
+         if (receiverPoints + reward <= POINT_LIMIT) {
+             transaction.update(receiverRef, { lak: increment(reward) });
+             const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
+             transaction.set(receiverHistoryRef, {
+                amount: reward, date: Timestamp.now(), description: `편지 수신 (보낸 사람: ${senderIdentifier})`, type: 'credit',
+             });
+         }
+    } else {
+        const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
+        transaction.set(receiverHistoryRef, {
+            amount: 0, date: Timestamp.now(), description: `편지 수신 (포인트 한도 초과, 보낸 사람: ${senderIdentifier})`, type: 'credit',
+        });
     }
 
     let message = '편지가 성공적으로 전송되었습니다!';

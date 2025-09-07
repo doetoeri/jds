@@ -52,7 +52,10 @@ export default {
           foreground: 'hsl(var(--destructive-foreground))',
         },
         border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
+        input: {
+          DEFAULT: 'hsl(var(--input))',
+          background: '#ffffff',
+        },
         ring: 'hsl(var(--ring))',
         chart: {
           '1': 'hsl(var(--chart-1))',
@@ -106,5 +109,14 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+      require('tailwindcss-animate'),
+      function ({ addComponents }: { addComponents: any }) {
+      addComponents({
+        '.input-white': {
+          '@apply bg-white': {},
+        }
+      })
+    }
+  ],
 } satisfies Config;

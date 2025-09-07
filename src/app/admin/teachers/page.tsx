@@ -69,7 +69,10 @@ export default function AdminTeachersPage() {
     try {
       const teacherRef = doc(db, 'users', teacherId);
       if (approve) {
-        await updateDoc(teacherRef, { role: 'teacher' });
+        await updateDoc(teacherRef, { 
+            role: 'teacher',
+            lak: 0, // Initialize points for the teacher
+        });
         toast({
           title: '성공',
           description: '교직원 가입을 승인했습니다.',
