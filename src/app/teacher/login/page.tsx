@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, KeyRound, Briefcase } from 'lucide-react';
+import { Loader2, KeyRound, Briefcase, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { signIn, db, auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
