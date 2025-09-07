@@ -16,7 +16,7 @@ export default function RootLayout({
 
   useEffect(() => {
     let theme = 'theme-student'; // Default theme
-    if (pathname.startsWith('/teacher')) {
+    if (pathname.startsWith('/teacher') || pathname.startsWith('/guide/teachers')) {
       theme = 'theme-teacher';
     }
     document.documentElement.className = theme;
