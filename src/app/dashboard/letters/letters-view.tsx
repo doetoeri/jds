@@ -74,11 +74,16 @@ export default function LettersView() {
       if (!userDocSnap.exists()) throw new Error("User data not found.");
       
       const userData = userDocSnap.data();
-      const currentUserStudentId = userData.studentId;
+      const userRole = userData.role;
+      const userIdentifier = userRole === 'teacher' ? userData.nickname : userData.studentId;
+      
+      if (!userIdentifier) {
+           throw new Error("User identifier (studentId or nickname) not found.");
+      }
 
       const q = query(
         collection(db, 'letters'),
-        where('receiverStudentId', '==', currentUserStudentId),
+        where('receiverStudentId', '==', userIdentifier),
         where('status', '==', 'approved')
       );
       const querySnapshot = await getDocs(q);
@@ -93,9 +98,9 @@ export default function LettersView() {
         lastLetterCheckTimestamp: Timestamp.now()
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching/processing received letters:', error);
-      toast({ title: '오류', description: '받은 편지를 불러오는 데 실패했습니다.', variant: 'destructive' });
+      toast({ title: '오류', description: error.message || '받은 편지를 불러오는 데 실패했습니다.', variant: 'destructive' });
     } finally {
       setIsInboxLoading(false);
     }
