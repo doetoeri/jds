@@ -1,7 +1,7 @@
 
 'use client';
 
-import { ChevronRight, HelpCircle, User, Briefcase } from 'lucide-react';
+import { ChevronRight, HelpCircle, Briefcase, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -30,7 +30,7 @@ const itemVariants = {
   },
 };
 
-export default function HomePage() {
+export default function TeacherHomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center overflow-hidden">
       <motion.div
@@ -61,8 +61,8 @@ export default function HomePage() {
             </text>
           </svg>
            <div className="flex items-center justify-center mt-2">
-                <User className="h-8 w-8 text-primary"/>
-                <p className="text-2xl font-bold text-primary font-headline ml-2">학생용</p>
+                <Briefcase className="h-8 w-8 text-primary"/>
+                <p className="text-2xl font-bold text-primary font-headline ml-2">교직원용</p>
             </div>
         </motion.div>
 
@@ -75,7 +75,7 @@ export default function HomePage() {
             size="lg"
             className="font-bold w-full"
           >
-            <Link href="/login">
+            <Link href="/teacher/login">
               로그인하여 시작하기 <ChevronRight className="ml-2" />
             </Link>
           </Button>
@@ -85,21 +85,20 @@ export default function HomePage() {
             variant="outline"
             className="w-full bg-white text-black hover:bg-gray-100"
           >
-            <Link href="/guide">
+            <Link href="/guide/teachers">
               <HelpCircle className="mr-2" /> 사용 가이드
             </Link>
           </Button>
         </motion.div>
-        
-        <motion.div variants={itemVariants}>
+
+         <motion.div variants={itemVariants}>
             <Button asChild variant="link">
-                <Link href="/teacher">
-                    <Briefcase className="mr-2"/>
-                    교직원용 페이지로 이동
+                <Link href="/">
+                    <User className="mr-2"/>
+                    학생용 페이지로 이동
                 </Link>
             </Button>
         </motion.div>
-
       </motion.div>
     </div>
   );

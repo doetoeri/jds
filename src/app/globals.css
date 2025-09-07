@@ -4,14 +4,14 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 21 100% 88%;
+  :root.theme-student {
+    --background: 21 100% 95%; /* ffd6c4 */
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 19 100% 50%;
+    --primary: 18 100% 50%; /* ff5500 */
     --primary-foreground: 0 0% 100%;
     --secondary: 30 10% 96%;
     --secondary-foreground: 30 10% 10%;
@@ -23,49 +23,18 @@
     --destructive-foreground: 0 0% 98%;
     --border: 30 10% 90%;
     --input: 30 10% 90%;
-    --ring: 19 100% 50%;
+    --ring: 18 100% 50%;
     --radius: 1rem;
-    
-    --announcement-bg: 210 100% 97%;
-    --announcement-fg: 210 100% 40%;
-    --announcement-border: 210 100% 85%;
   }
  
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 19 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 210 40% 64.9%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 19 100% 50%;
-    --radius: 1rem;
-
-    --announcement-bg: 210 100% 10%;
-    --announcement-fg: 210 100% 70%;
-    --announcement-border: 210 100% 25%;
-  }
-
-  .theme-teacher {
-    --background: 128 28% 90%; 
-    --foreground: 128 77% 10%;
+  :root.theme-teacher {
+    --background: 124 23% 85%; /* aed3b1 */
+    --foreground: 130 60% 10%;
     --card: 128 28% 98%;
     --card-foreground: 128 77% 10%;
     --popover: 128 28% 98%;
     --popover-foreground: 128 77% 10%;
-    --primary: 128 77% 27%;
+    --primary: 130 70% 28%; /* 117a1d */
     --primary-foreground: 0 0% 100%;
     --secondary: 128 20% 96%;
     --secondary-foreground: 128 20% 20%;
@@ -77,7 +46,12 @@
     --destructive-foreground: 0 0% 98%;
     --border: 128 20% 90%;
     --input: 128 20% 90%;
-    --ring: 128 77% 27%;
+    --ring: 130 70% 28%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* Define dark theme variables if needed */
   }
 }
 
@@ -90,10 +64,10 @@
   }
 
   body.theme-student {
-      background-image: linear-gradient(to bottom, hsl(21, 100%, 88%), hsl(0, 0%, 100%));
+      background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
   }
   body.theme-teacher {
-      background-image: linear-gradient(to bottom, hsl(128, 28%, 80%), hsl(0, 0%, 100%));
+      background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
   }
 
   .card {

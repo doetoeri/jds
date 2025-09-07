@@ -15,6 +15,8 @@ import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
 
+const teacherOnlyPaths = ['/teacher/rewards'];
+
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,6 +39,13 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAuthorization = async () => {
+      // For public teacher pages like /teacher and /teacher/login, no auth check needed
+      if (!teacherOnlyPaths.some(p => pathname.startsWith(p))) {
+        setCheckingAuth(false);
+        setIsAuthorized(true);
+        return;
+      }
+      
       setCheckingAuth(true);
       if (loading) return;
       if (!user) {
@@ -45,7 +54,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           description: '로그인이 필요한 페이지입니다.',
           variant: 'destructive',
         });
-        setTimeout(() => router.push('/login'), 50);
+        setTimeout(() => router.push('/teacher/login'), 50);
         return;
       }
 
@@ -66,7 +75,9 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
       setCheckingAuth(false);
     };
     checkAuthorization();
-  }, [user, loading, router, toast]);
+  }, [user, loading, router, toast, pathname]);
+  
+  const isDashboard = teacherOnlyPaths.some(p => pathname.startsWith(p));
 
   if (loading || checkingAuth) {
     return (
@@ -76,7 +87,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     )
   }
 
-  if (isMaintenanceMode) {
+  if (isMaintenanceMode && isDashboard) {
       return <MaintenancePage />;
   }
   
@@ -86,6 +97,10 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     )
+  }
+
+  if (!isDashboard) {
+    return <>{children}</>;
   }
 
   return (

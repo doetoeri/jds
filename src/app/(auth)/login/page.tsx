@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, KeyRound } from 'lucide-react';
+import { Loader2, KeyRound, User, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { signIn, db, auth } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { sendPasswordResetEmail } from 'firebase/auth';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const FADE_IN_VARIANTS = {
@@ -80,6 +81,17 @@ export default function LoginPage() {
       let userRole = '';
       if (userDoc.exists()) {
         userRole = userDoc.data().role;
+         if (userRole === 'teacher') {
+            await auth.signOut();
+            toast({
+                title: '로그인 오류',
+                description: '교직원께서는 교직원 전용 로그인 페이지를 이용해주세요.',
+                variant: 'destructive',
+            });
+            setIsLoading(false);
+            router.push('/teacher/login');
+            return;
+        }
       } else if (email === 'admin@jongdalsem.com') {
         await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
         userRole = 'admin';
@@ -136,8 +148,9 @@ export default function LoginPage() {
       }}
     >
       <div className="text-center mb-8">
-        <motion.div variants={FADE_IN_VARIANTS}>
-          <h1 className="text-4xl font-headline font-bold text-primary tracking-tighter">환영합니다!</h1>
+        <motion.div variants={FADE_IN_VARIANTS} className="flex items-center justify-center text-primary">
+            <User className="h-10 w-10 mr-2"/>
+            <h1 className="text-4xl font-headline font-bold tracking-tighter">학생 로그인</h1>
         </motion.div>
         <motion.div variants={FADE_IN_VARIANTS}>
           <p className="text-lg text-muted-foreground mt-2">
@@ -145,6 +158,15 @@ export default function LoginPage() {
           </p>
         </motion.div>
       </div>
+      
+       <Alert variant="default" className="mb-6">
+        <Briefcase className="h-4 w-4" />
+        <AlertTitle className="font-bold">교직원이신가요?</AlertTitle>
+        <AlertDescription>
+          교직원께서는 전용 로그인 페이지를 이용해주세요.
+          <Button variant="link" asChild className="p-0 h-auto ml-2"><Link href="/teacher/login">교직원 로그인 페이지로 이동</Link></Button>
+        </AlertDescription>
+      </Alert>
 
       <form onSubmit={handleLogin}>
         <div className="space-y-4">

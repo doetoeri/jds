@@ -19,7 +19,7 @@ export default function GuidePage() {
   return (
      <div>
         <div className="space-y-1 mb-6">
-            <Button asChild variant="ghost" className="mb-4">
+            <Button asChild variant="outline" className="mb-4 bg-white text-black hover:bg-gray-100">
                 <Link href="/">
                     <ArrowLeft className="mr-2 h-4 w-4"/>
                     홈으로 돌아가기
