@@ -19,7 +19,7 @@ export default function TeacherGuidePage() {
   return (
      <div>
         <div className="space-y-1 mb-6">
-            <Button asChild variant="outline" className="mb-4">
+            <Button asChild className="mb-4">
                 <Link href="/teacher/rewards">
                     <ArrowLeft className="mr-2 h-4 w-4"/>
                     대시보드로 돌아가기
