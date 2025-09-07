@@ -15,7 +15,7 @@ import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
 
-const teacherOnlyPaths = ['/teacher/rewards'];
+const teacherOnlyPaths = ['/teacher/rewards', '/teacher/letters'];
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
