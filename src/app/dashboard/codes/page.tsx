@@ -290,7 +290,7 @@ export default function CodesPage() {
                  <div className="flex items-start gap-2">
                    <UserPlus className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
                    <p>
-                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하면 나와 친구 모두에게 포인트가 지급됩니다. 나의 메이트코드를 친구에게 공유해보세요!
+                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하면 친구의 팀 링크에 참여하게 됩니다. 5명이 모이면 모두 보너스 포인트를 받아요!
                      <br/>
                      <span className="font-mono text-sm font-bold bg-muted px-2 py-1 rounded-md mt-1 inline-block">나의 메이트코드: {myMateCode || "로딩중..."}</span>
                    </p>
@@ -345,3 +345,5 @@ export default function CodesPage() {
     </>
   );
 }
+
+    

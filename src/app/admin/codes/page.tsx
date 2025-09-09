@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ interface Code {
   type: '종달코드' | '메이트코드' | '온라인 특수코드' | '히든코드' | '선착순코드';
   value: number;
   used?: boolean;
+  completed?: boolean;
   usedBy: string | string[] | null;
   createdAt: Timestamp;
   ownerStudentId?: string;
@@ -433,9 +435,11 @@ export default function AdminCodesPage() {
 
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
-        const participantsList = Array.isArray(code.participants) ? code.participants : [];
-        const useCount = Math.max(0, participantsList.length -1); 
-        return <Badge variant={useCount > 0 ? "secondary" : "outline"} className="gap-1"><Users className="h-3 w-3"/>{useCount > 0 ? `${useCount}회 사용` : '미사용'}</Badge>;
+      const participantsCount = code.participants?.length || 0;
+      if (code.completed) {
+        return <Badge variant="default">완성됨 (5명)</Badge>;
+      }
+      return <Badge variant="secondary">{`${participantsCount} / 5명`}</Badge>;
     }
     if (code.type === '선착순코드') {
         const usedCount = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
@@ -448,7 +452,7 @@ export default function AdminCodesPage() {
 
   const renderUsedBy = (code: Code) => {
     if (code.type === '메이트코드') {
-        return `소유자: ${code.ownerStudentId}`;
+        return `소유자: ${code.ownerStudentId} | 팀: ${code.participants?.join(', ')}`;
     }
     if (code.type === '히든코드' && code.used && Array.isArray(code.usedBy)) {
         return code.usedBy.join(', ');
@@ -724,3 +728,5 @@ export default function AdminCodesPage() {
     </>
   );
 }
+
+    

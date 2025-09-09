@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -64,8 +65,8 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">메이트코드</h4>
-                        <p className="text-sm text-muted-foreground">친구와 함께 보상을 받는 특별한 코드입니다. 친구의 메이트코드를 입력하면, <strong className="text-primary">코드를 사용한 나와 코드 주인인 친구 모두에게 1 포인트씩 지급됩니다.</strong> 나의 메이트코드는 대시보드에서 확인할 수 있습니다. 자기 자신의 코드는 사용할 수 없습니다.</p>
+                        <h4 className="font-semibold text-md">메이트코드 (팀 링크)</h4>
+                        <p className="text-sm text-muted-foreground">친구와 함께 팀을 만들어 보상을 받는 특별한 코드입니다. 친구의 메이트코드를 사용해 팀에 참여하고, <strong className="text-primary">총 5명의 팀이 완성되면 모든 팀원이 각각 7포인트의 보너스를 받습니다!</strong> 자신의 코드는 대시보드에서 확인할 수 있습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
@@ -158,3 +159,5 @@ export default function GuidePage() {
     </div>
   );
 }
+
+    
