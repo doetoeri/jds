@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -131,6 +130,7 @@ export const signUp = async (
         const studentId = userData.studentId!;
         await runTransaction(db, async (transaction) => {
             const mateCode = user.uid.substring(0, 4).toUpperCase();
+            const teamLinkCode = `T-${user.uid.substring(0, 5).toUpperCase()}`;
             
             transaction.set(userDocRef, {
                 studentId: studentId,
@@ -138,6 +138,7 @@ export const signUp = async (
                 lak: 3,
                 createdAt: Timestamp.now(),
                 mateCode: mateCode,
+                teamLinkCode: teamLinkCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange', 
@@ -150,17 +151,14 @@ export const signUp = async (
                 description: '가입 축하 포인트',
                 type: 'credit',
             });
-
-            const mateCodeRef = doc(collection(db, 'codes'));
-            transaction.set(mateCodeRef, {
-                code: mateCode,
-                type: '메이트코드',
-                value: 1,
+            
+            const teamLinkRef = doc(db, 'team_links', teamLinkCode);
+            transaction.set(teamLinkRef, {
                 ownerUid: user.uid,
                 ownerStudentId: studentId,
-                participants: [studentId], 
+                members: [studentId],
+                isComplete: false,
                 createdAt: Timestamp.now(),
-                lastUsedAt: Timestamp.now(),
             });
         });
     } else { 
@@ -243,8 +241,7 @@ export const handleSignOut = async () => {
 // Use Code function
 export const useCode = async (userId: string, inputCode: string, partnerStudentId?: string) => {
   const upperCaseCode = inputCode.toUpperCase();
-  const teamLinkBonus = 7;
-
+  
   return await runTransaction(db, async (transaction) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
@@ -286,6 +283,29 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       });
     };
     
+    const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
+    const mateCodeOwnerSnapshot = await getDocs(mateCodeOwnerQuery);
+
+    if (!mateCodeOwnerSnapshot.empty) {
+        const ownerDoc = mateCodeOwnerSnapshot.docs[0];
+        const ownerRef = ownerDoc.ref;
+        const ownerData = ownerDoc.data();
+
+        if(ownerDoc.id === userId) throw "자신의 메이트코드는 사용할 수 없습니다.";
+
+        // To prevent duplicate transactions, check if this interaction already happened.
+        // This is a simple check; a more robust solution might involve a separate collection to track interactions.
+        const interactionQuery = query(collection(ownerRef, 'transactions'), where('description', '==', `메이트코드 보상 (친구: ${userStudentId})`));
+        const interactionSnap = await getDocs(interactionQuery);
+        if(!interactionSnap.empty) throw "이미 이 친구와 메이트코드를 교환했습니다.";
+
+
+        checkAndIncrementPoints(userRef, userCurrentLak, 1, `메이트코드 사용 (친구: ${ownerData.studentId})`);
+        checkAndIncrementPoints(ownerRef, ownerData.lak || 0, 1, `메이트코드 보상 (친구: ${userStudentId})`);
+        
+        return { success: true, message: `코드를 사용해 나와 친구 모두 1 포인트를 받았습니다!` };
+    }
+
 
     switch (freshCodeData.type) {
       case '히든코드':
@@ -294,27 +314,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
         if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
         
-        const mateCodesQuery = query(
-            collection(db, 'codes'),
-            where('type', '==', '메이트코드'),
-            where('participants', 'array-contains', userStudentId)
-        );
-        const mateCodesSnapshot = await getDocs(mateCodesQuery);
-        
-        const friendStudentIds = new Set<string>();
-        mateCodesSnapshot.docs.forEach(doc => {
-            const participants = doc.data().participants as string[];
-            participants.forEach(pId => {
-                if (pId !== userStudentId) {
-                    friendStudentIds.add(pId);
-                }
-            });
-        });
-
-        if (!friendStudentIds.has(partnerStudentId)) {
-            throw new Error(`학생(${partnerStudentId})은 친구 목록에 없습니다. 메이트 코드를 먼저 교환해주세요.`);
-        }
-
         const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId), where('role', '==', 'student'));
         const partnerSnapshot = await getDocs(partnerQuery);
         if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
@@ -329,31 +328,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
 
         return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
-
-      case '메이트코드':
-        if (freshCodeData.ownerStudentId === userStudentId) throw "자신의 팀 링크 코드(메이트코드)는 사용할 수 없습니다.";
-        if (freshCodeData.participants && freshCodeData.participants.includes(userStudentId)) throw "이미 이 팀 링크에 참여했습니다.";
-        if (freshCodeData.completed) throw "이 팀 링크는 이미 5명이 모두 모여 마감되었습니다.";
-
-        const newParticipants = [...(freshCodeData.participants || []), userStudentId];
-        transaction.update(codeRef, { participants: newParticipants, lastUsedAt: Timestamp.now() });
-
-        if (newParticipants.length === 5) {
-            transaction.update(codeRef, { completed: true });
-            
-            const teamMemberQuery = query(collection(db, 'users'), where('studentId', 'in', newParticipants));
-            const teamMemberDocs = await getDocs(teamMemberQuery);
-
-            for (const memberDoc of teamMemberDocs.docs) {
-                const memberRef = memberDoc.ref;
-                const memberData = memberDoc.data();
-                checkAndIncrementPoints(memberRef, memberData.lak || 0, teamLinkBonus, `팀 링크 완성 보너스! (코드: ${upperCaseCode})`);
-            }
-             return { success: true, message: `축하합니다! 5명의 팀 링크를 완성하여 모두 ${teamLinkBonus} 포인트를 받았습니다!` };
-        } else {
-             return { success: true, message: `팀 링크에 참여했습니다. ${5 - newParticipants.length}명만 더 모이면 보너스 포인트를 받을 수 있습니다!` };
-        }
-
       
       case '선착순코드':
         const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
@@ -380,6 +354,64 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       return { success: false, message: errorMessage };
   });
 };
+
+export const joinTeamLink = async (userId: string, teamLinkCode: string) => {
+  const teamLinkBonus = 7;
+
+  return await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) throw new Error("존재하지 않는 사용자입니다.");
+    
+    const userData = userDoc.data();
+    const userStudentId = userData.studentId;
+
+    const teamLinkRef = doc(db, 'team_links', teamLinkCode);
+    const teamLinkDoc = await transaction.get(teamLinkRef);
+
+    if (!teamLinkDoc.exists()) throw new Error("유효하지 않은 팀 링크 코드입니다.");
+    
+    const teamLinkData = teamLinkDoc.data();
+    if (teamLinkData.ownerStudentId === userStudentId) throw new Error("자신의 팀 링크에는 합류할 수 없습니다.");
+    if (teamLinkData.members && teamLinkData.members.includes(userStudentId)) throw new Error("이미 이 팀에 합류했습니다.");
+    if (teamLinkData.isComplete) throw new Error("이 팀은 이미 5명이 모두 모여 마감되었습니다.");
+
+    const newMembers = [...(teamLinkData.members || []), userStudentId];
+    transaction.update(teamLinkRef, { members: newMembers });
+
+    if (newMembers.length === 5) {
+        transaction.update(teamLinkRef, { isComplete: true });
+        
+        const teamMemberQuery = query(collection(db, 'users'), where('studentId', 'in', newMembers));
+        const teamMemberDocs = await getDocs(teamMemberQuery);
+
+        for (const memberDoc of teamMemberDocs.docs) {
+            const memberRef = memberDoc.ref;
+            const memberData = memberDoc.data();
+            const currentPoints = memberData.lak || 0;
+            
+            if (currentPoints < POINT_LIMIT && currentPoints + teamLinkBonus <= POINT_LIMIT) {
+                transaction.update(memberRef, { lak: increment(teamLinkBonus) });
+                const historyRef = doc(collection(memberRef, 'transactions'));
+                transaction.set(historyRef, {
+                    amount: teamLinkBonus,
+                    date: Timestamp.now(),
+                    description: `팀 링크 완성 보너스! (코드: ${teamLinkCode})`,
+                    type: 'credit',
+                });
+            }
+        }
+        return { success: true, message: `축하합니다! 5명의 팀을 완성하여 모두 ${teamLinkBonus} 포인트를 받았습니다!` };
+    } else {
+        return { success: true, message: `팀에 합류했습니다. ${5 - newMembers.length}명만 더 모이면 보너스 포인트를 받을 수 있습니다!` };
+    }
+  }).catch((error) => {
+      console.error("Team link join error: ", error);
+      const errorMessage = typeof error === 'string' ? error : (error.message || "팀 링크 합류 중 오류가 발생했습니다.");
+      return { success: false, message: errorMessage };
+  });
+};
+
 
 export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number, id: string }[], totalCost: number) => {
   return await runTransaction(db, async (transaction) => {
@@ -1041,5 +1073,3 @@ export const processPosPayment = async (
 
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    

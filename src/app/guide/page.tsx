@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -12,7 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog, ArrowLeft } from 'lucide-react';
+import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog, ArrowLeft, Link as LinkIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -65,8 +64,8 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">메이트코드 (팀 링크)</h4>
-                        <p className="text-sm text-muted-foreground">친구와 함께 팀을 만들어 보상을 받는 특별한 코드입니다. 친구의 메이트코드를 사용해 팀에 참여하고, <strong className="text-primary">총 5명의 팀이 완성되면 모든 팀원이 각각 7포인트의 보너스를 받습니다!</strong> 자신의 코드는 대시보드에서 확인할 수 있습니다.</p>
+                        <h4 className="font-semibold text-md">메이트코드</h4>
+                        <p className="text-sm text-muted-foreground">친구와 1:1로 포인트를 주고받는 코드입니다. 친구의 메이트코드를 사용하면 <strong className="text-primary">나와 친구 모두에게 각각 1포인트가 지급됩니다.</strong> 자신의 코드는 대시보드에서 확인할 수 있습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
@@ -89,19 +88,25 @@ export default function GuidePage() {
 
                  <AccordionItem value="item-5">
                   <AccordionTrigger className="text-lg font-semibold">
-                      <UserPlus className="mr-2 text-primary" />
-                      '내 친구'는 어떤 기능인가요?
+                      <LinkIcon className="mr-2 text-primary" />
+                      '팀 링크'는 어떤 기능인가요?
                   </AccordionTrigger>
                   <AccordionContent className="text-base pl-8 space-y-2">
                       <p>
-                      '내 친구' 메뉴에서는 나와 메이트코드를 주고받은 친구들의 목록을 볼 수 있습니다.
+                      '팀 링크' 메뉴에서는 친구들과 팀을 만들어 보너스 포인트를 받을 수 있습니다.
                       </p>
                       <ul className="list-disc pl-6 mt-2 space-y-2">
                         <li>
-                          나의 메이트코드를 사용한 친구, 또는 내가 코드를 사용해준 친구가 목록에 자동으로 추가됩니다.
+                          모든 학생은 고유한 '팀 링크 코드'를 가지고 있습니다.
                         </li>
                         <li>
-                          친구 목록에서 '편지 쓰기' 버튼을 누르면 해당 친구의 학번이 자동으로 입력되어 편리하게 편지를 보낼 수 있습니다.
+                          내 코드를 공유하거나 친구의 코드를 입력하여 팀에 합류할 수 있습니다.
+                        </li>
+                        <li>
+                          <strong className="text-primary">총 5명의 팀이 완성되면, 모든 팀원이 각각 7포인트의 보너스를 받습니다!</strong>
+                        </li>
+                         <li>
+                          한 번 팀을 완성한 조합으로는 다시 팀을 만들 수 없지만, 다른 친구들과는 언제든지 새로운 팀을 만들 수 있습니다.
                         </li>
                       </ul>
                   </AccordionContent>
@@ -159,5 +164,3 @@ export default function GuidePage() {
     </div>
   );
 }
-
-    

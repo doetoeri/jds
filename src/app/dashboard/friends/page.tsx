@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -10,178 +10,236 @@ import {
   CardDescription,
   CardFooter,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, joinTeamLink } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Smile, Send } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Users, Link as LinkIcon, Gift, Check, Loader2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 
-interface FriendData {
-  id: string;
+interface TeamMember {
   studentId: string;
   displayName: string;
   avatarGradient: string;
 }
 
-export default function FriendsPage() {
+interface TeamLinkData {
+    members: string[];
+    isComplete: boolean;
+}
+
+export default function LinksPage() {
   const [user] = useAuthState(auth);
   const { toast } = useToast();
-  const [friends, setFriends] = useState<FriendData[]>([]);
+  
+  const [teamLinkData, setTeamLinkData] = useState<TeamLinkData | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamLinkCode, setTeamLinkCode] = useState<string | null>(null);
+  
+  const [friendCode, setFriendCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [mateCode, setMateCode] = useState<string | null>(null);
-  const router = useRouter();
-
-  const fetchFriends = useCallback(async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) throw new Error('현재 사용자 정보를 찾을 수 없습니다.');
-      
-      const userData = userDocSnap.data();
-      const currentUserStudentId = userData.studentId;
-      setMateCode(userData.mateCode);
-
-      const friendStudentIds = new Set<string>();
-
-      // Find all mate codes where the current user is a participant
-      const involvedMateCodesQuery = query(
-        collection(db, 'codes'),
-        where('type', '==', '메이트코드'),
-        where('participants', 'array-contains', currentUserStudentId)
-      );
-      const involvedMateCodesSnapshot = await getDocs(involvedMateCodesQuery);
-
-      involvedMateCodesSnapshot.forEach(codeDoc => {
-        const codeData = codeDoc.data();
-        
-        // Case 1: It's my own mate code. My friends are the other participants.
-        if (codeData.ownerStudentId === currentUserStudentId) {
-          (codeData.participants as string[]).forEach(participantId => {
-            if (participantId !== currentUserStudentId) {
-              friendStudentIds.add(participantId);
-            }
-          });
-        } 
-        // Case 2: It's someone else's mate code that I used. The owner is my friend.
-        else {
-          friendStudentIds.add(codeData.ownerStudentId);
-        }
-      });
-      
-      const uniqueFriendIds = Array.from(friendStudentIds);
-      
-      if (uniqueFriendIds.length === 0) {
-          setFriends([]);
-          setIsLoading(false);
-          return;
-      }
-
-      // Fetch user data for all unique friend IDs
-      const usersQuery = query(collection(db, 'users'), where('studentId', 'in', uniqueFriendIds));
-      const usersSnapshot = await getDocs(usersQuery);
-
-      const friendsData = usersSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-              id: doc.id,
-              studentId: data.studentId,
-              displayName: data.displayName || `학생 (${data.studentId})`,
-              avatarGradient: data.avatarGradient || 'orange',
-          } as FriendData
-      });
-
-      setFriends(friendsData);
-
-    } catch (error: any) {
-      console.error('Error fetching friends:', error);
-      toast({
-        title: '오류',
-        description: error.message || '친구 목록을 불러오는 데 실패했습니다.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, toast]);
 
   useEffect(() => {
-    fetchFriends();
-  }, [fetchFriends]);
+    if (!user) {
+        setIsLoading(false);
+        return;
+    }
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+            setTeamLinkCode(doc.data().teamLinkCode);
+        }
+    });
+    
+    return () => unsubscribeUser();
+
+  }, [user]);
+
+  useEffect(() => {
+    if (!teamLinkCode) return;
+
+    const teamLinkRef = doc(db, 'team_links', teamLinkCode);
+    const unsubscribeTeamLink = onSnapshot(teamLinkRef, async (docSnap) => {
+        setIsLoading(true);
+        if (docSnap.exists()) {
+            const data = docSnap.data() as TeamLinkData;
+            setTeamLinkData(data);
+
+            if (data.members && data.members.length > 0) {
+                const membersQuery = query(collection(db, 'users'), where('studentId', 'in', data.members));
+                const membersSnap = await getDoc(membersQuery);
+                const memberDetails = membersSnap.docs.map(d => {
+                    const memberData = d.data();
+                    return {
+                        studentId: memberData.studentId,
+                        displayName: memberData.displayName,
+                        avatarGradient: memberData.avatarGradient
+                    }
+                });
+                setTeamMembers(memberDetails);
+            } else {
+                setTeamMembers([]);
+            }
+        }
+        setIsLoading(false);
+    });
+
+    return () => unsubscribeTeamLink();
+
+  }, [teamLinkCode]);
   
-  const getInitials = (displayName: string, studentId: string) => {
-    return displayName?.substring(0, 1).toUpperCase() || studentId?.substring(studentId.length - 2) || '친구';
+  const handleJoinTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !friendCode) return;
+    
+    setIsJoining(true);
+    try {
+      const result = await joinTeamLink(user.uid, friendCode.toUpperCase());
+      if (result.success) {
+        toast({ title: '성공!', description: result.message });
+        setFriendCode('');
+      } else {
+        toast({ title: '오류', description: result.message, variant: 'destructive' });
+      }
+    } catch(error: any) {
+      toast({ title: '치명적 오류', description: error.message, variant: 'destructive'});
+    } finally {
+      setIsJoining(false);
+    }
   }
 
-  const handleSendLetter = (friendStudentId: string) => {
-    router.push(`/dashboard/letters?to=${friendStudentId}`);
-  };
+  const handleCopyToClipboard = () => {
+    if (!teamLinkCode) return;
+    navigator.clipboard.writeText(teamLinkCode);
+    toast({ description: "팀 링크 코드가 복사되었습니다." });
+  }
+  
+  const getInitials = (member: TeamMember) => {
+    return member.displayName?.substring(0, 1).toUpperCase() || member.studentId?.substring(member.studentId.length - 2) || '친구';
+  }
 
+  const memberSlots = Array.from({ length: 5 });
+  const currentMemberCount = teamMembers.length;
 
   return (
     <div>
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
-          <Users className="mr-2 h-6 w-6" />
-          내 친구 목록
+          <LinkIcon className="mr-2 h-6 w-6" />
+          팀 링크
         </h1>
         <p className="text-muted-foreground">
-          나의 메이트 코드를 사용했거나, 내가 메이트 코드를 사용한 친구들입니다.
+          친구들과 팀을 만들어 보너스 포인트를 획득하세요!
         </p>
       </div>
         
-      {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                  <Card key={i} className="p-4 flex flex-col items-center justify-center gap-3">
-                      <Skeleton className="w-20 h-20 rounded-full" />
-                      <Skeleton className="h-5 w-24" />
-                      <Skeleton className="h-4 w-16" />
-                  </Card>
-              ))}
-          </div>
-      ) : friends.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {friends.map((friend) => (
-            <Card key={friend.id} className="p-4 flex flex-col items-center justify-center gap-2 transform transition-transform hover:scale-105">
-              <Avatar className={cn('h-20 w-20', `gradient-${friend.avatarGradient}`)}>
-                  <AvatarFallback className="text-3xl text-white bg-transparent font-bold">
-                      {getInitials(friend.displayName, friend.studentId)}
-                  </AvatarFallback>
-              </Avatar>
-              <p className="font-bold text-center">{friend.displayName}</p>
-              <p className="text-sm text-muted-foreground">{friend.studentId}</p>
-              <CardFooter className="p-0 mt-2">
-                  <Button variant="outline" size="sm" onClick={() => handleSendLetter(friend.studentId)}>
-                      <Send className="mr-1 h-3.5 w-3.5" />
-                      편지 쓰기
-                  </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardContent className="text-center py-16 px-4">
-            <Smile className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-medium text-muted-foreground">아직 친구가 없어요</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              대시보드에서 나의 메이트 코드 <strong className="text-primary font-mono">{mateCode || '...'}</strong>를 친구에게 공유하고 함께 포인트를 받아보세요!
-            </p>
+          <CardHeader>
+            <CardTitle>나의 팀 링크 코드</CardTitle>
+            <CardDescription>
+              친구에게 이 코드를 공유하여 팀원을 모으세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading || !teamLinkCode ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input value={teamLinkCode} readOnly className="font-mono text-lg tracking-widest"/>
+                <Button variant="outline" size="icon" onClick={handleCopyToClipboard}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+        <Card>
+          <CardHeader>
+            <CardTitle>친구 팀에 합류하기</CardTitle>
+            <CardDescription>
+              친구에게 받은 팀 링크 코드를 입력하세요.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleJoinTeam}>
+            <CardContent>
+              <Label htmlFor="friend-code">친구의 팀 링크 코드</Label>
+              <Input 
+                id="friend-code" 
+                value={friendCode} 
+                onChange={(e) => setFriendCode(e.target.value)} 
+                disabled={isJoining}
+                placeholder="코드를 여기에 입력"
+                className="font-mono"
+              />
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={isJoining || !friendCode} className="ml-auto">
+                {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                합류하기
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+
+      <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>나의 팀 현황</CardTitle>
+            <CardDescription>
+              {teamLinkData?.isComplete 
+                ? '팀이 완성되었습니다! 모두 보너스를 받았습니다.' 
+                : `${5 - currentMemberCount}명의 팀원이 더 필요합니다.`
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-center items-center gap-4 sm:gap-6 p-4 bg-muted/50 rounded-lg">
+                {memberSlots.map((_, i) => {
+                  const member = teamMembers[i];
+                  return (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      {member ? (
+                        <Avatar className={cn('h-16 w-16 sm:h-20 sm:w-20', `gradient-${member.avatarGradient}`)}>
+                          <AvatarFallback className="text-xl sm:text-2xl text-white bg-transparent font-bold">
+                              {getInitials(member)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-background border-2 border-dashed flex items-center justify-center">
+                          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground"/>
+                        </div>
+                      )}
+                      <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                        {member ? member.displayName : '미정'}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-2 text-muted-foreground">
+                {teamLinkData?.isComplete ? (
+                    <>
+                        <Check className="h-5 w-5 text-green-500"/>
+                        <p className="font-bold text-green-500">팀 완성!</p>
+                    </>
+                ) : (
+                    <>
+                        <Gift className="h-4 w-4" />
+                        <p>5명이 모이면 모두 <strong className="text-primary">7포인트</strong> 획득!</p>
+                    </>
+                )}
+            </div>
+          </CardContent>
+      </Card>
     </div>
   );
 }

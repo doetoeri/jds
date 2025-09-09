@@ -5,7 +5,7 @@
 
 @layer base {
   :root.theme-student {
-    --background: 21 100% 95%; /* ffd6c4 */
+    --background: 0 0% 98%; /* fafafa */
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
