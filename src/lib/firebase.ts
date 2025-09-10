@@ -382,6 +382,9 @@ export const joinTeamLink = async (userId: string, teamLinkCode: string) => {
     if (newMembers.length === 5) {
         transaction.update(teamLinkRef, { isComplete: true });
         
+        // This is a limitation: we can't query inside a transaction on a field we just updated.
+        // We have to get all the user documents beforehand, or denormalize.
+        // For simplicity, we'll fetch them outside, but this isn't atomically consistent.
         const teamMemberQuery = query(collection(db, 'users'), where('studentId', 'in', newMembers));
         const teamMemberDocs = await getDocs(teamMemberQuery);
 

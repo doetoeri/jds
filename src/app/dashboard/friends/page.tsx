@@ -64,7 +64,10 @@ export default function LinksPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!teamLinkCode) return;
+    if (!teamLinkCode) {
+      setIsLoading(false);
+      return;
+    };
 
     const teamLinkRef = doc(db, 'team_links', teamLinkCode);
     const unsubscribeTeamLink = onSnapshot(teamLinkRef, async (docSnap) => {
@@ -74,17 +77,27 @@ export default function LinksPage() {
             setTeamLinkData(data);
 
             if (data.members && data.members.length > 0) {
-                const membersQuery = query(collection(db, 'users'), where('studentId', 'in', data.members));
-                const membersSnap = await getDoc(membersQuery);
-                const memberDetails = membersSnap.docs.map(d => {
-                    const memberData = d.data();
-                    return {
-                        studentId: memberData.studentId,
-                        displayName: memberData.displayName,
-                        avatarGradient: memberData.avatarGradient
-                    }
+                // To fetch details, we might need a more complex query or denormalization
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('studentId', 'in', data.members));
+                const querySnapshot = await getDocs(q);
+                
+                const membersDetails: TeamMember[] = [];
+                querySnapshot.forEach((userDoc) => {
+                    const userData = userDoc.data();
+                    membersDetails.push({
+                        studentId: userData.studentId,
+                        displayName: userData.displayName,
+                        avatarGradient: userData.avatarGradient || 'orange'
+                    });
                 });
-                setTeamMembers(memberDetails);
+                
+                // Ensure the order is the same as in data.members
+                const sortedMemberDetails = data.members.map(studentId => 
+                    membersDetails.find(m => m.studentId === studentId)!
+                ).filter(Boolean);
+
+                setTeamMembers(sortedMemberDetails);
             } else {
                 setTeamMembers([]);
             }
@@ -150,15 +163,17 @@ export default function LinksPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading || !teamLinkCode ? (
+            {isLoading && !teamLinkCode ? (
               <Skeleton className="h-10 w-full" />
-            ) : (
+            ) : teamLinkCode ? (
               <div className="flex items-center gap-2">
                 <Input value={teamLinkCode} readOnly className="font-mono text-lg tracking-widest"/>
                 <Button variant="outline" size="icon" onClick={handleCopyToClipboard}>
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">팀 링크 코드를 불러오는 중입니다...</p>
             )}
           </CardContent>
         </Card>
@@ -179,6 +194,7 @@ export default function LinksPage() {
                 disabled={isJoining}
                 placeholder="코드를 여기에 입력"
                 className="font-mono"
+                autoCapitalize="characters"
               />
             </CardContent>
             <CardFooter>
@@ -195,7 +211,8 @@ export default function LinksPage() {
           <CardHeader>
             <CardTitle>나의 팀 현황</CardTitle>
             <CardDescription>
-              {teamLinkData?.isComplete 
+              {isLoading ? <Skeleton className="h-4 w-48"/> :
+               teamLinkData?.isComplete 
                 ? '팀이 완성되었습니다! 모두 보너스를 받았습니다.' 
                 : `${5 - currentMemberCount}명의 팀원이 더 필요합니다.`
               }
@@ -207,7 +224,8 @@ export default function LinksPage() {
                   const member = teamMembers[i];
                   return (
                     <div key={i} className="flex flex-col items-center gap-2">
-                      {member ? (
+                      {isLoading ? <Skeleton className="h-16 w-16 sm:h-20 sm:w-20 rounded-full" /> : 
+                      member ? (
                         <Avatar className={cn('h-16 w-16 sm:h-20 sm:w-20', `gradient-${member.avatarGradient}`)}>
                           <AvatarFallback className="text-xl sm:text-2xl text-white bg-transparent font-bold">
                               {getInitials(member)}
@@ -219,14 +237,15 @@ export default function LinksPage() {
                         </div>
                       )}
                       <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                        {member ? member.displayName : '미정'}
+                        {isLoading ? <Skeleton className="h-4 w-12"/> : member ? member.displayName : '미정'}
                       </span>
                     </div>
                   );
                 })}
             </div>
             <div className="mt-4 flex items-center justify-center gap-2 text-muted-foreground">
-                {teamLinkData?.isComplete ? (
+                {isLoading ? <Skeleton className="h-5 w-24"/> :
+                teamLinkData?.isComplete ? (
                     <>
                         <Check className="h-5 w-5 text-green-500"/>
                         <p className="font-bold text-green-500">팀 완성!</p>
