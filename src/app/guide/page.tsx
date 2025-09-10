@@ -65,7 +65,7 @@ export default function GuidePage() {
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">메이트코드</h4>
-                        <p className="text-sm text-muted-foreground">친구와 1:1로 포인트를 주고받는 코드입니다. 친구의 메이트코드를 사용하면 <strong className="text-primary">나와 친구 모두에게 각각 1포인트가 지급됩니다.</strong> 자신의 코드는 대시보드에서 확인할 수 있습니다.</p>
+                        <p className="text-sm text-muted-foreground">5명의 팀을 구성하여 보너스 포인트를 받는 '팀 링크' 시스템의 기반이 되는 코드입니다. 친구의 메이트코드를 사용하면 해당 친구의 팀에 합류하게 됩니다. 자세한 내용은 아래 '팀 링크' 항목을 참고하세요.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
@@ -164,3 +164,5 @@ export default function GuidePage() {
     </div>
   );
 }
+
+    

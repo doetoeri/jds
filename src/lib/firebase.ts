@@ -283,31 +283,46 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       });
     };
     
-    const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
-    const mateCodeOwnerSnapshot = await getDocs(mateCodeOwnerQuery);
+    switch (freshCodeData.type) {
+      case '메이트코드':
+        if(freshCodeData.ownerStudentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
+        
+        const ownerQuery = query(collection(db, 'users'), where('studentId', '==', freshCodeData.ownerStudentId));
+        const ownerSnapshot = await getDocs(ownerQuery);
+        if (ownerSnapshot.empty) throw "메이트코드 소유자를 찾을 수 없습니다.";
+        const ownerRef = ownerSnapshot.docs[0].ref;
+        const ownerData = ownerSnapshot.docs[0].data();
 
-    if (!mateCodeOwnerSnapshot.empty) {
-        const ownerDoc = mateCodeOwnerSnapshot.docs[0];
-        const ownerRef = ownerDoc.ref;
-        const ownerData = ownerDoc.data();
-
-        if(ownerDoc.id === userId) throw "자신의 메이트코드는 사용할 수 없습니다.";
-
-        // To prevent duplicate transactions, check if this interaction already happened.
-        // This is a simple check; a more robust solution might involve a separate collection to track interactions.
-        const interactionQuery = query(collection(ownerRef, 'transactions'), where('description', '==', `메이트코드 보상 (친구: ${userStudentId})`));
-        const interactionSnap = await getDocs(interactionQuery);
-        if(!interactionSnap.empty) throw "이미 이 친구와 메이트코드를 교환했습니다.";
-
+        const participants = freshCodeData.participants || [];
+        if (participants.includes(userStudentId)) throw "이미 이 메이트코드에 참여했습니다.";
+        if (participants.length >= 5) throw "이 메이트코드는 이미 5명이 모두 참여하여 마감되었습니다.";
 
         checkAndIncrementPoints(userRef, userCurrentLak, 1, `메이트코드 사용 (친구: ${ownerData.studentId})`);
-        checkAndIncrementPoints(ownerRef, ownerData.lak || 0, 1, `메이트코드 보상 (친구: ${userStudentId})`);
         
-        return { success: true, message: `코드를 사용해 나와 친구 모두 1 포인트를 받았습니다!` };
-    }
+        if (participants.length < 2) { // The owner is the first participant
+           checkAndIncrementPoints(ownerRef, ownerData.lak || 0, 1, `메이트코드 보상 (친구: ${userStudentId})`);
+        }
+
+        const newParticipants = [...participants, userStudentId];
+        transaction.update(codeRef, { participants: newParticipants });
+        
+        if (newParticipants.length === 5) {
+            transaction.update(codeRef, { completed: true });
+            const bonus = 7;
+            const teamMemberQuery = query(collection(db, 'users'), where('studentId', 'in', newParticipants));
+            const teamMemberDocs = await getDocs(teamMemberQuery);
+
+            for (const memberDoc of teamMemberDocs.docs) {
+                const memberRef = memberDoc.ref;
+                const memberData = memberDoc.data();
+                checkAndIncrementPoints(memberRef, memberData.lak || 0, bonus, `메이트코드 5명 완성 보너스! (코드: ${upperCaseCode})`);
+            }
+             return { success: true, message: `축하합니다! 5명의 팀을 완성하여 모두 ${bonus} 포인트를 받았습니다!` };
+        }
+
+        return { success: true, message: `메이트코드에 참여하여 1포인트를 받았습니다! ${5 - newParticipants.length}명이 더 모이면 추가 보상이 있습니다.` };
 
 
-    switch (freshCodeData.type) {
       case '히든코드':
         if (freshCodeData.used) throw "이미 사용된 코드입니다.";
         if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
@@ -380,7 +395,7 @@ export const joinTeamLink = async (userId: string, teamLinkCode: string) => {
     transaction.update(teamLinkRef, { members: newMembers });
 
     if (newMembers.length === 5) {
-        transaction.update(teamLinkRef, { isComplete: true });
+        transaction.update(teamLinkRef, { isComplete: true, completedAt: Timestamp.now() });
         
         // This is a limitation: we can't query inside a transaction on a field we just updated.
         // We have to get all the user documents beforehand, or denormalize.
@@ -1076,3 +1091,5 @@ export const processPosPayment = async (
 
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
