@@ -169,7 +169,7 @@ export default function LettersView() {
               <Mail className="mr-2" /> 종달 우체국
             </CardTitle>
             <CardDescription>
-              친구 또는 선생님에게 편지를 보내면 포인트를 받을 수 있습니다.
+              친구 또는 선생님에게 익명으로 편지를 보내보세요. (2 포인트 소모)
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSendLetter}>
@@ -214,7 +214,7 @@ export default function LettersView() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>오프라인 편지 안내</AlertTitle>
                   <AlertDescription>
-                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 관련 포인트는 편지 전송 즉시 온라인으로 지급됩니다.
+                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 편지 발송을 위한 포인트는 동일하게 차감됩니다.
                   </AlertDescription>
                 </Alert>
               )}
@@ -222,7 +222,7 @@ export default function LettersView() {
             <CardFooter className="flex justify-end">
               <Button type="submit" className="font-bold" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                편지 보내기
+                2포인트로 편지 보내기
               </Button>
             </CardFooter>
           </form>
@@ -233,7 +233,7 @@ export default function LettersView() {
           <CardHeader>
             <CardTitle className="font-headline text-2xl">받은 편지함</CardTitle>
             <CardDescription>
-              친구가 보낸 편지가 여기에 도착합니다.
+              나에게 온 익명의 편지를 확인할 수 있습니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -248,7 +248,7 @@ export default function LettersView() {
                 <div key={letter.id} className="border p-4 rounded-lg">
                   <div className="flex justify-between items-start">
                     <h4 className="font-semibold">
-                      {letter.senderStudentId}님이 보낸 편지
+                      익명의 종달새가 보낸 편지
                     </h4>
                     <Badge variant="secondary">
                       {letter.approvedAt?.toDate ? letter.approvedAt.toDate().toLocaleDateString() : ''}

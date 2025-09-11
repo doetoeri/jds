@@ -343,7 +343,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             }
             return { success: true, message: `축하합니다! 5명의 팀을 완성하여 모두 ${teamLinkBonus} 포인트를 받았습니다!` };
         } else {
-            return { success: true, message: `팀에 합류했습니다. ${5 - newMembers.length}명만 더 모이면 보너스 포인트를 받을 수 있습니다!` };
+            return { success: true, message: `팀에 합류했습니다. ${5 - newMembers.length}명만 더 모으면 보너스 포인트를 받을 수 있습니다!` };
         }
     }
 
@@ -370,7 +370,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       }
       
       transaction.update(ref, { lak: increment(pointsToAdd) });
-      const historyRef = doc(collection(ref, 'transactions'));
+      const historyRef = doc(collection(userRef, 'transactions'));
       transaction.set(historyRef, {
         date: Timestamp.now(), description: historyDesc, amount: pointsToAdd, type: 'credit',
       });
@@ -771,144 +771,6 @@ export const postAnnouncement = async (
   await addDoc(collection(db, 'announcements'), announcementData);
 };
 
-export const submitWord = async (userId: string, word: string) => {
-    if (word.length <= 1) {
-        throw new Error("단어는 두 글자 이상이어야 합니다.");
-    }
-
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, "users", userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error("사용자를 찾을 수 없습니다.");
-        
-        const userData = userDoc.data();
-        const currentPoints = userData.lak || 0;
-        
-        if (userData.lastWordChainTimestamp) {
-            const lastTime = userData.lastWordChainTimestamp.toDate();
-            const now = new Date();
-            const lastDateKST = new Date(lastTime.toLocaleString("en-US", { timeZone: "Asia/Seoul" })).setHours(0,0,0,0);
-            const nowDateKST = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })).setHours(0,0,0,0);
-            
-            if (lastDateKST === nowDateKST) throw new Error("오늘은 이미 보상을 받았습니다. 내일 다시 도전해주세요!");
-        }
-
-        const gameRef = doc(db, "games", "word-chain");
-        const gameDoc = await transaction.get(gameRef);
-        const gameData = gameDoc.exists() ? gameDoc.data() : null;
-
-        const history = gameData?.history || [];
-        const lastWord = history.length > 0 ? history[history.length - 1].word : null;
-        
-        if (lastWord && lastWord.charAt(lastWord.length - 1) !== word.charAt(0)) {
-            throw new Error(`'${lastWord.charAt(lastWord.length - 1)}'(으)로 시작하는 단어를 입력해야 합니다.`);
-        }
-        
-        if (history.some((turn: { word: string; }) => turn.word === word)) {
-            throw new Error("이미 사용된 단어입니다.");
-        }
-
-        const newTurn = {
-            word, userId, studentId: userData.studentId, displayName: userData.displayName, createdAt: Timestamp.now()
-        };
-
-        if (gameDoc.exists()) {
-            transaction.update(gameRef, { history: arrayUnion(newTurn), lastUpdate: Timestamp.now() });
-        } else {
-            transaction.set(gameRef, { history: [newTurn], createdAt: Timestamp.now(), lastUpdate: Timestamp.now() });
-        }
-
-        if (currentPoints < POINT_LIMIT) {
-            transaction.update(userRef, { lak: increment(1), lastWordChainTimestamp: Timestamp.now() });
-            const txHistoryRef = doc(collection(userRef, "transactions"));
-            transaction.set(txHistoryRef, { amount: 1, date: Timestamp.now(), description: "끝말잇기 참여 보상", type: "credit" });
-            return { success: true, message: "성공! 1포인트를 획득했습니다."};
-        } else {
-             transaction.update(userRef, { lastWordChainTimestamp: Timestamp.now() });
-             return { success: true, message: "성공! 포인트 한도에 도달했지만 참여가 기록되었습니다." };
-        }
-    }).catch((error) => {
-        console.error("Word chain submission error: ", error);
-        return { success: false, message: error.message || "단어 제출 중 오류가 발생했습니다." };
-    });
-}
-
-export const givePointsToMultipleStudentsAtBooth = async (boothOperatorId: string, studentIds: string[], amount: number, reason: string) => {
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
-
-    const studentDocs = new Map<string, any>();
-    // Batch read all unique students first to minimize reads
-    const uniqueStudentIds = [...new Set(studentIds)];
-    const studentQuery = query(collection(db, 'users'), where('studentId', 'in', uniqueStudentIds), where('role', '==', 'student'));
-    const studentSnapshot = await getDocs(studentQuery);
-    studentSnapshot.forEach(doc => {
-        studentDocs.set(doc.data().studentId, { ref: doc.ref, data: doc.data() });
-    });
-
-    for (const studentId of studentIds) {
-        try {
-            await runTransaction(db, async (transaction) => {
-                const studentInfo = studentDocs.get(studentId);
-                if (!studentInfo) {
-                    throw new Error(`학생(${studentId}) 없음`);
-                }
-
-                const studentRef = studentInfo.ref;
-                // We need to get the fresh data inside the transaction
-                const studentDoc = await transaction.get(studentRef);
-                if (!studentDoc.exists()) {
-                     throw new Error(`학생(${studentId}) 없음`);
-                }
-
-                const currentPoints = studentDoc.data().lak || 0;
-
-                if (currentPoints >= POINT_LIMIT) {
-                    const historyRef = doc(collection(studentRef, 'transactions'));
-                    transaction.set(historyRef, {
-                        date: Timestamp.now(), description: `부스 이벤트 (포인트 한도 초과): ${reason}`, amount: 0, type: 'credit', operator: boothOperatorId
-                    });
-                    // This is a "successful" operation in the sense that it was processed.
-                    return; 
-                }
-
-                if (currentPoints + amount > POINT_LIMIT) {
-                    throw new Error(`학생(${studentId}) 한도 초과`);
-                }
-
-                transaction.update(studentRef, { lak: increment(amount) });
-                
-                const historyRef = doc(collection(studentRef, 'transactions'));
-                transaction.set(historyRef, {
-                    date: Timestamp.now(), description: `부스 이벤트: ${reason}`, amount: amount, type: 'credit', operator: boothOperatorId
-                });
-            });
-            successCount++;
-        } catch (error: any) {
-            console.error(`Failed to give points to ${studentId}:`, error);
-            failCount++;
-            errors.push(error.message || `학생(${studentId}) 처리 실패`);
-        }
-    }
-
-    return { successCount, failCount, errors: [...new Set(errors)] };
-};
-
-export const addBoothReason = async (reason: string) => {
-    const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
-    await setDoc(reasonsRef, {
-        reasons: arrayUnion(reason)
-    }, { merge: true });
-};
-
-export const deleteBoothReason = async (reason: string) => {
-    const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
-    await updateDoc(reasonsRef, {
-        reasons: arrayRemove(reason)
-    });
-};
-
 export const sendLetter = async (
   senderUid: string,
   receiverIdentifier: string, // Can be studentId or teacher's nickname
@@ -946,7 +808,7 @@ export const sendLetter = async (
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
       senderUid, 
-      senderStudentId: senderIdentifier, 
+      senderStudentId: "익명", //익명
       receiverStudentId: receiverIdentifierDisplay,
       content, 
       isOffline, 
@@ -956,50 +818,20 @@ export const sendLetter = async (
     };
     transaction.set(letterRef, letterData);
 
-    const reward = 2;
+    const cost = 2;
     const senderPoints = senderData.lak || 0;
-    let senderRewarded = false;
-
-    if (senderPoints < POINT_LIMIT) {
-        if (senderPoints + reward <= POINT_LIMIT) {
-            transaction.update(senderRef, { lak: increment(reward) });
-            const senderHistoryRef = doc(collection(senderRef, 'transactions'));
-            transaction.set(senderHistoryRef, {
-                amount: reward, date: Timestamp.now(), description: `편지 발신 보상 (받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
-            });
-            senderRewarded = true;
-        }
-    } else {
-        const senderHistoryRef = doc(collection(senderRef, 'transactions'));
-        transaction.set(senderHistoryRef, {
-            amount: 0, date: Timestamp.now(), description: `편지 발신 (포인트 한도 초과, 받는 사람: ${receiverIdentifierDisplay})`, type: 'credit',
-        });
-    }
     
-    const receiverPoints = receiverData.lak || 0;
-    if (receiverPoints < POINT_LIMIT) {
-         if (receiverPoints + reward <= POINT_LIMIT) {
-             transaction.update(receiverRef, { lak: increment(reward) });
-             const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
-             transaction.set(receiverHistoryRef, {
-                amount: reward, date: Timestamp.now(), description: `편지 수신 (보낸 사람: ${senderIdentifier})`, type: 'credit',
-             });
-         }
-    } else {
-        const receiverHistoryRef = doc(collection(receiverRef, 'transactions'));
-        transaction.set(receiverHistoryRef, {
-            amount: 0, date: Timestamp.now(), description: `편지 수신 (포인트 한도 초과, 보낸 사람: ${senderIdentifier})`, type: 'credit',
-        });
+    if (senderPoints < cost) {
+      throw new Error(`포인트가 부족합니다. (현재 ${senderPoints}포인트)`);
     }
 
-    let message = '편지가 성공적으로 전송되었습니다!';
-    if (senderRewarded) {
-        message = '편지가 성공적으로 전송되고 포인트가 지급되었습니다!';
-    } else {
-        message = '편지가 전송되었습니다. (포인트 한도 초과로 포인트 미지급)';
-    }
+    transaction.update(senderRef, { lak: increment(-cost) });
+    const senderHistoryRef = doc(collection(senderRef, 'transactions'));
+    transaction.set(senderHistoryRef, {
+        amount: -cost, date: Timestamp.now(), description: `익명 편지 발송 (받는 사람: ${receiverIdentifierDisplay})`, type: 'debit',
+    });
 
-    return { success: true, message };
+    return { success: true, message: '편지가 성공적으로 전송되었습니다!' };
   }).catch((error) => {
     console.error("Send letter error: ", error);
     const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";
@@ -1081,58 +913,5 @@ export const processPosPayment = async (
     return { success: false, message: error.message || "결제 중 오류가 발생했습니다." };
   });
 };
-
-export const postGuestbookMessage = async (uid: string, text: string) => {
-  const userRef = doc(db, 'users', uid);
-  const userDoc = await getDoc(userRef);
-  if (!userDoc.exists()) throw new Error("사용자 정보를 찾을 수 없습니다.");
-  const userData = userDoc.data();
-
-  const message = {
-    uid,
-    text,
-    createdAt: Timestamp.now(),
-    displayName: userData.displayName,
-    avatarGradient: userData.avatarGradient,
-  };
-  await addDoc(collection(db, 'guestbook'), message);
-};
-
-export const postTeamChatMessage = async (uid: string, teamId: string, text: string) => {
-  const userRef = doc(db, 'users', uid);
-  const userDoc = await getDoc(userRef);
-  if (!userDoc.exists()) throw new Error("사용자 정보를 찾을 수 없습니다.");
-  const userData = userDoc.data();
-  
-  if (userData.activeTeamId !== teamId) {
-    throw new Error("해당 팀의 멤버가 아닙니다.");
-  }
-
-  const message = {
-    uid,
-    text,
-    createdAt: Timestamp.now(),
-    displayName: userData.displayName,
-    avatarGradient: userData.avatarGradient,
-  };
-
-  const messageCollectionRef = collection(db, 'team_chats', teamId, 'messages');
-  await addDoc(messageCollectionRef, message);
-};
-
-
-export const resetGuestbook = async () => {
-    const guestbookRef = collection(db, 'guestbook');
-    const snapshot = await getDocs(query(guestbookRef));
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-};
-
-export const deleteGuestbookMessage = async (messageId: string) => {
-    const messageRef = doc(db, 'guestbook', messageId);
-    await deleteDoc(messageRef);
-}
-
 
 export { auth, db, storage, sendPasswordResetEmail };

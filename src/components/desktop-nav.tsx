@@ -18,12 +18,10 @@ import {
   Award,
   Cog,
   Megaphone,
-  Languages,
   ShoppingCart,
   ListOrdered,
   HelpCircle,
   Link as LinkIcon,
-  MessageSquare,
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -31,10 +29,9 @@ const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
-  { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
+  { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '나의 팀 현황', href: '/dashboard/links', icon: LinkIcon },
-  { name: '방명록', href: '/dashboard/guestbook', icon: MessageSquare },
-  { name: '실시간 끝말잇기', href: '/game/word-chain', icon: Languages },
+  { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
 ];
 
@@ -50,7 +47,6 @@ const adminLinks = [
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
-  { name: '방명록 관리', href: '/admin/guestbook', icon: MessageSquare },
   { name: '전체 내역', href: '/admin/history', icon: History },
   { name: '전체 주문 내역', href: '/admin/purchases', icon: ListOrdered },
 ];

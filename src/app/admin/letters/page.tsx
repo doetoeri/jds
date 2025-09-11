@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye, Printer } from 'lucide-react';
+import { Loader2, Eye, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -51,6 +51,7 @@ interface Letter {
 export default function AdminLettersPage() {
   const [letters, setLetters] = useState<Letter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchLetters = async () => {
@@ -78,6 +79,26 @@ export default function AdminLettersPage() {
   useEffect(() => {
     fetchLetters();
   }, []);
+  
+  const handleStatusUpdate = async (letterId: string, newStatus: 'approved' | 'rejected') => {
+      setIsProcessing(letterId);
+      try {
+          const letterRef = doc(db, 'letters', letterId);
+          await updateDoc(letterRef, {
+              status: newStatus,
+              approvedAt: newStatus === 'approved' ? Timestamp.now() : null,
+          });
+          
+          setLetters(prev => prev.map(l => l.id === letterId ? {...l, status: newStatus} : l));
+          toast({ title: '성공', description: `편지를 ${newStatus === 'approved' ? '승인' : '거절'}했습니다.` });
+          
+      } catch (error) {
+          toast({ title: '오류', description: '상태 업데이트 중 오류 발생', variant: 'destructive'});
+      } finally {
+          setIsProcessing(null);
+      }
+  }
+
 
   const statusText = {
       pending: '대기중',
@@ -152,12 +173,25 @@ export default function AdminLettersPage() {
                       {letter.createdAt?.toDate ? letter.createdAt.toDate().toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
-                       <Button asChild size="icon" variant="ghost">
-                          <Link href={`/admin/letters/${letter.id}`}>
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">상세 보기</span>
-                          </Link>
-                        </Button>
+                       {isProcessing === letter.id ? (
+                           <Loader2 className="h-4 w-4 animate-spin ml-auto" />
+                       ) : letter.status === 'pending' ? (
+                           <div className="flex gap-2 justify-end">
+                               <Button size="sm" variant="default" onClick={() => handleStatusUpdate(letter.id, 'approved')} className="bg-green-500 hover:bg-green-600">
+                                   <CheckCircle className="h-4 w-4" />
+                               </Button>
+                               <Button size="sm" variant="destructive" onClick={() => handleStatusUpdate(letter.id, 'rejected')}>
+                                   <XCircle className="h-4 w-4" />
+                               </Button>
+                           </div>
+                       ) : (
+                          <Button asChild size="icon" variant="ghost">
+                            <Link href={`/admin/letters/${letter.id}`}>
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">상세 보기</span>
+                            </Link>
+                           </Button>
+                       )}
                     </TableCell>
                   </TableRow>
                 ))
