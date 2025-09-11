@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1083,7 +1082,57 @@ export const processPosPayment = async (
   });
 };
 
+export const postGuestbookMessage = async (uid: string, text: string) => {
+  const userRef = doc(db, 'users', uid);
+  const userDoc = await getDoc(userRef);
+  if (!userDoc.exists()) throw new Error("사용자 정보를 찾을 수 없습니다.");
+  const userData = userDoc.data();
+
+  const message = {
+    uid,
+    text,
+    createdAt: Timestamp.now(),
+    displayName: userData.displayName,
+    avatarGradient: userData.avatarGradient,
+  };
+  await addDoc(collection(db, 'guestbook'), message);
+};
+
+export const postTeamChatMessage = async (uid: string, teamId: string, text: string) => {
+  const userRef = doc(db, 'users', uid);
+  const userDoc = await getDoc(userRef);
+  if (!userDoc.exists()) throw new Error("사용자 정보를 찾을 수 없습니다.");
+  const userData = userDoc.data();
+  
+  if (userData.activeTeamId !== teamId) {
+    throw new Error("해당 팀의 멤버가 아닙니다.");
+  }
+
+  const message = {
+    uid,
+    text,
+    createdAt: Timestamp.now(),
+    displayName: userData.displayName,
+    avatarGradient: userData.avatarGradient,
+  };
+
+  const messageCollectionRef = collection(db, 'team_chats', teamId, 'messages');
+  await addDoc(messageCollectionRef, message);
+};
+
+
+export const resetGuestbook = async () => {
+    const guestbookRef = collection(db, 'guestbook');
+    const snapshot = await getDocs(query(guestbookRef));
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+};
+
+export const deleteGuestbookMessage = async (messageId: string) => {
+    const messageRef = doc(db, 'guestbook', messageId);
+    await deleteDoc(messageRef);
+}
+
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    
