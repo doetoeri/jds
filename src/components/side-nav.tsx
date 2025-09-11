@@ -28,6 +28,7 @@ import {
   ListOrdered,
   HelpCircle,
   Link as LinkIcon,
+  MessageSquareText,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -38,6 +39,7 @@ import { Separator } from './ui/separator';
 const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
+  { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '나의 팀 현황', href: '/dashboard/links', icon: LinkIcon },
@@ -55,6 +57,7 @@ const adminLinks = [
   { name: '관리자 홈', href: '/admin', icon: Home },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
+  { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },

@@ -477,38 +477,44 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
   });
 };
 
-const deleteCollection = async (collectionRef: any) => {
-    const q = query(collectionRef);
-    const snapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-    });
-    await batch.commit();
+const deleteCollection = async (collectionPath: string, subcollectionPaths: string[] = []) => {
+  const collectionRef = collection(db, collectionPath);
+  const q = query(collectionRef);
+  const snapshot = await getDocs(q);
+
+  const batch = writeBatch(db);
+  for (const docSnapshot of snapshot.docs) {
+    for (const sub of subcollectionPaths) {
+        await deleteCollection(`${collectionPath}/${docSnapshot.id}/${sub}`);
+    }
+    batch.delete(docSnapshot.ref);
+  }
+  await batch.commit();
+  console.log(`Deleted collection: ${collectionPath}`);
 };
 
 export const resetAllData = async () => {
     try {
-        const collectionsToReset = ['codes', 'letters', 'purchases', 'announcements', 'communication_channel', 'guestbook', 'games'];
-        for (const col of collectionsToReset) {
-            const collectionRef = collection(db, col);
-            await deleteCollection(collectionRef);
-        }
+        await deleteCollection('codes');
+        await deleteCollection('letters');
+        await deleteCollection('purchases');
+        await deleteCollection('announcements');
+        await deleteCollection('communication_channel');
+        await deleteCollection('community_posts', ['comments']);
+        await deleteCollection('team_links');
+        await deleteCollection('team_chats', ['messages']);
 
         const usersSnapshot = await getDocs(collection(db, 'users'));
-
+        const batch = writeBatch(db);
         for (const userDoc of usersSnapshot.docs) {
             const userRef = userDoc.ref;
-            const batch = writeBatch(db);
-            if (userDoc.data().role !== 'admin' && userDoc.data().role !== 'council') {
-                batch.update(userRef, { lak: 0 });
+            await deleteCollection(`users/${userDoc.id}/transactions`);
+            if (userDoc.data().role !== 'admin') {
+                batch.update(userRef, { lak: 0, activeTeamId: null });
             }
-            await batch.commit();
-
-            const transactionsRef = collection(userRef, 'transactions');
-            await deleteCollection(transactionsRef);
         }
-
+        await batch.commit();
+        
         console.log("All data has been successfully reset.");
     } catch (error) {
         console.error("Error resetting data: ", error);
@@ -848,6 +854,32 @@ export const postTeamChatMessage = async (userId: string, teamId: string, text: 
     const messagesCollection = collection(db, `team_chats/${teamId}/messages`);
     await addDoc(messagesCollection, messageData);
 };
+
+export const createCommunityPost = async (userId: string, title: string, content: string) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+        throw new Error('사용자 정보를 찾을 수 없습니다.');
+    }
+    const userData = userDoc.data();
+
+    const postData = {
+        authorId: userId,
+        authorName: userData.displayName || '익명',
+        title: title,
+        content: content,
+        createdAt: Timestamp.now(),
+        commentCount: 0,
+    };
+
+    await addDoc(collection(db, 'community_posts'), postData);
+};
+
+export const deleteCommunityPost = async (postId: string) => {
+    const postRef = doc(db, 'community_posts', postId);
+    await deleteDoc(postRef);
+};
+
 
 
 
