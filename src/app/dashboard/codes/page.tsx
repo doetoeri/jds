@@ -281,7 +281,7 @@ export default function CodesPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col sm:flex-row justify-end gap-2">
-                  <Button variant="secondary" className="w-full sm:w-auto" type="button" onClick={openScanner} disabled={isLoading || isConfirmingPartner}>
+                  <Button className="w-full sm:w-auto" type="button" onClick={openScanner} disabled={isLoading || isConfirmingPartner}>
                     <QrCode className="mr-2 h-4 w-4" />
                     QR/바코드 스캔하기
                   </Button>
@@ -356,5 +356,3 @@ export default function CodesPage() {
     </>
   );
 }
-
-    
