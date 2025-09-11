@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -784,8 +785,6 @@ export const sendLetter = async (
     
     const senderData = senderDoc.data();
     const senderStudentId = senderData.studentId;
-    const senderIdentifier = senderData.role === 'teacher' ? senderData.nickname : senderData.studentId;
-
 
     let receiverQuery;
     
@@ -793,7 +792,6 @@ export const sendLetter = async (
         if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
         receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
     } else {
-        if (senderIdentifier === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
         receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
     }
 
@@ -801,20 +799,18 @@ export const sendLetter = async (
     if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
     
     const receiverDoc = receiverSnapshot.docs[0];
-    const receiverRef = receiverDoc.ref;
     const receiverData = receiverDoc.data();
     const receiverIdentifierDisplay = receiverData.role === 'student' ? receiverData.studentId : receiverData.nickname;
 
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
       senderUid, 
-      senderStudentId: "익명", //익명
+      senderStudentId: senderStudentId,
       receiverStudentId: receiverIdentifierDisplay,
       content, 
       isOffline, 
-      status: 'approved' as const, 
+      status: 'pending' as const, 
       createdAt: Timestamp.now(), 
-      approvedAt: Timestamp.now(),
     };
     transaction.set(letterRef, letterData);
 
@@ -828,16 +824,44 @@ export const sendLetter = async (
     transaction.update(senderRef, { lak: increment(-cost) });
     const senderHistoryRef = doc(collection(senderRef, 'transactions'));
     transaction.set(senderHistoryRef, {
-        amount: -cost, date: Timestamp.now(), description: `익명 편지 발송 (받는 사람: ${receiverIdentifierDisplay})`, type: 'debit',
+        amount: -cost, date: Timestamp.now(), description: `편지 발송 (받는 사람: ${receiverIdentifierDisplay})`, type: 'debit',
     });
 
-    return { success: true, message: '편지가 성공적으로 전송되었습니다!' };
+    return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
   }).catch((error) => {
     console.error("Send letter error: ", error);
     const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";
     return { success: false, message: errorMessage };
   });
 };
+
+export const postTeamChatMessage = async (userId: string, teamId: string, text: string) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) throw new Error('사용자 정보를 찾을 수 없습니다.');
+    const userData = userDoc.data();
+
+    const teamRef = doc(db, 'team_links', teamId);
+    const teamDoc = await getDoc(teamRef);
+    if (!teamDoc.exists()) throw new Error('팀 정보를 찾을 수 없습니다.');
+    
+    const teamData = teamDoc.data();
+    if (!teamData.members.includes(userData.studentId)) {
+        throw new Error('팀 멤버만 채팅에 참여할 수 있습니다.');
+    }
+
+    const messageData = {
+        uid: userId,
+        text: text,
+        createdAt: Timestamp.now(),
+        displayName: userData.displayName,
+        avatarGradient: userData.avatarGradient || 'orange',
+    };
+
+    const messagesCollection = collection(db, `team_chats/${teamId}/messages`);
+    await addDoc(messagesCollection, messageData);
+};
+
 
 
 export const setMaintenanceMode = async (isMaintenance: boolean) => {

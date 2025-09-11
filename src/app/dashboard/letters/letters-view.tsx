@@ -169,7 +169,7 @@ export default function LettersView() {
               <Mail className="mr-2" /> 종달 우체국
             </CardTitle>
             <CardDescription>
-              친구 또는 선생님에게 익명으로 편지를 보내보세요. (2 포인트 소모)
+              친구 또는 선생님에게 편지를 보내보세요. (2 포인트 소모)
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSendLetter}>
@@ -233,7 +233,7 @@ export default function LettersView() {
           <CardHeader>
             <CardTitle className="font-headline text-2xl">받은 편지함</CardTitle>
             <CardDescription>
-              나에게 온 익명의 편지를 확인할 수 있습니다.
+              나에게 온 편지를 확인할 수 있습니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -248,7 +248,7 @@ export default function LettersView() {
                 <div key={letter.id} className="border p-4 rounded-lg">
                   <div className="flex justify-between items-start">
                     <h4 className="font-semibold">
-                      익명의 종달새가 보낸 편지
+                      {letter.senderStudentId}님이 보낸 편지
                     </h4>
                     <Badge variant="secondary">
                       {letter.approvedAt?.toDate ? letter.approvedAt.toDate().toLocaleDateString() : ''}
