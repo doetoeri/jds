@@ -118,7 +118,8 @@ export default function CodesPage() {
 
 
   const handleUseCode = useCallback(async (scannedCode: string) => {
-    if (!scannedCode) {
+    const codeToUse = scannedCode.trim().toUpperCase();
+    if (!codeToUse) {
       toast({ title: "오류", description: "코드를 입력해주세요.", variant: "destructive" });
       return;
     }
@@ -130,28 +131,38 @@ export default function CodesPage() {
     setIsLoading(true);
     // This is a simplified check. For full validation, we call the backend.
     const { getDocs, query, collection, where } = await import('firebase/firestore');
-    const codeQuery = query(collection(db, 'codes'), where('code', '==', scannedCode.toUpperCase()));
+    const codeQuery = query(collection(db, 'codes'), where('code', '==', codeToUse));
     const codeSnapshot = await getDocs(codeQuery);
 
-    setIsLoading(false);
+    
     if (codeSnapshot.empty) {
-        toast({ title: "오류", description: "유효하지 않은 코드입니다.", variant: "destructive" });
-        return;
+        // If not a regular code, check if it's a mate code before erroring
+        const mateCodeQuery = query(collection(db, 'users'), where('mateCode', '==', codeToUse));
+        const mateCodeSnapshot = await getDocs(mateCodeQuery);
+        if (mateCodeSnapshot.empty) {
+            setIsLoading(false);
+            toast({ title: "오류", description: "유효하지 않은 코드입니다.", variant: "destructive" });
+            return;
+        }
+        // It's a mate code, so proceed
     }
-    const codeData = codeSnapshot.docs[0].data();
+    
+    setIsLoading(false); // Stop loading after initial checks
+    
+    const codeData = !codeSnapshot.empty ? codeSnapshot.docs[0].data() : null;
 
-    if (codeData.type === '히든코드' && !codeData.used) {
-        setCode(scannedCode);
+    if (codeData?.type === '히든코드' && !codeData.used) {
+        setCode(codeToUse);
         setIsPartnerDialogVisible(true);
         return; 
     }
     
-    await confirmAndUseCode(scannedCode);
+    await confirmAndUseCode(codeToUse);
 
   }, [user, toast, closeScanner]);
 
   const tick = useCallback(() => {
-    if (isLoading || isPartnerDialogVisible) return;
+    if (isLoading || isPartnerDialogVisible || isConfirmingPartner) return;
     if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
       if (canvasRef.current) {
         const canvas = canvasRef.current;
@@ -175,7 +186,7 @@ export default function CodesPage() {
       }
     }
     animationFrameId.current = requestAnimationFrame(tick);
-  }, [isLoading, handleUseCode, closeScanner, isPartnerDialogVisible]);
+  }, [isLoading, handleUseCode, closeScanner, isPartnerDialogVisible, isConfirmingPartner]);
 
   useEffect(() => {
     if (isScannerOpen && hasCameraPermission) {
@@ -264,18 +275,18 @@ export default function CodesPage() {
                         placeholder="코드를 입력하세요" 
                         value={code}
                         onChange={(e) => setCode(e.target.value.toUpperCase())}
-                        disabled={isLoading}
+                        disabled={isLoading || isConfirmingPartner}
                       />
                     </div>
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col sm:flex-row justify-end gap-2">
-                  <Button variant="secondary" className="w-full sm:w-auto" type="button" onClick={openScanner} disabled={isLoading}>
+                  <Button variant="secondary" className="w-full sm:w-auto" type="button" onClick={openScanner} disabled={isLoading || isConfirmingPartner}>
                     <QrCode className="mr-2 h-4 w-4" />
                     QR/바코드 스캔하기
                   </Button>
-                  <Button type="submit" className="font-bold w-full sm:w-auto" disabled={isLoading || !code}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" className="font-bold w-full sm:w-auto" disabled={isLoading || isConfirmingPartner || !code}>
+                    {(isLoading || isConfirmingPartner) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     사용하기
                   </Button>
                 </CardFooter>

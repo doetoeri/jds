@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -254,8 +255,101 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     const codeSnapshot = await getDocs(codeQuery); // Use getDocs outside transaction for reads
 
-    if (codeSnapshot.empty) throw "유효하지 않은 코드입니다.";
+    if (codeSnapshot.empty) {
+        // If no regular code found, check if it's a mate code
+        const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
+        const mateCodeOwnerSnapshot = await getDocs(mateCodeOwnerQuery);
 
+        if (mateCodeOwnerSnapshot.empty) {
+            throw "유효하지 않은 코드입니다.";
+        }
+        // It's a mate code, proceed with mate code logic
+    }
+    
+    const isMateCode = codeSnapshot.empty;
+
+    if (isMateCode) {
+        const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
+        const ownerSnapshot = await getDocs(mateCodeOwnerQuery);
+        const ownerDoc = ownerSnapshot.docs[0];
+        const ownerData = ownerDoc.data();
+        const ownerRef = ownerDoc.ref;
+        const ownerStudentId = ownerData.studentId;
+
+        if (ownerStudentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
+
+        let teamToJoinId = ownerData.activeTeamId;
+        
+        // If the owner doesn't have an active team, create one for both users.
+        if (!teamToJoinId) {
+            const newTeamRef = doc(collection(db, 'team_links'));
+            transaction.set(newTeamRef, {
+                ownerUid: ownerRef.id,
+                ownerStudentId: ownerStudentId,
+                members: [ownerStudentId, userStudentId], // Start team with both
+                isComplete: false,
+                createdAt: Timestamp.now(),
+            });
+            teamToJoinId = newTeamRef.id;
+            transaction.update(ownerRef, { activeTeamId: teamToJoinId });
+            transaction.update(userRef, { activeTeamId: teamToJoinId });
+            return { success: true, message: `새로운 팀을 만들었습니다! ${3}명만 더 모으면 보너스 포인트를 받을 수 있습니다!` };
+        }
+
+        const teamLinkRef = doc(db, 'team_links', teamToJoinId);
+        const teamLinkDoc = await transaction.get(teamLinkRef);
+
+        if (!teamLinkDoc.exists()) throw new Error("가입하려는 팀을 찾을 수 없습니다.");
+        
+        const teamLinkData = teamLinkDoc.data();
+        if (teamLinkData.members && teamLinkData.members.includes(userStudentId)) throw new Error("이미 이 팀에 합류했습니다.");
+        if (teamLinkData.isComplete) throw new Error("이 팀은 이미 5명이 모두 모여 마감되었습니다.");
+
+        const newMembers = [...(teamLinkData.members || []), userStudentId];
+        transaction.update(teamLinkRef, { members: newMembers });
+        
+        transaction.update(userRef, { activeTeamId: teamToJoinId });
+
+        if (newMembers.length === 5) {
+            transaction.update(teamLinkRef, { isComplete: true, completedAt: Timestamp.now() });
+            const teamLinkBonus = 7;
+            
+            for (const memberStudentId of newMembers) {
+                const memberQuery = query(collection(db, 'users'), where('studentId', '==', memberStudentId));
+                const memberDocs = await getDocs(memberQuery);
+                if (!memberDocs.empty) {
+                    const memberDoc = memberDocs.docs[0];
+                    const memberRef = memberDoc.ref;
+                    const memberData = memberDoc.data();
+                    const currentPoints = memberData.lak || 0;
+
+                    if (currentPoints < POINT_LIMIT && currentPoints + teamLinkBonus <= POINT_LIMIT) {
+                        transaction.update(memberRef, { lak: increment(teamLinkBonus) });
+                        const historyRef = doc(collection(memberRef, 'transactions'));
+                        transaction.set(historyRef, {
+                            amount: teamLinkBonus, date: Timestamp.now(), description: `팀 링크 완성 보너스!`, type: 'credit',
+                        });
+                    }
+
+                    const newTeamRef = doc(collection(db, 'team_links'));
+                    transaction.set(newTeamRef, {
+                        ownerUid: memberDoc.id,
+                        ownerStudentId: memberStudentId,
+                        members: [memberStudentId],
+                        isComplete: false,
+                        createdAt: Timestamp.now(),
+                    });
+                    transaction.update(memberRef, { activeTeamId: newTeamRef.id });
+                }
+            }
+            return { success: true, message: `축하합니다! 5명의 팀을 완성하여 모두 ${teamLinkBonus} 포인트를 받았습니다!` };
+        } else {
+            return { success: true, message: `팀에 합류했습니다. ${5 - newMembers.length}명만 더 모이면 보너스 포인트를 받을 수 있습니다!` };
+        }
+    }
+
+
+    // Logic for regular codes
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
     
@@ -284,75 +378,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     };
     
     switch (freshCodeData.type) {
-      case '메이트코드':
-        if(freshCodeData.code === userData.mateCode) throw "자신의 메이트코드는 사용할 수 없습니다.";
-        
-        // Find the owner of the mate code to determine which team to join
-        const ownerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
-        const ownerSnapshot = await getDocs(ownerQuery);
-        if (ownerSnapshot.empty) throw "메이트코드에 해당하는 사용자를 찾을 수 없습니다.";
-        
-        const ownerData = ownerSnapshot.docs[0].data();
-        const teamToJoinId = ownerData.activeTeamId;
-        if (!teamToJoinId) throw "친구가 아직 팀에 속해있지 않습니다.";
-
-        const teamLinkRef = doc(db, 'team_links', teamToJoinId);
-        const teamLinkDoc = await transaction.get(teamLinkRef);
-
-        if (!teamLinkDoc.exists()) throw new Error("가입하려는 팀을 찾을 수 없습니다.");
-        
-        const teamLinkData = teamLinkDoc.data();
-        if (teamLinkData.members && teamLinkData.members.includes(userStudentId)) throw new Error("이미 이 팀에 합류했습니다.");
-        if (teamLinkData.isComplete) throw new Error("이 팀은 이미 5명이 모두 모여 마감되었습니다.");
-
-        const newMembers = [...(teamLinkData.members || []), userStudentId];
-        transaction.update(teamLinkRef, { members: newMembers });
-        
-        // Update the current user's activeTeamId to join the new team
-        transaction.update(userRef, { activeTeamId: teamToJoinId });
-
-        if (newMembers.length === 5) {
-            transaction.update(teamLinkRef, { isComplete: true, completedAt: Timestamp.now() });
-            const teamLinkBonus = 7;
-            
-            // Create a new active team for all members of the just-completed team
-            for (const memberStudentId of newMembers) {
-                const memberQuery = query(collection(db, 'users'), where('studentId', '==', memberStudentId));
-                const memberDocs = await getDocs(memberQuery);
-                if (!memberDocs.empty) {
-                    const memberDoc = memberDocs.docs[0];
-                    const memberRef = memberDoc.ref;
-                    const memberData = memberDoc.data();
-                    const currentPoints = memberData.lak || 0;
-
-                    // Grant bonus points
-                    if (currentPoints < POINT_LIMIT && currentPoints + teamLinkBonus <= POINT_LIMIT) {
-                        transaction.update(memberRef, { lak: increment(teamLinkBonus) });
-                        const historyRef = doc(collection(memberRef, 'transactions'));
-                        transaction.set(historyRef, {
-                            amount: teamLinkBonus, date: Timestamp.now(), description: `팀 링크 완성 보너스!`, type: 'credit',
-                        });
-                    }
-
-                    // Create a new team for the member
-                    const newTeamRef = doc(collection(db, 'team_links'));
-                    transaction.set(newTeamRef, {
-                        ownerUid: memberDoc.id,
-                        ownerStudentId: memberStudentId,
-                        members: [memberStudentId],
-                        isComplete: false,
-                        createdAt: Timestamp.now(),
-                    });
-                    // Update the member's active team to the new one
-                    transaction.update(memberRef, { activeTeamId: newTeamRef.id });
-                }
-            }
-            return { success: true, message: `축하합니다! 5명의 팀을 완성하여 모두 ${teamLinkBonus} 포인트를 받았습니다!` };
-        } else {
-            return { success: true, message: `팀에 합류했습니다. ${5 - newMembers.length}명만 더 모이면 보너스 포인트를 받을 수 있습니다!` };
-        }
-
-
       case '히든코드':
         if (freshCodeData.used) throw "이미 사용된 코드입니다.";
         if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
@@ -1060,3 +1085,5 @@ export const processPosPayment = async (
 
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
