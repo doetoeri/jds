@@ -64,8 +64,8 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">메이트코드</h4>
-                        <p className="text-sm text-muted-foreground">5명의 팀을 구성하여 보너스 포인트를 받는 '팀 링크' 시스템의 기반이 되는 코드입니다. 친구의 메이트코드를 사용하면 해당 친구의 팀에 합류하게 됩니다. 자세한 내용은 아래 '팀 링크' 항목을 참고하세요.</p>
+                        <h4 className="font-semibold text-md">메이트코드 (팀 링크용)</h4>
+                        <p className="text-sm text-muted-foreground">친구의 메이트코드를 입력하면 해당 친구가 속한 팀에 합류하게 됩니다. 5명이 한 팀을 완성하면 모두가 큰 보너스 포인트를 받습니다! 자세한 내용은 아래 '팀 링크' 항목을 참고하세요.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
@@ -80,9 +80,6 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">선생님이나 관리자가 특정 학생에게 보상을 지급하기 위해 생성하는 일회용 코드입니다. 해당 학생에게 코드를 전달받아 사용하면 됩니다.</p>
                       </li>
                     </ul>
-                     <p className="mt-3 text-xs text-destructive">
-                        ※ 메이트코드를 제외한 모든 코드는 한 번만 사용할 수 있습니다.
-                    </p>
                 </AccordionContent>
                 </AccordionItem>
 
@@ -93,20 +90,20 @@ export default function GuidePage() {
                   </AccordionTrigger>
                   <AccordionContent className="text-base pl-8 space-y-2">
                       <p>
-                      '팀 링크' 메뉴에서는 친구들과 팀을 만들어 보너스 포인트를 받을 수 있습니다.
+                      '팀 링크'는 친구들과 팀을 만들어 보너스 포인트를 받는 소셜 기능입니다.
                       </p>
                       <ul className="list-disc pl-6 mt-2 space-y-2">
                         <li>
-                          모든 학생은 고유한 '팀 링크 코드'를 가지고 있습니다.
+                          모든 학생은 고유한 '메이트코드'를 가지고 있습니다. 이 코드가 곧 나의 팀 초대 코드입니다.
                         </li>
                         <li>
-                          내 코드를 공유하거나 친구의 코드를 입력하여 팀에 합류할 수 있습니다.
+                          '코드 사용' 페이지에서 친구의 메이트코드를 입력하여 팀에 합류할 수 있습니다.
                         </li>
                         <li>
                           <strong className="text-primary">총 5명의 팀이 완성되면, 모든 팀원이 각각 7포인트의 보너스를 받습니다!</strong>
                         </li>
                          <li>
-                          한 번 팀을 완성한 조합으로는 다시 팀을 만들 수 없지만, 다른 친구들과는 언제든지 새로운 팀을 만들 수 있습니다.
+                          한 번 팀을 완성하면, 소속되었던 모든 팀원들은 각자 새로운 팀을 다시 시작하게 됩니다. 다른 친구들과는 언제든지 새로운 팀을 만들 수 있습니다.
                         </li>
                       </ul>
                   </AccordionContent>
@@ -164,5 +161,3 @@ export default function GuidePage() {
     </div>
   );
 }
-
-    

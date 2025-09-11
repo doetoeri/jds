@@ -118,9 +118,9 @@ export default function FriendsPage() {
                     <Users className="h-12 w-12 text-muted-foreground"/>
                     <p className="text-muted-foreground">아직 완성된 팀 링크가 없습니다.</p>
                     <Button asChild>
-                        <Link href="/dashboard/links">
+                        <Link href="/dashboard/codes">
                             <LinkIcon className="mr-2 h-4 w-4"/>
-                            지금 바로 팀 만들러 가기
+                            메이트코드로 팀 만들러 가기
                         </Link>
                     </Button>
                 </CardContent>
@@ -161,5 +161,3 @@ export default function FriendsPage() {
     </div>
   );
 }
-
-    

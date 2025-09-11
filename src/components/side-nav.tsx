@@ -39,7 +39,6 @@ const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
-  { name: '팀 링크', href: '/dashboard/links', icon: LinkIcon },
   { name: '편지 쓰기', href: '/dashboard/letters', icon: Mail },
   { name: '완성된 팀', href: '/dashboard/friends', icon: Users },
   { name: '실시간 끝말잇기', href: '/game/word-chain', icon: Languages },
@@ -145,5 +144,3 @@ export function SideNav({ role }: { role: Role }) {
     </Sheet>
   );
 }
-
-    
