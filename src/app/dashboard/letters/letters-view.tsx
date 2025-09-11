@@ -169,7 +169,7 @@ export default function LettersView() {
               <Mail className="mr-2" /> 종달 우체국
             </CardTitle>
             <CardDescription>
-              친구 또는 선생님에게 편지를 보내보세요. (2 포인트 소모)
+              친구 또는 선생님에게 편지를 보내보세요.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSendLetter}>
@@ -214,7 +214,7 @@ export default function LettersView() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>오프라인 편지 안내</AlertTitle>
                   <AlertDescription>
-                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다. 편지 발송을 위한 포인트는 동일하게 차감됩니다.
+                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다.
                   </AlertDescription>
                 </Alert>
               )}
@@ -222,7 +222,7 @@ export default function LettersView() {
             <CardFooter className="flex justify-end">
               <Button type="submit" className="font-bold" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                2포인트로 편지 보내기
+                편지 보내기
               </Button>
             </CardFooter>
           </form>

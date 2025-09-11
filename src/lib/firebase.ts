@@ -814,19 +814,6 @@ export const sendLetter = async (
     };
     transaction.set(letterRef, letterData);
 
-    const cost = 2;
-    const senderPoints = senderData.lak || 0;
-    
-    if (senderPoints < cost) {
-      throw new Error(`포인트가 부족합니다. (현재 ${senderPoints}포인트)`);
-    }
-
-    transaction.update(senderRef, { lak: increment(-cost) });
-    const senderHistoryRef = doc(collection(senderRef, 'transactions'));
-    transaction.set(senderHistoryRef, {
-        amount: -cost, date: Timestamp.now(), description: `편지 발송 (받는 사람: ${receiverIdentifierDisplay})`, type: 'debit',
-    });
-
     return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
   }).catch((error) => {
     console.error("Send letter error: ", error);
