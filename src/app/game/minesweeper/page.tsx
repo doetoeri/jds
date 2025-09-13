@@ -19,7 +19,6 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -44,9 +43,8 @@ type Cell = {
 
 type Board = Cell[][];
 
-const createBoard = (rows: number, cols: number, mines: number): Board => {
-  // Initialize board
-  const board: Board = Array.from({ length: rows }, () =>
+const createEmptyBoard = (rows: number, cols: number): Board => {
+  return Array.from({ length: rows }, () =>
     Array.from({ length: cols }, () => ({
       isMine: false,
       isRevealed: false,
@@ -54,42 +52,12 @@ const createBoard = (rows: number, cols: number, mines: number): Board => {
       adjacentMines: 0,
     }))
   );
-
-  // Place mines
-  let minesPlaced = 0;
-  while (minesPlaced < mines) {
-    const row = Math.floor(Math.random() * rows);
-    const col = Math.floor(Math.random() * cols);
-    if (!board[row][col].isMine) {
-      board[row][col].isMine = true;
-      minesPlaced++;
-    }
-  }
-
-  // Calculate adjacent mines
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (board[r][c].isMine) continue;
-      let count = 0;
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = r + dr;
-          const nc = c + dc;
-          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].isMine) {
-            count++;
-          }
-        }
-      }
-      board[r][c].adjacentMines = count;
-    }
-  }
-
-  return board;
 };
 
 export default function MinesweeperPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
-  const [board, setBoard] = useState<Board>(() => createBoard(9, 9, 10));
+  const [board, setBoard] = useState<Board>(() => createEmptyBoard(9, 9));
+  const [isFirstClick, setIsFirstClick] = useState(true);
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -100,10 +68,11 @@ export default function MinesweeperPage() {
   const [user] = useAuthState(auth);
 
   const restartGame = useCallback(() => {
-    const { rows, cols, mines } = difficulties[difficulty];
-    setBoard(createBoard(rows, cols, mines));
+    const { rows, cols } = difficulties[difficulty];
+    setBoard(createEmptyBoard(rows, cols));
     setGameOver(false);
     setGameWon(false);
+    setIsFirstClick(true);
     setTime(0);
     setTimerActive(false);
   }, [difficulty]);
@@ -116,13 +85,11 @@ export default function MinesweeperPage() {
       interval = setInterval(() => {
         setTime(prevTime => prevTime + 1);
       }, 1000);
-    } else if (!timerActive && time !== 0) {
-      // Game ended
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerActive, gameOver, gameWon, time]);
+  }, [timerActive, gameOver, gameWon]);
 
   const handleWin = useCallback(async () => {
     setGameWon(true);
@@ -147,78 +114,106 @@ export default function MinesweeperPage() {
   }, [user, difficulty, toast]);
 
   useEffect(() => {
-    if (gameOver || gameWon) return;
-    const nonMineCells = difficulties[difficulty].rows * difficulties[difficulty].cols - difficulties[difficulty].mines;
+    if (gameOver || gameWon || isFirstClick) return;
+    const { rows, cols, mines } = difficulties[difficulty];
+    const nonMineCells = rows * cols - mines;
     const revealedCount = board.flat().filter(cell => cell.isRevealed).length;
     if (revealedCount === nonMineCells) {
       handleWin();
     }
-  }, [board, difficulty, gameOver, gameWon, handleWin]);
+  }, [board, difficulty, gameOver, gameWon, handleWin, isFirstClick]);
 
-  const revealCell = (r: number, c: number) => {
-    const newBoard = JSON.parse(JSON.stringify(board));
-    const cell = newBoard[r][c];
+  const generateBoardWithMines = (firstClickRow: number, firstClickCol: number) => {
+    const { rows, cols, mines } = difficulties[difficulty];
+    const newBoard = createEmptyBoard(rows, cols);
 
-    if (cell.isRevealed || cell.isFlagged) return;
+    let minesPlaced = 0;
+    while (minesPlaced < mines) {
+      const row = Math.floor(Math.random() * rows);
+      const col = Math.floor(Math.random() * cols);
+      const isFirstClickCell = row === firstClickRow && col === firstClickCol;
+      const isAdjacentToFirstClick = Math.abs(row - firstClickRow) <= 1 && Math.abs(col - firstClickCol) <= 1;
 
-    if (!timerActive) setTimerActive(true);
+      if (!newBoard[row][col].isMine && !isFirstClickCell && !isAdjacentToFirstClick) {
+        newBoard[row][col].isMine = true;
+        minesPlaced++;
+      }
+    }
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (newBoard[r][c].isMine) continue;
+        let count = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && newBoard[nr][nc].isMine) {
+              count++;
+            }
+          }
+        }
+        newBoard[r][c].adjacentMines = count;
+      }
+    }
+    return newBoard;
+  };
+
+  const revealCellRecursive = (r: number, c: number, boardToUpdate: Board) => {
+    const { rows, cols } = difficulties[difficulty];
+    if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+    
+    const cell = boardToUpdate[r][c];
+    if (cell.isRevealed || cell.isFlagged || cell.isMine) return;
 
     cell.isRevealed = true;
+
+    if (cell.adjacentMines === 0) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          revealCellRecursive(r + dr, c + dc, boardToUpdate);
+        }
+      }
+    }
+  };
+  
+  const handleClick = (r: number, c: number) => {
+    if (gameOver || gameWon || board[r][c].isRevealed || board[r][c].isFlagged) {
+      return;
+    }
+
+    let currentBoard = board;
+    if (isFirstClick) {
+      currentBoard = generateBoardWithMines(r, c);
+      setIsFirstClick(false);
+      setTimerActive(true);
+    }
+    
+    const newBoard = JSON.parse(JSON.stringify(currentBoard));
+    const cell = newBoard[r][c];
 
     if (cell.isMine) {
       setGameOver(true);
       setTimerActive(false);
-      // Reveal all mines
-      newBoard.forEach((row: Cell[]) => row.forEach(cell => {
-        if(cell.isMine) cell.isRevealed = true;
+      newBoard.forEach((row: Cell[]) => row.forEach(c => {
+        if(c.isMine) c.isRevealed = true;
       }));
       setBoard(newBoard);
       return;
     }
-
-    if (cell.adjacentMines === 0) {
-      // Flood fill for empty cells
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = r + dr;
-          const nc = c + dc;
-          if (nr >= 0 && nr < newBoard.length && nc >= 0 && nc < newBoard[0].length) {
-            revealCellRecursive(nr, nc, newBoard);
-          }
-        }
-      }
-    }
+    
+    revealCellRecursive(r, c, newBoard);
     setBoard(newBoard);
   };
-  
-  const revealCellRecursive = (r: number, c: number, currentBoard: Board) => {
-    const cell = currentBoard[r][c];
-    if (cell.isRevealed || cell.isFlagged) return;
 
-    cell.isRevealed = true;
-
-    if (cell.adjacentMines === 0) {
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = r + dr;
-          const nc = c + dc;
-          if (nr >= 0 && nr < currentBoard.length && nc >= 0 && nc < currentBoard[0].length) {
-            revealCellRecursive(nr, nc, currentBoard);
-          }
-        }
-      }
-    }
-  };
 
   const toggleFlag = (e: React.MouseEvent, r: number, c: number) => {
     e.preventDefault();
-    if (gameOver || gameWon) return;
+    if (gameOver || gameWon || board[r][c].isRevealed || isFirstClick) return;
     const newBoard = JSON.parse(JSON.stringify(board));
-    const cell = newBoard[r][c];
-    if (!cell.isRevealed) {
-      cell.isFlagged = !cell.isFlagged;
-      setBoard(newBoard);
-    }
+    newBoard[r][c].isFlagged = !newBoard[r][c].isFlagged;
+    setBoard(newBoard);
   };
 
   const { rows, cols, mines } = difficulties[difficulty];
@@ -236,7 +231,7 @@ export default function MinesweeperPage() {
         <CardContent>
           <div className="flex justify-between items-center mb-4 p-2 bg-muted rounded-lg">
             <div className="flex gap-2">
-                <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)} disabled={timerActive}>
+                <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)} disabled={timerActive && !gameOver && !gameWon}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="난이도" />
                   </SelectTrigger>
@@ -274,7 +269,7 @@ export default function MinesweeperPage() {
                 <button
                   key={`${r}-${c}`}
                   disabled={gameOver || gameWon}
-                  onClick={() => revealCell(r, c)}
+                  onClick={() => handleClick(r, c)}
                   onContextMenu={(e) => toggleFlag(e, r, c)}
                   className={cn(
                     'h-7 w-7 flex items-center justify-center font-bold text-sm border',
