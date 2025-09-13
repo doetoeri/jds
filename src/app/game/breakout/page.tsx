@@ -58,6 +58,8 @@ export default function BreakoutPage() {
       }
     }
     
+    let totalBricksBroken = 0;
+
     const drawBall = () => {
         context.beginPath();
         context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
@@ -94,7 +96,6 @@ export default function BreakoutPage() {
     };
     
     const collisionDetection = () => {
-        let broken = 0;
         let allBricksBroken = true;
         for (let c = 0; c < brickColumnCount; c++) {
             for (let r = 0; r < brickRowCount; r++) {
@@ -105,12 +106,11 @@ export default function BreakoutPage() {
                         ball.dy = -ball.dy;
                         b.status = 0;
                         setScore(s => s + 1);
-                        broken++;
+                        totalBricksBroken++;
                     }
                 }
             }
         }
-        setBricksBroken(b => b + broken);
         if(allBricksBroken) {
             endGame(true);
         }
@@ -118,6 +118,7 @@ export default function BreakoutPage() {
 
     const endGame = async (won: boolean) => {
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        setBricksBroken(totalBricksBroken);
         setGameState('over');
 
         if(won) {
@@ -126,10 +127,9 @@ export default function BreakoutPage() {
              toast({ title: "게임 오버", description: "다시 시도해보세요." });
         }
 
-        if (user && bricksBroken + (won ? brickColumnCount * brickRowCount : 0) > 0) {
+        if (user && totalBricksBroken > 0) {
             setIsSubmitting(true);
-            const totalBroken = bricksBroken + (won ? brickColumnCount * brickRowCount - bricksBroken : 0);
-            const result = await awardBreakoutScore(user.uid, totalBroken);
+            const result = await awardBreakoutScore(user.uid, totalBricksBroken);
             if (result.success) {
                 toast({ title: "점수 기록!", description: result.message });
             } else {
@@ -140,6 +140,7 @@ export default function BreakoutPage() {
     };
 
     const draw = () => {
+        if (!canvasRef.current) return;
         context.clearRect(0, 0, canvas.width, canvas.height);
         drawBricks();
         drawBall();
@@ -167,7 +168,9 @@ export default function BreakoutPage() {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-        const relativeX = e.clientX - canvas.offsetLeft;
+        if (!canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const relativeX = e.clientX - rect.left;
         if (relativeX > 0 && relativeX < canvas.width) {
             paddle.x = relativeX - paddle.width / 2;
         }
@@ -182,7 +185,7 @@ export default function BreakoutPage() {
         document.removeEventListener("mousemove", handleMouseMove);
     };
 
-  }, [user, toast, bricksBroken]);
+  }, [user, toast]);
   
    useEffect(() => {
     let cleanup: (() => void) | undefined;

@@ -131,10 +131,8 @@ export default function MinesweeperPage() {
     while (minesPlaced < mines) {
       const row = Math.floor(Math.random() * rows);
       const col = Math.floor(Math.random() * cols);
-      const isFirstClickCell = row === firstClickRow && col === firstClickCol;
-      const isAdjacentToFirstClick = Math.abs(row - firstClickRow) <= 1 && Math.abs(col - firstClickCol) <= 1;
-
-      if (!newBoard[row][col].isMine && !isFirstClickCell && !isAdjacentToFirstClick) {
+      
+      if (!newBoard[row][col].isMine && !(row === firstClickRow && col === firstClickCol)) {
         newBoard[row][col].isMine = true;
         minesPlaced++;
       }

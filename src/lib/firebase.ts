@@ -995,48 +995,6 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
   });
 };
 
-export const awardFlappyBirdScore = async (userId: string, score: number) => {
-  if (score <= 0) {
-      return { success: true, message: `게임 종료!` };
-  }
-  return await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await transaction.get(userRef);
-    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-
-    const userData = userDoc.data();
-    const reward = Math.floor(score / 2);
-
-    if (reward === 0) {
-      return { success: true, message: `게임 종료! ${score}점을 기록했습니다.` };
-    }
-    
-    const currentPoints = userData.lak || 0;
-
-    if (currentPoints >= POINT_LIMIT) {
-        return { success: true, message: `게임 종료! ${score}점 기록. 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
-    }
-     if (currentPoints + reward > POINT_LIMIT) {
-        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-    }
-
-    transaction.update(userRef, { lak: increment(reward) });
-
-    const historyRef = doc(collection(userRef, 'transactions'));
-    transaction.set(historyRef, {
-        date: Timestamp.now(),
-        description: `플래피 종달 ${score}점`,
-        amount: reward,
-        type: 'credit',
-    });
-
-    return { success: true, message: `${score}점 기록! ${reward}포인트 획득!` };
-  }).catch((error) => {
-    console.error("Flappy Bird award error: ", error);
-    return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
-  });
-};
-
 export const awardBreakoutScore = async (userId: string, bricksBroken: number) => {
     if (bricksBroken <= 0) {
         return { success: true, message: '게임 종료!'};
@@ -1077,6 +1035,48 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
         console.error("Breakout award error: ", error);
         return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
     });
+};
+
+export const awardTetrisScore = async (userId: string, score: number) => {
+  if (score <= 0) {
+      return { success: true, message: `게임 종료! 최종 점수: ${score}`};
+  }
+  return await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+
+      const userData = userDoc.data();
+      const reward = Math.floor(score / 1000);
+
+      if (reward === 0) {
+          return { success: true, message: `게임 종료! 최종 점수: ${score}` };
+      }
+
+      const currentPoints = userData.lak || 0;
+
+      if (currentPoints >= POINT_LIMIT) {
+          return { success: true, message: `게임 종료! ${score}점 기록. 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
+      }
+       if (currentPoints + reward > POINT_LIMIT) {
+          throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+      }
+
+      transaction.update(userRef, { lak: increment(reward) });
+
+      const historyRef = doc(collection(userRef, 'transactions'));
+      transaction.set(historyRef, {
+          date: Timestamp.now(),
+          description: `테트리스 ${score}점 달성`,
+          amount: reward,
+          type: 'credit',
+      });
+
+      return { success: true, message: `${score}점 기록! ${reward}포인트 획득!` };
+  }).catch((error) => {
+      console.error("Tetris award error: ", error);
+      return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
+  });
 };
 
 
