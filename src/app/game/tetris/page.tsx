@@ -16,6 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+
 
 const COLS = 10;
 const ROWS = 20;
