@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bird, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +24,7 @@ const gravity = 0.5;
 export default function FlappyBirdPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
-  const birdRef = useRef<HTMLImageElement>(null);
+  const birdImageRef = useRef<HTMLImageElement | null>(null);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
@@ -32,115 +32,65 @@ export default function FlappyBirdPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const [user] = useAuthState(auth);
-
+  
   useEffect(() => {
+    const image = new Image();
+    image.src = '/bird.png';
+    image.onload = () => {
+        birdImageRef.current = image;
+        setIsImageLoaded(true);
+    };
+    image.onerror = () => {
+        toast({
+            title: "오류",
+            description: "게임 리소스를 불러오는 데 실패했습니다.",
+            variant: "destructive"
+        })
+    }
+  }, [toast]);
+
+
+  const startGame = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !isImageLoaded) return;
+    if (!canvas || !birdImageRef.current) return;
+    
+    setGameState('playing');
+    setScore(0);
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    let birdY: number, birdVelocity: number;
-    let pipes: { x: number; y: number, passed?: boolean }[];
-    let frame: number;
+    let birdY = canvas.height / 2;
+    let birdVelocity = 0;
+    let pipes: { x: number; y: number, passed?: boolean }[] = [];
+    let frame = 0;
     const pipeWidth = 80;
     const pipeGap = 200;
-    const pipeInterval = 150; // Controls how often pipes spawn
-
-    const resetGame = () => {
-      birdY = canvas.height / 2;
-      birdVelocity = 0;
-      pipes = [];
-      frame = 0;
-      setScore(0);
-    };
+    const pipeInterval = 150;
 
     const spawnPipe = () => {
-      const topPipeHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
-      pipes.push({ x: canvas.width, y: topPipeHeight });
+        const topPipeHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
+        pipes.push({ x: canvas.width, y: topPipeHeight });
     };
 
     const draw = () => {
+      const context = canvas.getContext('2d');
+      if (!context) return;
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw pipes
       context.fillStyle = 'hsl(var(--primary))';
       pipes.forEach(pipe => {
         context.fillRect(pipe.x, 0, pipeWidth, pipe.y);
         context.fillRect(pipe.x, pipe.y + pipeGap, pipeWidth, canvas.height - pipe.y - pipeGap);
       });
 
-      // Draw bird
-      if (birdRef.current) {
-        context.drawImage(birdRef.current, canvas.width / 4, birdY, birdWidth, birdHeight);
+      if (birdImageRef.current) {
+        context.drawImage(birdImageRef.current, canvas.width / 4, birdY, birdWidth, birdHeight);
       }
-    };
-
-    const update = () => {
-      birdVelocity += gravity;
-      birdY += birdVelocity;
-
-      // Pipe logic
-      if (frame % pipeInterval === 0) {
-        spawnPipe();
-      }
-      frame++;
-
-      let newScore = 0;
-      pipes = pipes.filter(pipe => {
-        pipe.x -= 2;
-        if (pipe.x + pipeWidth < 0) {
-          return false;
-        }
-        if (!pipe.passed && pipe.x + pipeWidth < canvas.width / 4) {
-          newScore++;
-          pipe.passed = true;
-        }
-        return true;
-      });
-
-      if (newScore > 0) {
-        setScore(s => s + newScore);
-      }
-
-      // Collision detection
-      const birdLeft = canvas.width / 4;
-      const birdRight = birdLeft + birdWidth;
-      const birdTop = birdY;
-      const birdBottom = birdY + birdHeight;
-
-      if (birdBottom > canvas.height || birdTop < 0) {
-        endGame();
-      }
-
-      for (const pipe of pipes) {
-        const pipeLeft = pipe.x;
-        const pipeRight = pipe.x + pipeWidth;
-        const pipeTopEnd = pipe.y;
-        const pipeBottomStart = pipe.y + pipeGap;
-
-        if (
-          birdRight > pipeLeft &&
-          birdLeft < pipeRight &&
-          (birdTop < pipeTopEnd || birdBottom > pipeBottomStart)
-        ) {
-          endGame();
-          return;
-        }
-      }
-    };
-
-    const gameLoop = () => {
-      if (gameState !== 'playing') return;
-      update();
-      draw();
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
     
     const endGame = async () => {
-      if (gameState === 'over') return;
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
       setGameState('over');
-      cancelAnimationFrame(gameLoopRef.current!);
       
       if (user && score > 0) {
           setIsSubmitting(true);
@@ -160,23 +110,56 @@ export default function FlappyBirdPage() {
           setIsSubmitting(false);
       }
     };
-    
-    const startGame = () => {
-      if (gameState === 'playing') return;
-      resetGame();
-      setGameState('playing');
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
+
+
+    const update = () => {
+      birdVelocity += gravity;
+      birdY += birdVelocity;
+
+      if (frame % pipeInterval === 0) {
+        spawnPipe();
+      }
+      frame++;
+
+      let scoreIncrement = 0;
+      pipes = pipes.filter(pipe => {
+        pipe.x -= 2;
+        if (pipe.x + pipeWidth < 0) return false;
+        if (!pipe.passed && pipe.x + pipeWidth < canvas.width / 4) {
+          scoreIncrement++;
+          pipe.passed = true;
+        }
+        return true;
+      });
+      
+      if (scoreIncrement > 0) {
+          setScore(s => s + scoreIncrement);
+      }
+
+      const birdLeft = canvas.width / 4;
+      const birdRight = birdLeft + birdWidth;
+      const birdTop = birdY;
+      const birdBottom = birdY + birdHeight;
+
+      if (birdBottom > canvas.height || birdTop < 0) {
+        endGame();
+        return;
+      }
+      
+      for (const pipe of pipes) {
+        if (birdRight > pipe.x && birdLeft < pipe.x + pipeWidth && (birdTop < pipe.y || birdBottom > pipe.y + pipeGap)) {
+          endGame();
+          return;
+        }
+      }
+
+      gameLoopRef.current = requestAnimationFrame(update);
+      draw();
     };
 
     const handleClick = () => {
-      if (gameState === 'playing') {
         birdVelocity = -8;
-      } else if (gameState === 'start' || gameState === 'over') {
-        startGame();
-      }
     };
-    
-    canvas.addEventListener('click', handleClick);
     
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.code === 'Space') {
@@ -184,21 +167,29 @@ export default function FlappyBirdPage() {
             handleClick();
         }
     }
+    
+    canvas.addEventListener('click', handleClick);
     window.addEventListener('keydown', handleKeyDown);
 
-    if (gameState === 'playing') {
-        resetGame();
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
-    } else {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    update();
+    draw();
 
     return () => {
-      cancelAnimationFrame(gameLoopRef.current!);
-      canvas.removeEventListener('click', handleClick);
-      window.removeEventListener('keydown', handleKeyDown);
+        if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        canvas.removeEventListener('click', handleClick);
+        window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [score, user, toast]);
+
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    if (gameState === 'playing' && isImageLoaded) {
+      cleanup = startGame();
+    }
+    return () => {
+      if (cleanup) cleanup();
     };
-  }, [gameState, user, score, toast, isImageLoaded]);
+  }, [gameState, isImageLoaded, startGame]);
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -209,8 +200,7 @@ export default function FlappyBirdPage() {
 
       <div className="relative border-4 border-primary rounded-lg overflow-hidden">
         <canvas ref={canvasRef} width="600" height="400" className="bg-cyan-200" />
-        <img ref={birdRef} src="/bird.png" alt="bird" className="hidden" onLoad={() => setIsImageLoaded(true)}/>
-
+        
         <div className="absolute top-4 right-4 bg-black/50 text-white font-bold text-2xl px-4 py-2 rounded-lg">
           SCORE: {score}
         </div>
@@ -220,8 +210,8 @@ export default function FlappyBirdPage() {
             {gameState === 'start' && (
               <>
                 <h2 className="text-4xl font-bold font-headline mb-4">플래피 종달</h2>
-                 <Button size="lg" onClick={() => { if(isImageLoaded) setGameState('playing')}}>
-                    {isImageLoaded ? '게임 시작' : <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> 리소스 로딩중</>}
+                 <Button size="lg" onClick={() => { if(isImageLoaded) setGameState('playing')}} disabled={!isImageLoaded}>
+                    {!isImageLoaded ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> 리소스 로딩중</> : '게임 시작'}
                 </Button>
               </>
             )}

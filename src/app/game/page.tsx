@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, MessageCircle, Bird, Bomb, ArrowRight } from 'lucide-react';
+import { Swords, MessageCircle, Bird, Bomb, ArrowRight, Gamepad2 } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -26,6 +26,13 @@ const games = [
     description: "장애물을 피하며 종달새를 날려보내세요.",
     href: "/game/flappy-bird",
     icon: Bird,
+    status: "active"
+  },
+   {
+    title: "벽돌깨기",
+    description: "공을 튕겨 모든 벽돌을 부수는 클래식 게임입니다.",
+    href: "/game/breakout",
+    icon: Gamepad2,
     status: "active"
   },
 ]

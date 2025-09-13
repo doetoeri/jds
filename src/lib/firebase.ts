@@ -1037,6 +1037,48 @@ export const awardFlappyBirdScore = async (userId: string, score: number) => {
   });
 };
 
+export const awardBreakoutScore = async (userId: string, bricksBroken: number) => {
+    if (bricksBroken <= 0) {
+        return { success: true, message: '게임 종료!'};
+    }
+    return await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+
+        const userData = userDoc.data();
+        const reward = Math.floor(bricksBroken / 5);
+
+        if (reward === 0) {
+            return { success: true, message: `게임 종료! 벽돌 ${bricksBroken}개를 부쉈습니다.` };
+        }
+
+        const currentPoints = userData.lak || 0;
+
+        if (currentPoints >= POINT_LIMIT) {
+            return { success: true, message: `게임 종료! 벽돌 ${bricksBroken}개 파괴. 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
+        }
+        if (currentPoints + reward > POINT_LIMIT) {
+            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+        }
+
+        transaction.update(userRef, { lak: increment(reward) });
+
+        const historyRef = doc(collection(userRef, 'transactions'));
+        transaction.set(historyRef, {
+            date: Timestamp.now(),
+            description: `벽돌깨기 ${bricksBroken}개 파괴`,
+            amount: reward,
+            type: 'credit',
+        });
+
+        return { success: true, message: `벽돌 ${bricksBroken}개 파괴! ${reward}포인트 획득!` };
+    }).catch((error) => {
+        console.error("Breakout award error: ", error);
+        return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
+    });
+};
+
 
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
