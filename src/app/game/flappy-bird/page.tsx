@@ -25,6 +25,7 @@ export default function FlappyBirdPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
   const birdRef = useRef<HTMLImageElement>(null);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
@@ -34,17 +35,17 @@ export default function FlappyBirdPage() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !isImageLoaded) return;
 
     const context = canvas.getContext('2d');
     if (!context) return;
 
     let birdY: number, birdVelocity: number;
-    let pipes: { x: number; y: number }[];
+    let pipes: { x: number; y: number, passed?: boolean }[];
     let frame: number;
     const pipeWidth = 80;
     const pipeGap = 200;
-    const pipeInterval = 300;
+    const pipeInterval = 150; // Controls how often pipes spawn
 
     const resetGame = () => {
       birdY = canvas.height / 2;
@@ -176,12 +177,14 @@ export default function FlappyBirdPage() {
     };
     
     canvas.addEventListener('click', handleClick);
-    window.addEventListener('keydown', (e) => {
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
         if (e.code === 'Space') {
             e.preventDefault();
             handleClick();
         }
-    });
+    }
+    window.addEventListener('keydown', handleKeyDown);
 
     if (gameState === 'playing') {
         resetGame();
@@ -193,9 +196,9 @@ export default function FlappyBirdPage() {
     return () => {
       cancelAnimationFrame(gameLoopRef.current!);
       canvas.removeEventListener('click', handleClick);
-      // Clean up keydown listener might be more complex in React, handle with care
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [gameState, user, score, toast]);
+  }, [gameState, user, score, toast, isImageLoaded]);
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -206,7 +209,7 @@ export default function FlappyBirdPage() {
 
       <div className="relative border-4 border-primary rounded-lg overflow-hidden">
         <canvas ref={canvasRef} width="600" height="400" className="bg-cyan-200" />
-        <img ref={birdRef} src="/bird.png" alt="bird" className="hidden"/>
+        <img ref={birdRef} src="/bird.png" alt="bird" className="hidden" onLoad={() => setIsImageLoaded(true)}/>
 
         <div className="absolute top-4 right-4 bg-black/50 text-white font-bold text-2xl px-4 py-2 rounded-lg">
           SCORE: {score}
@@ -217,7 +220,9 @@ export default function FlappyBirdPage() {
             {gameState === 'start' && (
               <>
                 <h2 className="text-4xl font-bold font-headline mb-4">플래피 종달</h2>
-                <Button size="lg" onClick={() => setGameState('playing')}>게임 시작</Button>
+                 <Button size="lg" onClick={() => { if(isImageLoaded) setGameState('playing')}}>
+                    {isImageLoaded ? '게임 시작' : <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> 리소스 로딩중</>}
+                </Button>
               </>
             )}
           </div>
