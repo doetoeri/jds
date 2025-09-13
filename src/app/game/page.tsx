@@ -23,10 +23,10 @@ const games = [
   },
   {
     title: "플래피 종달",
-    description: "장애물을 피하며 종달새를 날려보내세요. (준비중)",
-    href: "#",
+    description: "장애물을 피하며 종달새를 날려보내세요.",
+    href: "/game/flappy-bird",
     icon: Bird,
-    status: "disabled"
+    status: "active"
   },
 ]
 
@@ -39,7 +39,7 @@ export default function GamePage() {
             미니게임
         </h1>
         <p className="text-muted-foreground">
-          다양한 게임을 즐기고 포인트를 획득해보세요!
+          다양한 게임을 즐기고 포인트를 획득해보세요! (포인트는 25점까지만 적립 가능)
         </p>
       </div>
 

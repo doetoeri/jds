@@ -562,8 +562,17 @@ export const playWordChain = async (userId: string, word: string) => {
     };
     transaction.update(gameRef, { history: arrayUnion(newHistoryEntry) });
 
-    // Award point
     const pointAmount = 1;
+    const currentPoints = userData.lak || 0;
+
+    if (currentPoints >= POINT_LIMIT) {
+        return { success: true, message: `성공! 하지만 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
+    }
+    
+    if (currentPoints + pointAmount > POINT_LIMIT) {
+        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+    }
+
     transaction.update(userRef, { lak: increment(pointAmount) });
 
     const historyRef = doc(collection(userRef, 'transactions'));
@@ -847,11 +856,6 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
     if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
     const senderData = senderDoc.data();
 
-    // Check if the user has enough points
-    if (senderData.lak < 2) {
-      throw new Error('편지를 보내려면 2포인트가 필요합니다.');
-    }
-    
     const senderStudentId = senderData.studentId;
 
     let receiverQuery;
@@ -881,18 +885,6 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       createdAt: Timestamp.now(), 
     };
     transaction.set(letterRef, letterData);
-
-    // Deduct points
-    const pointCost = 2;
-    transaction.update(senderRef, { lak: increment(-pointCost) });
-    const historyRef = doc(collection(senderRef, 'transactions'));
-    transaction.set(historyRef, {
-        amount: -pointCost,
-        date: Timestamp.now(),
-        description: `편지 발송: ${receiverIdentifierDisplay}에게`,
-        type: 'debit',
-    });
-
 
     return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
   }).catch((error) => {
@@ -975,11 +967,18 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
       hard: 5,
     };
     const reward = points[difficulty];
+    const currentPoints = userData.lak || 0;
+
+    transaction.update(userRef, { lastMinesweeperWin: today });
+
+    if (currentPoints >= POINT_LIMIT) {
+        return { success: true, message: `승리! 하지만 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
+    }
+    if (currentPoints + reward > POINT_LIMIT) {
+        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+    }
     
-    transaction.update(userRef, { 
-        lak: increment(reward),
-        lastMinesweeperWin: today
-    });
+    transaction.update(userRef, { lak: increment(reward) });
 
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
@@ -992,6 +991,48 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
     return { success: true, message: `지뢰찾기 ${difficulty} 난이도 클리어! ${reward}포인트 획득!` };
   }).catch((error) => {
     console.error("Minesweeper award error: ", error);
+    return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
+  });
+};
+
+export const awardFlappyBirdScore = async (userId: string, score: number) => {
+  if (score <= 0) {
+      return { success: true, message: `게임 종료!` };
+  }
+  return await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+
+    const userData = userDoc.data();
+    const reward = Math.floor(score / 2);
+
+    if (reward === 0) {
+      return { success: true, message: `게임 종료! ${score}점을 기록했습니다.` };
+    }
+    
+    const currentPoints = userData.lak || 0;
+
+    if (currentPoints >= POINT_LIMIT) {
+        return { success: true, message: `게임 종료! ${score}점 기록. 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
+    }
+     if (currentPoints + reward > POINT_LIMIT) {
+        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
+    }
+
+    transaction.update(userRef, { lak: increment(reward) });
+
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+        date: Timestamp.now(),
+        description: `플래피 종달 ${score}점`,
+        amount: reward,
+        type: 'credit',
+    });
+
+    return { success: true, message: `${score}점 기록! ${reward}포인트 획득!` };
+  }).catch((error) => {
+    console.error("Flappy Bird award error: ", error);
     return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
   });
 };
