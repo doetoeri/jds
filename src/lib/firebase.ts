@@ -522,6 +522,68 @@ export const resetAllData = async () => {
     }
 };
 
+export const playWordChain = async (userId: string, word: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const gameRef = doc(db, 'games', 'word-chain');
+
+    const [userDoc, gameDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(gameRef)
+    ]);
+
+    if (!userDoc.exists()) {
+      throw new Error("User data not found.");
+    }
+    const userData = userDoc.data();
+    
+    const history: { text: string; uid: string }[] = gameDoc.exists() ? gameDoc.data().history || [] : [];
+    const lastWord = history.length > 0 ? history[history.length - 1].text : null;
+
+    if (word.length <= 1) {
+        throw new Error("단어는 두 글자 이상이어야 합니다.");
+    }
+
+    if (history.some(h => h.text === word)) {
+      throw new Error("이미 사용된 단어입니다.");
+    }
+
+    if (lastWord && lastWord[lastWord.length - 1] !== word[0]) {
+      throw new Error(`'${lastWord[lastWord.length - 1]}'(으)로 시작하는 단어를 입력해야 합니다.`);
+    }
+
+    // Add word to history
+    const newHistoryEntry = {
+      text: word,
+      uid: userId,
+      displayName: userData.displayName,
+      avatarGradient: userData.avatarGradient || 'orange',
+      createdAt: Timestamp.now(),
+    };
+    transaction.update(gameRef, { history: arrayUnion(newHistoryEntry) });
+
+    // Award point
+    const pointAmount = 1;
+    transaction.update(userRef, { lak: increment(pointAmount) });
+
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+      date: Timestamp.now(),
+      description: `끝말잇기 성공: ${word}`,
+      amount: pointAmount,
+      type: 'credit',
+    });
+
+    return { success: true, message: `성공! ${pointAmount} 포인트를 획득했습니다.` };
+
+  }).catch((error) => {
+    console.error("Word chain error: ", error);
+    const errorMessage = typeof error === 'string' ? error : (error.message || "끝말잇기 처리 중 오류가 발생했습니다.");
+    return { success: false, message: errorMessage };
+  });
+};
+
+
 export const resetWordChainGame = async () => {
     try {
         const gameRef = doc(db, 'games', 'word-chain');
@@ -820,7 +882,19 @@ export const sendLetter = async (
     };
     transaction.set(letterRef, letterData);
 
-    return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
+    // Give points
+    const pointAmount = 2;
+    transaction.update(senderRef, { lak: increment(pointAmount) });
+    const historyRef = doc(collection(senderRef, 'transactions'));
+    transaction.set(historyRef, {
+        amount: pointAmount,
+        date: Timestamp.now(),
+        description: `편지 발송 보상: ${receiverIdentifierDisplay}에게`,
+        type: 'credit',
+    });
+
+
+    return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달되며, 보상으로 2포인트가 지급됩니다.' };
   }).catch((error) => {
     console.error("Send letter error: ", error);
     const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";

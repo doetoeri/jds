@@ -29,6 +29,7 @@ import {
   HelpCircle,
   Link as LinkIcon,
   MessageSquareText,
+  Swords,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -40,6 +41,7 @@ const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '커뮤니티', href: '/community', icon: MessageSquareText },
+  { name: '미니게임', href: '/game', icon: Swords },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '나의 팀 현황', href: '/dashboard/links', icon: LinkIcon },
