@@ -23,7 +23,7 @@ export default function RootLayout({
   }, [pathname]);
 
   return (
-    <html lang="en">
+    <html lang="ko">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -32,8 +32,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF781F" />
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8017235617839629"
      crossOrigin="anonymous"></script>
-        <title>고촌중학교 학생자치회 종달샘</title>
-        <meta name="description" content="고촌중학교 학생들을 위한 포인트 및 커뮤니티 허브입니다. 다양한 활동에 참여하고 포인트를 관리해보세요."/>
+        <title>고촌중학교 종달샘 허브</title>
+        <meta name="description" content="종달샘 허브에 오신 것을 환영합니다! 고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다. 다양한 활동에 참여하고, 포인트를 모아 상품을 구매하며, 친구들과 소통해보세요."/>
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
       </head>
