@@ -553,7 +553,6 @@ export const playWordChain = async (userId: string, word: string) => {
       throw new Error(`'${lastWord[lastWord.length - 1]}'(으)로 시작하는 단어를 입력해야 합니다.`);
     }
 
-    // Add word to history
     const newHistoryEntry = {
       text: word,
       uid: userId,
@@ -567,6 +566,7 @@ export const playWordChain = async (userId: string, word: string) => {
         score: increment(1),
         displayName: userData.displayName,
         studentId: userData.studentId,
+        avatarGradient: userData.avatarGradient,
         lastUpdated: Timestamp.now()
     }, { merge: true });
 
@@ -796,16 +796,15 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
     const senderDoc = await transaction.get(senderRef);
     if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
     const senderData = senderDoc.data();
-
     const senderStudentId = senderData.studentId;
 
     let receiverQuery;
     
     if (/^\d{5}$/.test(receiverIdentifier)) {
-        if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
-        receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
+      if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
+      receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
     } else {
-        receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
+      receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
     }
 
     const receiverSnapshot = await getDocs(receiverQuery);
@@ -818,7 +817,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
     const letterRef = doc(collection(db, 'letters'));
     const letterData = {
       senderUid, 
-      senderStudentId: senderStudentId,
+      senderStudentId: senderData.displayName || senderStudentId,
       receiverStudentId: receiverIdentifierDisplay,
       content, 
       isOffline, 
@@ -895,12 +894,12 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
   const leaderboardRef = doc(db, `leaderboards/minesweeper-${difficulty}/users`, userId);
   const leaderboardDoc = await getDoc(leaderboardRef);
 
-  // Only update if the new time is better or if there's no previous record
   if (!leaderboardDoc.exists() || time < leaderboardDoc.data().score) {
     await setDoc(leaderboardRef, {
       score: time,
       displayName: userDoc.data().displayName,
       studentId: userDoc.data().studentId,
+      avatarGradient: userDoc.data().avatarGradient,
       lastUpdated: Timestamp.now(),
     }, { merge: true });
     return { success: true, message: `기록이 갱신되었습니다: ${time}초` };
@@ -923,6 +922,7 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
         score: increment(bricksBroken),
         displayName: userDoc.data().displayName,
         studentId: userDoc.data().studentId,
+        avatarGradient: userDoc.data().avatarGradient,
         lastUpdated: Timestamp.now()
     }, { merge: true });
 
@@ -945,6 +945,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         score: score,
         displayName: userDoc.data().displayName,
         studentId: userDoc.data().studentId,
+        avatarGradient: userDoc.data().avatarGradient,
         lastUpdated: Timestamp.now(),
       }, { merge: true });
       return { success: true, message: `최고 기록 갱신! ${score}점`};
