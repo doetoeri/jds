@@ -6,6 +6,22 @@ import { Toaster } from "@/components/ui/toaster"
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import type { Metadata } from 'next';
+
+// This is now handled by metadata exports in pages/layouts
+// export const metadata: Metadata = {
+//   title: {
+//     template: '%s | 고촌중학교 종달샘 허브',
+//     default: '고촌중학교 종달샘 허브',
+//   },
+//   description: '종달샘 허브에 오신 것을 환영합니다! 고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다. 다양한 활동에 참여하고, 포인트를 모아 상품을 구매하며, 친구들과 소통해보세요.',
+//   openGraph: {
+//     title: '고촌중학교 종달샘 허브',
+//     description: '포인트, 커뮤니티, 미니게임까지! 고촌중 학생들을 위한 공간입니다.',
+//     images: ['/og-image.png'],
+//   },
+// };
+
 
 export default function RootLayout({
   children,
@@ -32,8 +48,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF781F" />
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8017235617839629"
      crossOrigin="anonymous"></script>
-        <title>고촌중학교 종달샘 허브</title>
-        <meta name="description" content="종달샘 허브에 오신 것을 환영합니다! 고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다. 다양한 활동에 참여하고, 포인트를 모아 상품을 구매하며, 친구들과 소통해보세요."/>
+        
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
       </head>

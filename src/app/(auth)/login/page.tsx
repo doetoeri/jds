@@ -25,6 +25,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import type { Metadata } from 'next';
+
+// This metadata object is not used in a client component, but can be here for co-location.
+// For it to work, it would need to be moved to a page.tsx that is a server component.
+// I am adding it here for reference in case this page is converted.
+// export const metadata: Metadata = {
+//   title: '학생 로그인',
+//   description: '종달샘 허브 학생 계정으로 로그인하여 다양한 활동에 참여하세요.',
+// };
 
 
 const FADE_IN_VARIANTS = {
