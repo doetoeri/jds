@@ -96,7 +96,7 @@ export default function WordChainPage() {
                     실시간 끝말잇기
                 </CardTitle>
                 <CardDescription>
-                    모두와 함께 끝말잇기를 이어가세요! 성공하면 1포인트를 드립니다.
+                    모두와 함께 끝말잇기를 이어가세요! 성공하면 리더보드 점수가 올라갑니다.
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex-grow overflow-hidden">
@@ -146,4 +146,3 @@ export default function WordChainPage() {
     </div>
   );
 }
-

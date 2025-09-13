@@ -232,8 +232,6 @@ export default function BreakoutPage() {
                <AlertDialogTitle>게임 종료!</AlertDialogTitle>
                 <AlertDialogDescription>
                     최종 점수: <strong>{score}점</strong>
-                    <br/>
-                    획득 포인트: <strong>{Math.floor(bricksBroken / 5)} 포인트</strong> (포인트 한도에 따라 지급되지 않을 수 있음)
                 </AlertDialogDescription>
              </AlertDialogHeader>
              <AlertDialogFooter>

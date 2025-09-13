@@ -97,21 +97,21 @@ export default function MinesweeperPage() {
     if (!user) return;
 
     setIsProcessing(true);
-    const result = await awardMinesweeperWin(user.uid, difficulty);
-    if (result.success) {
-      toast({
-        title: '승리!',
-        description: result.message,
-      });
-    } else {
-      toast({
-        title: '보상 지급 실패',
-        description: result.message,
-        variant: 'destructive',
-      });
+    try {
+        await awardMinesweeperWin(user.uid, difficulty, time);
+        toast({
+            title: '승리!',
+            description: `기록이 저장되었습니다. 최종 시간: ${time}초`,
+        });
+    } catch (error: any) {
+         toast({
+            title: '기록 저장 실패',
+            description: error.message,
+            variant: 'destructive',
+        });
     }
     setIsProcessing(false);
-  }, [user, difficulty, toast]);
+  }, [user, difficulty, toast, time]);
 
   useEffect(() => {
     if (gameOver || gameWon || isFirstClick) return;
@@ -132,7 +132,8 @@ export default function MinesweeperPage() {
       const row = Math.floor(Math.random() * rows);
       const col = Math.floor(Math.random() * cols);
       
-      if (!newBoard[row][col].isMine && !(row === firstClickRow && col === firstClickCol)) {
+      const isFirstClickArea = Math.abs(row - firstClickRow) <= 0 && Math.abs(col - firstClickCol) <= 0;
+      if (!newBoard[row][col].isMine && !isFirstClickArea) {
         newBoard[row][col].isMine = true;
         minesPlaced++;
       }
@@ -224,7 +225,7 @@ export default function MinesweeperPage() {
       <Card className="max-w-fit mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bomb />지뢰찾기</CardTitle>
-          <CardDescription>지뢰를 모두 찾아내면 난이도에 따라 포인트를 드립니다! (하루 1회)</CardDescription>
+          <CardDescription>지뢰를 모두 찾아내면 순위표에 기록이 남습니다!</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex justify-between items-center mb-4 p-2 bg-muted rounded-lg">
@@ -313,7 +314,7 @@ export default function MinesweeperPage() {
                 <AlertDialogDescription>
                     축하합니다! 지뢰를 모두 찾았습니다.
                     <br/>
-                    획득한 포인트: <strong>{difficulties[difficulty].points} 포인트</strong>
+                    최종 기록: <strong>{time}초</strong>
                 </AlertDialogDescription>
              </AlertDialogHeader>
              <AlertDialogFooter>

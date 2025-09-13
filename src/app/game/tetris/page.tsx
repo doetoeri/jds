@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Gamepad2, Loader2, Award } from 'lucide-react';
+import { Gamepad2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardTetrisScore } from '@/lib/firebase';
@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 
 const COLS = 10;
@@ -51,6 +52,7 @@ export default function TetrisPage() {
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
   const [lines, setLines] = useState(0);
+  const [level, setLevel] = useState(0);
   const [nextPiece, setNextPiece] = useState<number[][] | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -62,6 +64,7 @@ export default function TetrisPage() {
     setGameState('playing');
     setScore(0);
     setLines(0);
+    setLevel(0);
 
     const board = createEmptyBoard();
     let piece: { x: number, y: number, shape: number[][], value: number } | null = null;
@@ -71,7 +74,6 @@ export default function TetrisPage() {
 
     const randomPiece = () => {
         const rand = Math.floor(Math.random() * (SHAPES.length - 1)) + 1;
-        setNextPiece(SHAPES[rand]);
         return SHAPES[rand];
     };
     
@@ -79,11 +81,12 @@ export default function TetrisPage() {
 
     const spawnPiece = () => {
         const shape = nextShape;
+        setNextPiece(shape);
         nextShape = randomPiece();
-
+        
         piece = {
             shape,
-            value: SHAPES.indexOf(shape),
+            value: SHAPES.findIndex(s => s === shape),
             x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2),
             y: 0,
         };
@@ -143,15 +146,22 @@ export default function TetrisPage() {
         }
         if (linesCleared > 0) {
             setLines(l => l + linesCleared);
-            setScore(s => s + [0, 100, 300, 500, 800][linesCleared] * (linesCleared > 1 ? linesCleared : 1));
-            dropInterval *= 0.98;
+            setScore(s => s + [0, 100, 300, 500, 800][linesCleared] * (level + 1));
+            
+            const newTotalLines = lines + linesCleared;
+            const newLevel = Math.floor(newTotalLines / 10);
+            if (newLevel > level) {
+                setLevel(newLevel);
+                dropInterval = 1000 * Math.pow(0.8, newLevel);
+            }
         }
     };
     
      const checkCollision = (board: number[][], piece: { x: number, y: number, shape: number[][] }) => {
         for (let y = 0; y < piece.shape.length; ++y) {
             for (let x = 0; x < piece.shape[y].length; ++x) {
-                if (piece.shape[y][x] !== 0 && (board[piece.y + y] && board[piece.y + y][piece.x + x]) !== 0) {
+                if (piece.shape[y][x] !== 0 &&
+                   (board[piece.y + y] && board[piece.y + y][piece.x + x]) !== 0) {
                     return true;
                 }
             }
@@ -167,30 +177,24 @@ export default function TetrisPage() {
         }
     };
     
-    const rotate = (matrix: number[][], dir: number) => {
-        for (let y = 0; y < matrix.length; ++y) {
-            for (let x = 0; x < y; ++x) {
-                [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-            }
-        }
-        if (dir > 0) {
-            matrix.forEach(row => row.reverse());
-        } else {
-            matrix.reverse();
-        }
+    const rotate = (matrix: number[][]) => {
+        const N = matrix.length - 1;
+        const result = matrix.map((row, i) =>
+            row.map((val, j) => matrix[N - j][i])
+        );
+        return result;
     };
 
     const rotatePiece = () => {
         if (!piece) return;
-        const pos = piece.x;
+        const originalShape = piece.shape;
+        piece.shape = rotate(piece.shape);
         let offset = 1;
-        rotate(piece.shape, 1);
         while (checkCollision(board, piece)) {
             piece.x += offset;
             offset = -(offset + (offset > 0 ? 1 : -1));
             if (offset > piece.shape[0].length) {
-                rotate(piece.shape, -1);
-                piece.x = pos;
+                piece.shape = originalShape; // revert
                 return;
             }
         }
@@ -206,6 +210,15 @@ export default function TetrisPage() {
             spawnPiece();
         }
         dropCounter = 0;
+    };
+    
+    const hardDrop = () => {
+        if (!piece) return;
+        while (!checkCollision(board, piece)) {
+            piece.y++;
+        }
+        piece.y--;
+        dropPiece();
     };
 
     const gameLoop = (time = 0) => {
@@ -233,6 +246,7 @@ export default function TetrisPage() {
       else if (e.key === 'ArrowRight') movePiece(1);
       else if (e.key === 'ArrowDown') dropPiece();
       else if (e.key === 'ArrowUp') rotatePiece();
+      else if (e.key === ' ') hardDrop();
     };
 
     const endGame = async () => {
@@ -243,13 +257,14 @@ export default function TetrisPage() {
 
         if (user && score > 0) {
             setIsSubmitting(true);
-            const result = await awardTetrisScore(user.uid, score);
-            if (result.success) {
-                toast({ title: "게임 종료!", description: result.message });
-            } else {
-                toast({ title: "오류", description: result.message, variant: 'destructive' });
+            try {
+                await awardTetrisScore(user.uid, score);
+                toast({ title: "게임 종료!", description: `최종 점수 ${score}점이 기록되었습니다.` });
+            } catch (error: any) {
+                toast({ title: "오류", description: error.message || '점수 기록 중 오류 발생', variant: 'destructive' });
+            } finally {
+                setIsSubmitting(false);
             }
-            setIsSubmitting(false);
         }
     };
     
@@ -261,7 +276,7 @@ export default function TetrisPage() {
         if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [user, toast, score, gameState]);
+  }, [user, toast, score, gameState, level, lines]);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -276,7 +291,7 @@ export default function TetrisPage() {
   return (
     <>
     <div className="flex flex-col lg:flex-row items-center justify-center gap-6">
-      <div className="relative border-4 border-primary rounded-lg overflow-hidden">
+      <div className="relative border-4 border-primary rounded-lg overflow-hidden shadow-lg">
         <canvas ref={canvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} />
         
         {gameState !== 'playing' && (
@@ -295,26 +310,34 @@ export default function TetrisPage() {
 
        <div className="w-full lg:w-48 space-y-4">
          <Card>
-            <CardHeader>
-                <CardTitle>점수</CardTitle>
+            <CardHeader className="p-4">
+                <CardTitle className="text-sm">점수</CardTitle>
             </CardHeader>
-            <CardContent className="text-2xl font-bold font-mono">
+            <CardContent className="p-4 pt-0 text-2xl font-bold font-mono">
                 {score}
             </CardContent>
          </Card>
           <Card>
-            <CardHeader>
-                <CardTitle>줄</CardTitle>
+            <CardHeader className="p-4">
+                <CardTitle className="text-sm">줄</CardTitle>
             </CardHeader>
-            <CardContent className="text-2xl font-bold font-mono">
+            <CardContent className="p-4 pt-0 text-2xl font-bold font-mono">
                 {lines}
             </CardContent>
          </Card>
           <Card>
-            <CardHeader>
-                <CardTitle>다음</CardTitle>
+            <CardHeader className="p-4">
+                <CardTitle className="text-sm">레벨</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 text-2xl font-bold font-mono">
+                {level}
+            </CardContent>
+         </Card>
+          <Card>
+            <CardHeader className="p-4">
+                <CardTitle className="text-sm">다음</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 flex justify-center items-center">
                 {nextPiece && (
                     <div className="bg-background p-1 rounded-md">
                         {nextPiece.map((row, y) => (
@@ -323,7 +346,7 @@ export default function TetrisPage() {
                                     <div key={x} style={{
                                         width: BLOCK_SIZE / 2,
                                         height: BLOCK_SIZE / 2,
-                                        backgroundColor: value ? COLORS[SHAPES.indexOf(nextPiece)] : 'transparent',
+                                        backgroundColor: value ? COLORS[SHAPES.findIndex(s => s === nextPiece)] : 'transparent',
                                         border: value ? '1px solid rgba(0,0,0,0.5)' : 'none'
                                     }}/>
                                 ))}
@@ -336,7 +359,7 @@ export default function TetrisPage() {
        </div>
 
     </div>
-     <p className="text-sm text-muted-foreground text-center mt-4">↑: 회전, ←/→: 이동, ↓: 빠른 하강</p>
+     <p className="text-sm text-muted-foreground text-center mt-4">↑: 회전, ←/→: 이동, ↓: 소프트 드롭, Space: 하드 드롭</p>
       
        <AlertDialog open={gameState === 'over' && !isSubmitting}>
           <AlertDialogContent>
@@ -344,8 +367,6 @@ export default function TetrisPage() {
                <AlertDialogTitle>게임 종료!</AlertDialogTitle>
                 <AlertDialogDescription>
                     최종 점수: <strong>{score}점</strong> / 완성한 줄: <strong>{lines}줄</strong>
-                    <br/>
-                    획득 포인트: <strong>{Math.floor(score / 1000)} 포인트</strong> (포인트 한도에 따라 지급되지 않을 수 있음)
                 </AlertDialogDescription>
              </AlertDialogHeader>
              <AlertDialogFooter>

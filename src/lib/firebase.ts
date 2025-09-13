@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -526,6 +525,8 @@ export const playWordChain = async (userId: string, word: string) => {
   return await runTransaction(db, async (transaction) => {
     const userRef = doc(db, 'users', userId);
     const gameRef = doc(db, 'games', 'word-chain');
+    const leaderboardRef = doc(db, `leaderboards/word-chain/users`, userId);
+
 
     const [userDoc, gameDoc] = await Promise.all([
       transaction.get(userRef),
@@ -561,29 +562,16 @@ export const playWordChain = async (userId: string, word: string) => {
       createdAt: Timestamp.now(),
     };
     transaction.update(gameRef, { history: arrayUnion(newHistoryEntry) });
-
-    const pointAmount = 1;
-    const currentPoints = userData.lak || 0;
-
-    if (currentPoints >= POINT_LIMIT) {
-        return { success: true, message: `성공! 하지만 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
-    }
     
-    if (currentPoints + pointAmount > POINT_LIMIT) {
-        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-    }
+    transaction.set(leaderboardRef, {
+        score: increment(1),
+        displayName: userData.displayName,
+        studentId: userData.studentId,
+        lastUpdated: Timestamp.now()
+    }, { merge: true });
 
-    transaction.update(userRef, { lak: increment(pointAmount) });
 
-    const historyRef = doc(collection(userRef, 'transactions'));
-    transaction.set(historyRef, {
-      date: Timestamp.now(),
-      description: `끝말잇기 성공: ${word}`,
-      amount: pointAmount,
-      type: 'credit',
-    });
-
-    return { success: true, message: `성공! ${pointAmount} 포인트를 획득했습니다.` };
+    return { success: true, message: `성공! 점수가 기록되었습니다.` };
 
   }).catch((error) => {
     console.error("Word chain error: ", error);
@@ -628,15 +616,6 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
       throw new Error("User does not exist.");
     }
 
-    const currentPoints = userDoc.data().lak || 0;
-    if (amount > 0 && currentPoints >= POINT_LIMIT) {
-      throw new Error(`포인트 한도(${POINT_LIMIT}포인트)에 도달하여 더 이상 포인트를 지급할 수 없습니다.`);
-    }
-
-    if (amount > 0 && currentPoints + amount > POINT_LIMIT) {
-        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다. 현재: ${currentPoints}, 지급 요청: ${amount}`);
-    }
-
     transaction.update(userRef, { lak: increment(amount) });
 
     const historyRef = doc(collection(userRef, 'transactions'));
@@ -659,10 +638,6 @@ export const setUserLak = async (userId: string, amount: number, reason: string)
 
     if (!userDoc.exists()) {
       throw new Error("User does not exist.");
-    }
-    
-    if (amount > POINT_LIMIT) {
-        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 설정할 수 없습니다.`);
     }
 
     const currentLak = userDoc.data().lak || 0;
@@ -690,54 +665,20 @@ export const bulkAdjustUserLak = async (userIds: string[], amount: number, reaso
     for (const userId of userIds) {
         const userRef = doc(db, 'users', userId);
         
-        // Note: Reading inside a loop is not ideal, but necessary here without denormalizing lak.
-        // For high-frequency bulk operations, a different data model might be better.
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const currentPoints = userData.lak || 0;
+        batch.update(userRef, { lak: increment(amount) });
 
-             if (amount < 0 || (currentPoints < POINT_LIMIT && currentPoints + amount <= POINT_LIMIT)) {
-                batch.update(userRef, { lak: increment(amount) });
-
-                const historyRef = doc(collection(userRef, 'transactions'));
-                batch.set(historyRef, {
-                    date: Timestamp.now(),
-                    description: `관리자 일괄 조정: ${reason}`,
-                    amount: amount,
-                    type: amount > 0 ? 'credit' : 'debit',
-                });
-            } else if (amount > 0 && currentPoints >= POINT_LIMIT) {
-                // User is already at limit, just add history
-                const historyRef = doc(collection(userRef, 'transactions'));
-                batch.set(historyRef, {
-                    date: Timestamp.now(),
-                    description: `관리자 일괄 조정 (한도 초과): ${reason}`,
-                    amount: 0,
-                    type: 'credit',
-                });
-            } else if (amount > 0 && currentPoints + amount > POINT_LIMIT) {
-                 // User would exceed limit, so adjust to reach the limit exactly.
-                const adjustedAmount = POINT_LIMIT - currentPoints;
-                batch.update(userRef, { lak: POINT_LIMIT });
-                
-                const historyRef = doc(collection(userRef, 'transactions'));
-                batch.set(historyRef, {
-                    date: Timestamp.now(),
-                    description: `관리자 일괄 조정 (한도 도달): ${reason}`,
-                    amount: adjustedAmount,
-                    type: 'credit',
-                });
-            }
-        }
+        const historyRef = doc(collection(userRef, 'transactions'));
+        batch.set(historyRef, {
+            date: Timestamp.now(),
+            description: `관리자 일괄 조정: ${reason}`,
+            amount: amount,
+            type: amount > 0 ? 'credit' : 'debit',
+        });
     }
     await batch.commit();
 };
 
 export const bulkSetUserLak = async (userIds: string[], amount: number, reason: string) => {
-  if (amount > POINT_LIMIT) {
-    throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 설정할 수 없습니다.`);
-  }
 
   const batch = writeBatch(db);
 
@@ -946,137 +887,70 @@ export const deleteCommunityPost = async (postId: string) => {
     await deleteDoc(postRef);
 };
 
-export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard') => {
-  return await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await transaction.get(userRef);
-    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard', time: number) => {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+  
+  const leaderboardRef = doc(db, `leaderboards/minesweeper-${difficulty}/users`, userId);
+  const leaderboardDoc = await getDoc(leaderboardRef);
 
-    const userData = userDoc.data();
-    
-    const today = new Date().toISOString().split('T')[0];
-    const lastWinDate = userData.lastMinesweeperWin;
-
-    if (lastWinDate === today) {
-      throw new Error('지뢰찾기 보상은 하루에 한 번만 받을 수 있습니다.');
-    }
-    
-    const points: Record<typeof difficulty, number> = {
-      easy: 1,
-      medium: 3,
-      hard: 5,
-    };
-    const reward = points[difficulty];
-    const currentPoints = userData.lak || 0;
-
-    transaction.update(userRef, { lastMinesweeperWin: today });
-
-    if (currentPoints >= POINT_LIMIT) {
-        return { success: true, message: `승리! 하지만 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
-    }
-    if (currentPoints + reward > POINT_LIMIT) {
-        throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-    }
-    
-    transaction.update(userRef, { lak: increment(reward) });
-
-    const historyRef = doc(collection(userRef, 'transactions'));
-    transaction.set(historyRef, {
-        date: Timestamp.now(),
-        description: `지뢰찾기 승리 (${difficulty})`,
-        amount: reward,
-        type: 'credit',
-    });
-
-    return { success: true, message: `지뢰찾기 ${difficulty} 난이도 클리어! ${reward}포인트 획득!` };
-  }).catch((error) => {
-    console.error("Minesweeper award error: ", error);
-    return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
-  });
+  // Only update if the new time is better or if there's no previous record
+  if (!leaderboardDoc.exists() || time < leaderboardDoc.data().score) {
+    await setDoc(leaderboardRef, {
+      score: time,
+      displayName: userDoc.data().displayName,
+      studentId: userDoc.data().studentId,
+      lastUpdated: Timestamp.now(),
+    }, { merge: true });
+    return { success: true, message: `기록이 갱신되었습니다: ${time}초` };
+  }
+  
+  return { success: true, message: `기존 기록보다 좋지 않아 갱신되지 않았습니다.` };
 };
 
 export const awardBreakoutScore = async (userId: string, bricksBroken: number) => {
     if (bricksBroken <= 0) {
         return { success: true, message: '게임 종료!'};
     }
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
 
-        const userData = userDoc.data();
-        const reward = Math.floor(bricksBroken / 5);
+    const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
+    
+    await setDoc(leaderboardRef, {
+        score: increment(bricksBroken),
+        displayName: userDoc.data().displayName,
+        studentId: userDoc.data().studentId,
+        lastUpdated: Timestamp.now()
+    }, { merge: true });
 
-        if (reward === 0) {
-            return { success: true, message: `게임 종료! 벽돌 ${bricksBroken}개를 부쉈습니다.` };
-        }
-
-        const currentPoints = userData.lak || 0;
-
-        if (currentPoints >= POINT_LIMIT) {
-            return { success: true, message: `게임 종료! 벽돌 ${bricksBroken}개 파괴. 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
-        }
-        if (currentPoints + reward > POINT_LIMIT) {
-            throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-        }
-
-        transaction.update(userRef, { lak: increment(reward) });
-
-        const historyRef = doc(collection(userRef, 'transactions'));
-        transaction.set(historyRef, {
-            date: Timestamp.now(),
-            description: `벽돌깨기 ${bricksBroken}개 파괴`,
-            amount: reward,
-            type: 'credit',
-        });
-
-        return { success: true, message: `벽돌 ${bricksBroken}개 파괴! ${reward}포인트 획득!` };
-    }).catch((error) => {
-        console.error("Breakout award error: ", error);
-        return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
-    });
+    return { success: true, message: `벽돌 ${bricksBroken}개 파괴! 점수가 기록되었습니다.` };
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
   if (score <= 0) {
       return { success: true, message: `게임 종료! 최종 점수: ${score}`};
   }
-  return await runTransaction(db, async (transaction) => {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
 
-      const userData = userDoc.data();
-      const reward = Math.floor(score / 1000);
+  const leaderboardRef = doc(db, `leaderboards/tetris/users`, userId);
+  const leaderboardDoc = await getDoc(leaderboardRef);
 
-      if (reward === 0) {
-          return { success: true, message: `게임 종료! 최종 점수: ${score}` };
-      }
+  if (!leaderboardDoc.exists() || score > leaderboardDoc.data().score) {
+      await setDoc(leaderboardRef, {
+        score: score,
+        displayName: userDoc.data().displayName,
+        studentId: userDoc.data().studentId,
+        lastUpdated: Timestamp.now(),
+      }, { merge: true });
+      return { success: true, message: `최고 기록 갱신! ${score}점`};
+  }
 
-      const currentPoints = userData.lak || 0;
-
-      if (currentPoints >= POINT_LIMIT) {
-          return { success: true, message: `게임 종료! ${score}점 기록. 포인트 한도(${POINT_LIMIT})에 도달하여 포인트는 지급되지 않았습니다.` };
-      }
-       if (currentPoints + reward > POINT_LIMIT) {
-          throw new Error(`포인트 한도(${POINT_LIMIT}포인트)를 초과하여 지급할 수 없습니다.`);
-      }
-
-      transaction.update(userRef, { lak: increment(reward) });
-
-      const historyRef = doc(collection(userRef, 'transactions'));
-      transaction.set(historyRef, {
-          date: Timestamp.now(),
-          description: `테트리스 ${score}점 달성`,
-          amount: reward,
-          type: 'credit',
-      });
-
-      return { success: true, message: `${score}점 기록! ${reward}포인트 획득!` };
-  }).catch((error) => {
-      console.error("Tetris award error: ", error);
-      return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
-  });
+  return { success: true, message: `최종 점수: ${score}점. 최고 기록을 깨지는 못했습니다.` };
 };
 
 

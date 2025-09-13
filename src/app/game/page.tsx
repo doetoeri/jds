@@ -9,7 +9,7 @@ import Link from 'next/link';
 const games = [
   {
     title: "실시간 끝말잇기",
-    description: "모두와 함께 끝말잇기를 이어가고 포인트를 획득하세요!",
+    description: "모두와 함께 끝말잇기를 이어가고 순위에 도전하세요!",
     href: "/game/word-chain",
     icon: MessageCircle,
     status: "active"
@@ -46,7 +46,7 @@ export default function GamePage() {
             미니게임
         </h1>
         <p className="text-muted-foreground">
-          다양한 게임을 즐기고 포인트를 획득해보세요! (포인트는 25점까지만 적립 가능)
+          다양한 게임을 즐기고 리더보드 순위에 도전해보세요! 이틀마다 순위표 상위 10명에게 보상이 지급됩니다.
         </p>
       </div>
 
