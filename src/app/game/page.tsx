@@ -15,17 +15,17 @@ const games = [
     status: "active"
   },
   {
+    title: "지뢰찾기",
+    description: "지뢰를 피해 모든 칸을 여는 클래식 게임입니다.",
+    href: "/game/minesweeper",
+    icon: Bomb,
+    status: "active"
+  },
+  {
     title: "플래피 종달",
     description: "장애물을 피하며 종달새를 날려보내세요. (준비중)",
     href: "#",
     icon: Bird,
-    status: "disabled"
-  },
-  {
-    title: "지뢰찾기",
-    description: "지뢰를 피해 모든 칸을 여는 클래식 게임입니다. (준비중)",
-    href: "#",
-    icon: Bomb,
     status: "disabled"
   },
 ]

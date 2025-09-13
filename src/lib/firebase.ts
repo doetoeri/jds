@@ -840,18 +840,18 @@ export const postAnnouncement = async (
   await addDoc(collection(db, 'announcements'), announcementData);
 };
 
-export const sendLetter = async (
-  senderUid: string,
-  receiverIdentifier: string, // Can be studentId or teacher's nickname
-  content: string,
-  isOffline: boolean
-) => {
+export const sendLetter = async (senderUid: string, receiverIdentifier: string, content: string, isOffline: boolean) => {
   return await runTransaction(db, async (transaction) => {
     const senderRef = doc(db, 'users', senderUid);
     const senderDoc = await transaction.get(senderRef);
     if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
-    
     const senderData = senderDoc.data();
+
+    // Check if the user has enough points
+    if (senderData.lak < 2) {
+      throw new Error('편지를 보내려면 2포인트가 필요합니다.');
+    }
+    
     const senderStudentId = senderData.studentId;
 
     let receiverQuery;
@@ -882,19 +882,19 @@ export const sendLetter = async (
     };
     transaction.set(letterRef, letterData);
 
-    // Give points
-    const pointAmount = 2;
-    transaction.update(senderRef, { lak: increment(pointAmount) });
+    // Deduct points
+    const pointCost = 2;
+    transaction.update(senderRef, { lak: increment(-pointCost) });
     const historyRef = doc(collection(senderRef, 'transactions'));
     transaction.set(historyRef, {
-        amount: pointAmount,
+        amount: -pointCost,
         date: Timestamp.now(),
-        description: `편지 발송 보상: ${receiverIdentifierDisplay}에게`,
-        type: 'credit',
+        description: `편지 발송: ${receiverIdentifierDisplay}에게`,
+        type: 'debit',
     });
 
 
-    return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달되며, 보상으로 2포인트가 지급됩니다.' };
+    return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
   }).catch((error) => {
     console.error("Send letter error: ", error);
     const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";
@@ -954,7 +954,47 @@ export const deleteCommunityPost = async (postId: string) => {
     await deleteDoc(postRef);
 };
 
+export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard') => {
+  return await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
 
+    const userData = userDoc.data();
+    
+    const today = new Date().toISOString().split('T')[0];
+    const lastWinDate = userData.lastMinesweeperWin;
+
+    if (lastWinDate === today) {
+      throw new Error('지뢰찾기 보상은 하루에 한 번만 받을 수 있습니다.');
+    }
+    
+    const points: Record<typeof difficulty, number> = {
+      easy: 1,
+      medium: 3,
+      hard: 5,
+    };
+    const reward = points[difficulty];
+    
+    transaction.update(userRef, { 
+        lak: increment(reward),
+        lastMinesweeperWin: today
+    });
+
+    const historyRef = doc(collection(userRef, 'transactions'));
+    transaction.set(historyRef, {
+        date: Timestamp.now(),
+        description: `지뢰찾기 승리 (${difficulty})`,
+        amount: reward,
+        type: 'credit',
+    });
+
+    return { success: true, message: `지뢰찾기 ${difficulty} 난이도 클리어! ${reward}포인트 획득!` };
+  }).catch((error) => {
+    console.error("Minesweeper award error: ", error);
+    return { success: false, message: error.message || '보상 처리 중 오류가 발생했습니다.' };
+  });
+};
 
 
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
