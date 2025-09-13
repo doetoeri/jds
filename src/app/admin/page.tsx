@@ -7,10 +7,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db, setMaintenanceMode, resetWordChainGame } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -23,23 +23,76 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Skeleton } from "@/components/ui/skeleton";
 
+
+interface Stats {
+    totalUsers: number;
+    totalLakIssued: number;
+}
 
 export default function AdminPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(true);
   const [isResettingGame, setIsResettingGame] = useState(false);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const { toast } = useToast();
   
   useEffect(() => {
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
-    const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
+    const unsubMaintenance = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setIsMaintenanceMode(doc.data().isMaintenanceMode);
         }
         setIsTogglingMaintenance(false);
     });
-    return () => unsubscribe();
+
+    const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+    const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
+        setStats(prev => ({ ...prev!, totalUsers: snapshot.size }));
+        setIsLoadingStats(false);
+    });
+
+    const codesQuery = query(collection(db, 'codes'));
+    const unsubCodes = onSnapshot(codesQuery, (snapshot) => {
+        let redeemed = 0;
+        snapshot.forEach(doc => {
+            const code = doc.data();
+            switch (code.type) {
+                case '종달코드':
+                case '온라인 특수코드':
+                    if (code.used) redeemed += code.value;
+                    break;
+                case '히든코드':
+                    if (code.used && Array.isArray(code.usedBy)) { 
+                        redeemed += (code.usedBy.length * code.value);
+                    }
+                    break;
+                case '메이트코드':
+                    if (code.isComplete && Array.isArray(code.participants)) {
+                        redeemed += code.participants.length * 7;
+                    }
+                    break;
+                case '선착순코드':
+                     if (Array.isArray(code.usedBy)) {
+                        redeemed += code.usedBy.length * code.value;
+                    }
+                    break;
+            }
+        });
+        setStats(prev => ({ 
+            ...prev!, 
+            totalLakIssued: redeemed
+        }));
+         setIsLoadingStats(false);
+    });
+
+    return () => {
+        unsubMaintenance();
+        unsubUsers();
+        unsubCodes();
+    };
   }, []);
 
   const handleMaintenanceToggle = async (checked: boolean) => {
@@ -84,6 +137,32 @@ export default function AdminPage() {
   return (
     <div className="grid lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 사용자</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {isLoadingStats ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers.toLocaleString() ?? 0} 명</div>}
+                    <p className="text-xs text-muted-foreground">
+                    현재 시스템에 등록된 총 학생 수
+                    </p>
+                </CardContent>
+                </Card>
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">코드로 지급된 포인트</CardTitle>
+                    <Coins className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
+                    <p className="text-xs text-muted-foreground">
+                    지금까지 코드를 통해 지급된 포인트 총합
+                    </p>
+                </CardContent>
+                </Card>
+            </div>
             <AnnouncementPoster />
              <Card>
                 <CardHeader>
