@@ -33,7 +33,7 @@ const games = [
     description: "내려오는 블록을 쌓아 줄을 완성하여 없애는 게임입니다.",
     href: "/game/tetris",
     icon: Gamepad2,
-    status: "disabled"
+    status: "active"
   },
 ]
 
