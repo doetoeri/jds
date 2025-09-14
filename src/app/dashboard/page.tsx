@@ -13,6 +13,7 @@ import Image from 'next/image';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { toPng } from 'html-to-image';
 
 interface NewUpdate {
   title: string;
@@ -258,3 +259,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+  
