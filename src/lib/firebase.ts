@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -902,16 +903,12 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
       avatarGradient: userDoc.data().avatarGradient,
       lastUpdated: Timestamp.now(),
     }, { merge: true });
-    return { success: true, message: `기록이 갱신되었습니다: ${time}초` };
   }
-  
-  return { success: true, message: `기존 기록보다 좋지 않아 갱신되지 않았습니다.` };
 };
 
 export const awardBreakoutScore = async (userId: string, bricksBroken: number) => {
-    if (bricksBroken <= 0) {
-        return { success: true, message: '게임 종료!'};
-    }
+    if (bricksBroken <= 0) return;
+
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
@@ -925,14 +922,10 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
         avatarGradient: userDoc.data().avatarGradient,
         lastUpdated: Timestamp.now()
     }, { merge: true });
-
-    return { success: true, message: `벽돌 ${bricksBroken}개 파괴! 점수가 기록되었습니다.` };
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
-  if (score <= 0) {
-      return { success: true, message: `게임 종료! 최종 점수: ${score}`};
-  }
+  if (score <= 0) return;
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
@@ -948,10 +941,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         avatarGradient: userDoc.data().avatarGradient,
         lastUpdated: Timestamp.now(),
       }, { merge: true });
-      return { success: true, message: `최고 기록 갱신! ${score}점`};
   }
-
-  return { success: true, message: `최종 점수: ${score}점. 최고 기록을 깨지는 못했습니다.` };
 };
 
 
@@ -1030,3 +1020,4 @@ export const processPosPayment = async (
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
+

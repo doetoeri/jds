@@ -11,7 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog, ArrowLeft, Link as LinkIcon } from 'lucide-react';
+import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog, ArrowLeft, Link as LinkIcon, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -36,6 +36,34 @@ export default function GuidePage() {
         <Card>
             <CardContent className="p-6">
             <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="item-chrome">
+                <AccordionTrigger className="text-lg font-semibold">
+                    <Download className="mr-2 text-primary" />
+                    크롬 확장 프로그램 설치
+                </AccordionTrigger>
+                <AccordionContent className="text-base pl-8 space-y-4">
+                    <p>
+                    교실 크롬북에 종달샘 허브 확장 프로그램을 설치하여 포인트를 확인하고 주요 기능에 더 빠르게 접근하세요!
+                    </p>
+                    <a href="/extension.zip" download>
+                        <Button>
+                            <Download className="mr-2 h-4 w-4" />
+                            확장 프로그램 다운로드 (.zip)
+                        </Button>
+                    </a>
+                    <div className="text-sm space-y-2 mt-4">
+                        <h4 className="font-semibold">설치 방법:</h4>
+                        <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                            <li>위 버튼을 눌러 `extension.zip` 파일을 다운로드하고, 압축을 풉니다.</li>
+                            <li>크롬 브라우저에서 주소창에 `chrome://extensions`를 입력하여 확장 프로그램 페이지로 이동합니다.</li>
+                            <li>오른쪽 상단에서 **'개발자 모드'** 스위치를 켭니다.</li>
+                            <li>**'압축 해제된 확장 프로그램을 로드합니다'** 버튼을 클릭합니다.</li>
+                            <li>파일 선택 창이 열리면, 아까 압축을 풀었던 **'extension' 폴더**를 선택하고 '열기'를 누릅니다.</li>
+                            <li>설치가 완료되었습니다! 이제 브라우저 툴바에서 종달새 아이콘을 찾아보세요.</li>
+                        </ol>
+                    </div>
+                </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="item-1">
                 <AccordionTrigger className="text-lg font-semibold">
                     <Coins className="mr-2 text-primary" />

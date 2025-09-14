@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "종달샘 허브",
+  "version": "1.0",
+  "description": "고촌중학교 종달샘 허브의 주요 기능을 빠르게 확인하세요.",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://jongdalsam.shop/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

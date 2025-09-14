@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>종달샘 허브</title>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 250px;
+      padding: 16px;
+      margin: 0;
+      background-color: #fff2e6;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #ff5500;
+      margin-bottom: 16px;
+    }
+    .header img {
+      width: 24px;
+      height: 24px;
+    }
+    .header h1 {
+        font-size: 18px;
+        margin: 0;
+        font-weight: 700;
+    }
+    #loading, #login-prompt {
+      display: none;
+    }
+    #user-info {
+        display: none;
+        width: 100%;
+        background-color: white;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+    #user-info p {
+        margin: 0;
+        font-size: 14px;
+    }
+    #display-name {
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+    #lak-balance {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ff5500;
+      margin-top: 8px;
+    }
+     #lak-balance span {
+        font-size: 16px;
+        font-weight: normal;
+        color: #333;
+    }
+    .links {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+    }
+    .link-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      background-color: white;
+      color: #333;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 12px;
+      border: 1px solid #ffe0cc;
+      transition: background-color 0.2s;
+    }
+    .link-button:hover {
+        background-color: #fff8f2;
+    }
+    .login-button {
+        padding: 10px 20px;
+        background-color: #ff5500;
+        color: white;
+        border-radius: 8px;
+        font-weight: bold;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="assets/icon48.png" alt="logo">
+      <h1>종달샘 허브</h1>
+    </div>
+
+    <div id="loading">로딩 중...</div>
+
+    <div id="user-info">
+      <p id="display-name">사용자</p>
+      <p id="lak-balance">0 <span>포인트</span></p>
+    </div>
+
+    <div id="login-prompt">
+      <p>포인트와 정보를 보려면 로그인해주세요.</p>
+      <a href="https://jongdalsam.shop/login" target="_blank" class="login-button">로그인 페이지로 이동</a>
+    </div>
+
+    <div class="links">
+        <a href="https://jongdalsam.shop/dashboard/codes" target="_blank" class="link-button">코드 사용</a>
+        <a href="https://jongdalsam.shop/dashboard/letters" target="_blank" class="link-button">편지 쓰기</a>
+        <a href="https://jongdalsam.shop/dashboard/shop" target="_blank" class="link-button">상점</a>
+        <a href="https://jongdalsam.shop/game" target="_blank" class="link-button">미니게임</a>
+    </div>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
