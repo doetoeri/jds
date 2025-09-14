@@ -14,13 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -83,6 +83,10 @@ export default function AdminUsersPage() {
   const [classFilter, setClassFilter] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('lak');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
+  const [isRewardDialogOpen, setIsRewardDialogOpen] = useState(false);
+  const [selectedLeaderboard, setSelectedLeaderboard] = useState('');
+  const [isRewarding, setIsRewarding] = useState(false);
 
 
   useEffect(() => {
@@ -325,6 +329,26 @@ export default function AdminUsersPage() {
       setIsProcessing(false);
     }
   };
+  
+  const handleRewardLeaderboard = async () => {
+    if (!selectedLeaderboard) {
+      toast({ title: '오류', description: '보상을 지급할 리더보드를 선택해주세요.', variant: 'destructive' });
+      return;
+    }
+    setIsRewarding(true);
+    try {
+      const result = await awardLeaderboardRewards(selectedLeaderboard);
+      toast({
+        title: `보상 지급 완료`,
+        description: `${result.successCount}명의 랭커에게 보상이 지급되었습니다. (실패: ${result.failCount})`
+      });
+      setIsRewardDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: '오류', description: error.message || '리더보드 보상 지급 중 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsRewarding(false);
+    }
+  };
 
 
   const renderIdentifier = (user: User) => {
@@ -368,7 +392,11 @@ export default function AdminUsersPage() {
             <h1 className="text-2xl font-bold tracking-tight font-headline">사용자 관리</h1>
             <p className="text-muted-foreground">시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</p>
         </div>
-        <div>
+        <div className="flex gap-2">
+            <Button onClick={() => setIsRewardDialogOpen(true)}>
+                <Trophy className="mr-2 h-4 w-4"/>
+                리더보드 보상 지급
+            </Button>
             <Button onClick={openBulkAdjustDialog} disabled={selectedUsers.length === 0}>
                 <Coins className="mr-2 h-4 w-4"/>
                 선택 사용자 포인트 관리 ({selectedUsers.length})
@@ -702,6 +730,52 @@ export default function AdminUsersPage() {
             <Button type="button" onClick={handleUpdateRole} disabled={isProcessing || !newRole}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               변경하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Leaderboard Reward Dialog */}
+      <Dialog open={isRewardDialogOpen} onOpenChange={setIsRewardDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>리더보드 랭커 보상 지급</DialogTitle>
+            <DialogDescription>
+              선택한 게임의 리더보드 상위 5명에게 차등으로 포인트를 지급합니다. 이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="leaderboard-select" className="text-right">
+                대상 게임
+              </Label>
+              <Select onValueChange={setSelectedLeaderboard} value={selectedLeaderboard} disabled={isRewarding}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="게임 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="word-chain">끝말잇기</SelectItem>
+                  <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
+                  <SelectItem value="breakout">벽돌깨기</SelectItem>
+                  <SelectItem value="tetris">테트리스</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+             <ul className="text-sm text-muted-foreground list-disc pl-5 ml-auto mr-auto">
+                <li>1등: 10 포인트</li>
+                <li>2등: 7 포인트</li>
+                <li>3등: 5 포인트</li>
+                <li>4등: 3 포인트</li>
+                <li>5등: 1 포인트</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isRewarding}>취소</Button>
+            </DialogClose>
+            <Button onClick={handleRewardLeaderboard} disabled={isRewarding || !selectedLeaderboard}>
+              {isRewarding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              보상 지급
             </Button>
           </DialogFooter>
         </DialogContent>

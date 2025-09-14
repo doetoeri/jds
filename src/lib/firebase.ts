@@ -905,7 +905,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
 };
 
 export const awardBreakoutScore = async (userId: string, bricksBroken: number) => {
-    if (bricksBroken <= 0) return;
+    if (bricksBroken <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다."};
 
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
@@ -920,6 +920,8 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
         avatarGradient: userDoc.data().avatarGradient,
         lastUpdated: Timestamp.now()
     }, { merge: true });
+
+    return { success: true, message: `점수 ${bricksBroken}점이 기록되었습니다!`};
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
@@ -1015,6 +1017,55 @@ export const processPosPayment = async (
     console.error("POS Payment error:", error);
     return { success: false, message: error.message || "결제 중 오류가 발생했습니다." };
   });
+};
+
+export const awardLeaderboardRewards = async (leaderboardName: string) => {
+  const leaderboardIdMap: Record<string, { path: string, order: 'desc' | 'asc' }> = {
+    'word-chain': { path: 'leaderboards/word-chain/users', order: 'desc' },
+    'minesweeper-easy': { path: 'leaderboards/minesweeper-easy/users', order: 'asc' },
+    'breakout': { path: 'leaderboards/breakout/users', order: 'desc' },
+    'tetris': { path: 'leaderboards/tetris/users', order: 'desc' },
+  };
+
+  const gameInfo = leaderboardIdMap[leaderboardName];
+  if (!gameInfo) {
+    throw new Error('유효하지 않은 리더보드 이름입니다.');
+  }
+
+  const { path, order } = gameInfo;
+  const rewards = [10, 7, 5, 3, 1]; // 1등부터 5등까지 보상
+  let successCount = 0;
+  let failCount = 0;
+
+  const usersRef = collection(db, path);
+  const q = query(usersRef, orderBy('score', order), limit(5));
+  const snapshot = await getDocs(q);
+
+  const batch = writeBatch(db);
+
+  snapshot.docs.forEach((docSnapshot, index) => {
+    const rankerId = docSnapshot.id;
+    const rewardAmount = rewards[index];
+    
+    if (rankerId && rewardAmount) {
+      const userRef = doc(db, 'users', rankerId);
+      batch.update(userRef, { lak: increment(rewardAmount) });
+      
+      const historyRef = doc(collection(userRef, 'transactions'));
+      batch.set(historyRef, {
+        date: Timestamp.now(),
+        description: `리더보드 보상 (${leaderboardName} ${index + 1}등)`,
+        amount: rewardAmount,
+        type: 'credit',
+      });
+      successCount++;
+    } else {
+      failCount++;
+    }
+  });
+
+  await batch.commit();
+  return { successCount, failCount };
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
