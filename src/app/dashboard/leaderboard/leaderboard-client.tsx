@@ -17,7 +17,7 @@ interface LeaderboardUser {
   studentId: string;
   displayName: string;
   score: number;
-  lak?: number;
+  lak: number;
   avatarGradient?: string;
 }
 
@@ -125,7 +125,7 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
 };
 
 
-export default function LeaderboardPage() {
+export default function LeaderboardPageClient() {
   const [totalPointsLeaderboard, setTotalPointsLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoadingTotal, setIsLoadingTotal] = useState(true);
   const { toast } = useToast();
