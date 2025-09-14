@@ -1,9 +1,8 @@
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import Script from 'next/script';
-import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
 import type { Metadata } from 'next';
+import RootLayoutClient from '@/components/root-layout-client';
 
 export const metadata: Metadata = {
   title: {
@@ -16,27 +15,13 @@ export const metadata: Metadata = {
     description: '포인트, 커뮤니티, 미니게임까지! 고촌중 학생들을 위한 공간입니다.',
     images: ['/og-image.png'],
   },
+   twitter: {
+    card: 'summary_large_image',
+    title: '고촌중학교 종달샘 허브',
+    description: '포인트, 커뮤니티, 미니게임까지! 고촌중 학생들을 위한 공간입니다.',
+    images: ['/og-image.png'],
+  },
 };
-
-function RootLayoutClient({ children }: { children: React.ReactNode }) {
-  'use client';
-  const pathname = usePathname();
-
-  useEffect(() => {
-    let theme = 'theme-student'; // Default theme
-    if (pathname.startsWith('/teacher') || pathname.startsWith('/guide/teachers')) {
-      theme = 'theme-teacher';
-    }
-    document.documentElement.className = theme;
-  }, [pathname]);
-
-  return (
-    <>
-      {children}
-      <Toaster />
-    </>
-  );
-}
 
 
 export default function RootLayout({
