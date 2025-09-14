@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import HomeClient from './home-client';
 
 export const metadata: Metadata = {
-  title: '홈 | 고촌중학교 종달샘 허브',
+  title: '홈',
   description: '종달샘 허브에 오신 것을 환영합니다! 고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다.',
   openGraph: {
     title: '고촌중학교 종달샘 허브',

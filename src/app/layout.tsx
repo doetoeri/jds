@@ -1,6 +1,3 @@
-
-'use client';
-
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import Script from 'next/script';
@@ -8,26 +5,21 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import type { Metadata } from 'next';
 
-// This is now handled by metadata exports in pages/layouts
-// export const metadata: Metadata = {
-//   title: {
-//     template: '%s | 고촌중학교 종달샘 허브',
-//     default: '고촌중학교 종달샘 허브',
-//   },
-//   description: '종달샘 허브에 오신 것을 환영합니다! 고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다. 다양한 활동에 참여하고, 포인트를 모아 상품을 구매하며, 친구들과 소통해보세요.',
-//   openGraph: {
-//     title: '고촌중학교 종달샘 허브',
-//     description: '포인트, 커뮤니티, 미니게임까지! 고촌중 학생들을 위한 공간입니다.',
-//     images: ['/og-image.png'],
-//   },
-// };
+export const metadata: Metadata = {
+  title: {
+    template: '%s | 고촌중학교 종달샘 허브',
+    default: '고촌중학교 종달샘 허브',
+  },
+  description: '종달샘 허브에 오신 것을 환영합니다! 고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다.',
+  openGraph: {
+    title: '고촌중학교 종달샘 허브',
+    description: '포인트, 커뮤니티, 미니게임까지! 고촌중 학생들을 위한 공간입니다.',
+    images: ['/og-image.png'],
+  },
+};
 
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+function RootLayoutClient({ children }: { children: React.ReactNode }) {
+  'use client';
   const pathname = usePathname();
 
   useEffect(() => {
@@ -38,6 +30,20 @@ export default function RootLayout({
     document.documentElement.className = theme;
   }, [pathname]);
 
+  return (
+    <>
+      {children}
+      <Toaster />
+    </>
+  );
+}
+
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="ko">
       <head>
@@ -63,8 +69,7 @@ export default function RootLayout({
             gtag('config', 'G-0B6DFH42ML');
           `}
         </Script>
-        {children}
-        <Toaster />
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   );
