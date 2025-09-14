@@ -35,7 +35,7 @@ export default function AdminPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(true);
   const [isResettingGame, setIsResettingGame] = useState(false);
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<Stats>({ totalUsers: 0, totalLakIssued: 0 });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const { toast } = useToast();
   
@@ -50,7 +50,7 @@ export default function AdminPage() {
 
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-        setStats(prev => ({ ...prev!, totalUsers: snapshot.size }));
+        setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
         setIsLoadingStats(false);
     });
 
@@ -82,7 +82,7 @@ export default function AdminPage() {
             }
         });
         setStats(prev => ({ 
-            ...prev!, 
+            ...prev, 
             totalLakIssued: redeemed
         }));
          setIsLoadingStats(false);
@@ -144,7 +144,7 @@ export default function AdminPage() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {isLoadingStats ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers.toLocaleString() ?? 0} 명</div>}
+                    {isLoadingStats ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString() ?? 0} 명</div>}
                     <p className="text-xs text-muted-foreground">
                     현재 시스템에 등록된 총 학생 수
                     </p>
@@ -156,7 +156,7 @@ export default function AdminPage() {
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
+                    {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats.totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
                     지금까지 코드를 통해 지급된 포인트 총합
                     </p>
