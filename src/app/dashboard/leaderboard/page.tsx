@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -22,7 +21,7 @@ interface LeaderboardUser {
   avatarGradient?: string;
 }
 
-const LeaderboardTab = ({ leaderboardId, order, unit, higherIsBetter }: { leaderboardId: string, order: 'desc' | 'asc', unit: string, higherIsBetter: boolean }) => {
+const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string, order: 'desc' | 'asc', unit: string }) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -181,7 +180,7 @@ export default function LeaderboardPage() {
           리더보드
         </h1>
         <p className="text-muted-foreground">
-          포인트 및 게임 순위 상위 100명을 확인하세요. 게임 순위는 이틀마다 초기화됩니다.
+          포인트 및 게임 순위 상위 100명을 확인하세요. 이틀마다 순위표 상위 10명에게 보상이 지급됩니다.
         </p>
       </div>
       <Card>
@@ -249,16 +248,16 @@ export default function LeaderboardPage() {
               </Table>
             </TabsContent>
             <TabsContent value="word-chain" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/word-chain/users" order="desc" unit="점" higherIsBetter={true} />
+                <LeaderboardTab leaderboardId="leaderboards/word-chain/users" order="desc" unit="점" />
             </TabsContent>
              <TabsContent value="minesweeper" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/minesweeper-easy/users" order="asc" unit="초" higherIsBetter={false} />
+                <LeaderboardTab leaderboardId="leaderboards/minesweeper-easy/users" order="asc" unit="초" />
             </TabsContent>
              <TabsContent value="breakout" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/breakout/users" order="desc" unit="점" higherIsBetter={true} />
+                <LeaderboardTab leaderboardId="leaderboards/breakout/users" order="desc" unit="점" />
             </TabsContent>
              <TabsContent value="tetris" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/tetris/users" order="desc" unit="점" higherIsBetter={true} />
+                <LeaderboardTab leaderboardId="leaderboards/tetris/users" order="desc" unit="점" />
             </TabsContent>
           </Tabs>
         </CardContent>

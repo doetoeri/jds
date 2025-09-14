@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1020,4 +1018,3 @@ export const processPosPayment = async (
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
-
