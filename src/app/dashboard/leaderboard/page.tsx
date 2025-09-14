@@ -131,7 +131,7 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
 };
 
 
-export default function LeaderboardPage() {
+function LeaderboardPageClient() {
   const [totalPointsLeaderboard, setTotalPointsLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoadingTotal, setIsLoadingTotal] = useState(true);
   const { toast } = useToast();
@@ -270,4 +270,8 @@ export default function LeaderboardPage() {
       </Card>
     </div>
   );
+}
+
+export default function LeaderboardPage() {
+    return <LeaderboardPageClient />;
 }
