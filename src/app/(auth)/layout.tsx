@@ -5,11 +5,6 @@ import type { ReactNode } from "react";
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: '로그인/회원가입',
-};
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
