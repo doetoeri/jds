@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function BreakoutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,7 +72,7 @@ export default function BreakoutPage() {
     const drawPaddle = () => {
         context.beginPath();
         context.rect(paddle.x, canvas.height - paddle.height, paddle.width, paddle.height);
-        context.fillStyle = 'hsl(var(--primary-foreground))';
+        context.fillStyle = 'hsl(var(--primary))';
         context.fill();
         context.closePath();
     };
@@ -86,8 +87,9 @@ export default function BreakoutPage() {
                     bricks[c][r].y = brickY;
                     context.beginPath();
                     context.rect(brickX, brickY, brickWidth, brickHeight);
-                    const hue = (r / brickRowCount) * 120 + 200;
-                    context.fillStyle = `hsl(${hue}, 70%, 60%)`;
+                    const saturation = 100 - (r * 10);
+                    const lightness = 60 + (r * 5);
+                    context.fillStyle = `hsl(var(--primary-h, 18), ${saturation}%, ${lightness}%)`;
                     context.fill();
                     context.closePath();
                 }
@@ -204,26 +206,30 @@ export default function BreakoutPage() {
         <Gamepad2 className="mr-2 h-6 w-6" />
         벽돌깨기
       </h1>
-      <div className="relative border-4 border-primary rounded-lg overflow-hidden">
-        <canvas ref={canvasRef} width="800" height="500" className="bg-slate-800" />
-        
-        <div className="absolute top-4 left-4 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
-          SCORE: {score}
-        </div>
-        
-        {gameState !== 'playing' && (
-          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
-            {gameState === 'start' && (
-              <>
-                <h2 className="text-4xl font-bold font-headline mb-4">벽돌깨기</h2>
-                 <Button size="lg" onClick={() => setGameState('playing')}>
-                    게임 시작
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      <Card>
+        <CardContent className="p-2">
+            <div className="relative rounded-lg overflow-hidden">
+                <canvas ref={canvasRef} width="800" height="500" className="bg-background" />
+                
+                <div className="absolute top-4 left-4 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
+                SCORE: {score}
+                </div>
+                
+                {gameState !== 'playing' && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
+                    {gameState === 'start' && (
+                    <>
+                        <h2 className="text-4xl font-bold font-headline mb-4">벽돌깨기</h2>
+                        <Button size="lg" onClick={() => setGameState('playing')}>
+                            게임 시작
+                        </Button>
+                    </>
+                    )}
+                </div>
+                )}
+            </div>
+        </CardContent>
+      </Card>
       <p className="text-sm text-muted-foreground">마우스를 움직여 패들을 조종하세요.</p>
       
        <AlertDialog open={gameState === 'over' && !isSubmitting}>

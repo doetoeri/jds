@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 const COLS = 10;
@@ -25,13 +25,13 @@ const BLOCK_SIZE = 24;
 
 const COLORS = [
     null,
-    '#FFD700', // I (Gold)
-    '#00BFFF', // J (DeepSkyBlue)
-    '#FF4500', // L (OrangeRed)
-    '#FFFF00', // O (Yellow)
-    '#00FF00', // S (Lime)
-    '#800080', // T (Purple)
-    '#FF0000', // Z (Red)
+    '#fdba74', // I - orange-300
+    '#93c5fd', // J - blue-300
+    '#fca5a5', // L - red-300
+    '#fde047', // O - yellow-300
+    '#a7f3d0', // S - emerald-200
+    '#d8b4fe', // T - purple-300
+    '#86efac', // Z - green-300
 ];
 
 const SHAPES = [
@@ -228,7 +228,7 @@ export default function TetrisPage() {
   const draw = useCallback(() => {
     const context = canvasRef.current?.getContext('2d');
     if (!context) return;
-    context.fillStyle = '#111827'; // Tailwind gray-900
+    context.fillStyle = 'hsl(var(--card))';
     context.fillRect(0, 0, context.canvas.width, context.canvas.height);
 
     board.forEach((row, y) => {
@@ -236,7 +236,7 @@ export default function TetrisPage() {
         if (value !== 0) {
           context.fillStyle = COLORS[value]!;
           context.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-          context.strokeStyle = 'rgba(0,0,0,0.5)';
+          context.strokeStyle = 'rgba(0,0,0,0.2)';
           context.lineWidth = 1;
           context.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
         }
@@ -249,7 +249,7 @@ export default function TetrisPage() {
         row.forEach((value, x) => {
           if (value !== 0) {
             context.fillRect((piece.x + x) * BLOCK_SIZE, (piece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            context.strokeStyle = 'rgba(0,0,0,0.5)';
+            context.strokeStyle = 'rgba(0,0,0,0.2)';
             context.lineWidth = 1;
             context.strokeRect((piece.x + x) * BLOCK_SIZE, (piece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
           }
@@ -285,15 +285,17 @@ export default function TetrisPage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (status !== 'playing') return;
-      e.preventDefault();
-
+      
+      let handled = false;
       switch (e.key) {
-        case 'ArrowLeft': dispatch({ type: 'MOVE', payload: { dx: -1, dy: 0 } }); break;
-        case 'ArrowRight': dispatch({ type: 'MOVE', payload: { dx: 1, dy: 0 } }); break;
-        case 'ArrowDown': dispatch({ type: 'MOVE', payload: { dx: 0, dy: 1 } }); break;
-        case 'ArrowUp': dispatch({ type: 'ROTATE' }); break;
-        case ' ': dispatch({ type: 'HARD_DROP' }); dispatch({ type: 'TICK' }); break;
+        case 'ArrowLeft': dispatch({ type: 'MOVE', payload: { dx: -1, dy: 0 } }); handled = true; break;
+        case 'ArrowRight': dispatch({ type: 'MOVE', payload: { dx: 1, dy: 0 } }); handled = true; break;
+        case 'ArrowDown': dispatch({ type: 'MOVE', payload: { dx: 0, dy: 1 } }); handled = true; break;
+        case 'ArrowUp': dispatch({ type: 'ROTATE' }); handled = true; break;
+        case ' ': dispatch({ type: 'HARD_DROP' }); dispatch({ type: 'TICK' }); handled = true; break;
       }
+
+      if(handled) e.preventDefault();
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -342,75 +344,79 @@ export default function TetrisPage() {
         <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
             <Gamepad2 className="mr-2 h-6 w-6"/>테트리스
         </h1>
-        <div className="flex flex-col lg:flex-row items-center justify-center gap-4">
-            <div className="relative border-4 border-primary rounded-lg overflow-hidden shadow-lg">
-                <canvas ref={canvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} />
-                {status !== 'playing' && (
-                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
-                        <h2 className="text-4xl font-bold font-headline mb-4">테트리스</h2>
-                        <Button size="lg" onClick={() => dispatch({ type: 'START' })}>
-                            게임 시작
-                        </Button>
+        <Card>
+            <CardContent className="p-2">
+            <div className="flex flex-col-reverse lg:flex-row items-center justify-center gap-4">
+                <div className="w-full lg:w-40 space-y-3">
+                    <Card>
+                        <CardHeader className="p-3"><CardTitle className="text-sm">점수</CardTitle></CardHeader>
+                        <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{score}</CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="p-3"><CardTitle className="text-sm">줄</CardTitle></CardHeader>
+                        <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{lines}</CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="p-3"><CardTitle className="text-sm">레벨</CardTitle></CardHeader>
+                        <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{level}</CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="p-3"><CardTitle className="text-sm">다음</CardTitle></CardHeader>
+                        <CardContent className="p-3 pt-0 flex justify-center items-center h-16">
+                            {nextPieceShape && (
+                                <div className="bg-background p-1 rounded-md">
+                                    {nextPieceShape.map((row, y) => (
+                                        <div key={y} className="flex">
+                                            {row.map((value, x) => (
+                                                <div key={x} style={{
+                                                    width: BLOCK_SIZE / 2,
+                                                    height: BLOCK_SIZE / 2,
+                                                    backgroundColor: value ? COLORS[SHAPES.findIndex(s => s === nextPieceShape)] : 'transparent',
+                                                    border: value ? '1px solid rgba(0,0,0,0.5)' : 'none'
+                                                }}/>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="relative border-4 border-primary rounded-lg overflow-hidden shadow-lg">
+                    <canvas ref={canvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} />
+                    {status !== 'playing' && (
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
+                            <h2 className="text-4xl font-bold font-headline mb-4">테트리스</h2>
+                            <Button size="lg" onClick={() => dispatch({ type: 'START' })}>
+                                게임 시작
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </div>
+            </CardContent>
+            <CardFooter className="flex-col gap-2">
+                 <div className="mt-4 flex lg:hidden items-center justify-center w-full gap-2">
+                    <div className="flex flex-col gap-2">
+                        <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:-1, dy:0}})}><ArrowLeft /></Button>
                     </div>
-                )}
-            </div>
+                    <div className="flex flex-col gap-2">
+                        <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'ROTATE'})}><RotateCw /></Button>
+                        <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:0, dy:1}})}><ArrowDown /></Button>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:1, dy:0}})}><ArrowRight /></Button>
+                    </div>
+                    <div className="flex flex-col gap-2 ml-4">
+                        <Button size="lg" className="h-34 w-16" onTouchStart={() => handleMobileControl({type: 'HARD_DROP'})}><ChevronsDown size={32}/></Button>
+                    </div>
+                </div>
 
-            <div className="w-full lg:w-40 space-y-3">
-                <Card>
-                    <CardHeader className="p-3"><CardTitle className="text-sm">점수</CardTitle></CardHeader>
-                    <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{score}</CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="p-3"><CardTitle className="text-sm">줄</CardTitle></CardHeader>
-                    <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{lines}</CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="p-3"><CardTitle className="text-sm">레벨</CardTitle></CardHeader>
-                    <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{level}</CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="p-3"><CardTitle className="text-sm">다음</CardTitle></CardHeader>
-                    <CardContent className="p-3 pt-0 flex justify-center items-center h-16">
-                        {nextPieceShape && (
-                            <div className="bg-background p-1 rounded-md">
-                                {nextPieceShape.map((row, y) => (
-                                    <div key={y} className="flex">
-                                        {row.map((value, x) => (
-                                            <div key={x} style={{
-                                                width: BLOCK_SIZE / 2,
-                                                height: BLOCK_SIZE / 2,
-                                                backgroundColor: value ? COLORS[SHAPES.findIndex(s => s === nextPieceShape)] : 'transparent',
-                                                border: value ? '1px solid rgba(0,0,0,0.5)' : 'none'
-                                            }}/>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-
-        <div className="mt-4 flex lg:hidden items-center justify-center w-full gap-2">
-            <div className="flex flex-col gap-2">
-                <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:-1, dy:0}})}><ArrowLeft /></Button>
-            </div>
-            <div className="flex flex-col gap-2">
-                 <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'ROTATE'})}><RotateCw /></Button>
-                 <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:0, dy:1}})}><ArrowDown /></Button>
-            </div>
-            <div className="flex flex-col gap-2">
-                <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:1, dy:0}})}><ArrowRight /></Button>
-            </div>
-             <div className="flex flex-col gap-2 ml-4">
-                 <Button size="lg" className="h-34 w-16" onTouchStart={() => handleMobileControl({type: 'HARD_DROP'})}><ChevronsDown size={32}/></Button>
-            </div>
-        </div>
-
-        <p className="text-sm text-muted-foreground text-center mt-2">
-            <b>PC:</b> ↑: 회전, ←/→: 이동, ↓: 소프트 드롭, Space: 하드 드롭
-        </p>
+                <p className="text-sm text-muted-foreground text-center mt-2">
+                    <b>PC:</b> ↑: 회전, ←/→: 이동, ↓: 소프트 드롭, Space: 하드 드롭
+                </p>
+            </CardFooter>
+        </Card>
 
         <AlertDialog open={status === 'over' && !isSubmitting}>
             <AlertDialogContent>
