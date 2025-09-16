@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 24;
+const BLOCK_RADIUS = 4;
 
 const COLORS = [
     null,
@@ -217,6 +218,21 @@ function gameReducer(state: GameState, action: Action): GameState {
   }
 }
 
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+
 export default function TetrisPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, dispatch] = useReducer(gameReducer, initialState);
@@ -228,17 +244,20 @@ export default function TetrisPage() {
   const draw = useCallback(() => {
     const context = canvasRef.current?.getContext('2d');
     if (!context) return;
-    context.fillStyle = 'hsl(var(--card))';
+    context.fillStyle = 'hsl(var(--background))';
     context.fillRect(0, 0, context.canvas.width, context.canvas.height);
 
     board.forEach((row, y) => {
       row.forEach((value, x) => {
         if (value !== 0) {
           context.fillStyle = COLORS[value]!;
-          context.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-          context.strokeStyle = 'rgba(0,0,0,0.2)';
-          context.lineWidth = 1;
-          context.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          context.globalAlpha = 0.5;
+          roundRect(context, x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_RADIUS);
+          context.fill();
+          context.globalAlpha = 1;
+          context.fillStyle = COLORS[value]!;
+          roundRect(context, x * BLOCK_SIZE + 1, y * BLOCK_SIZE + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2, BLOCK_RADIUS-1);
+          context.fill();
         }
       });
     });
@@ -248,10 +267,8 @@ export default function TetrisPage() {
       piece.shape.forEach((row, y) => {
         row.forEach((value, x) => {
           if (value !== 0) {
-            context.fillRect((piece.x + x) * BLOCK_SIZE, (piece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            context.strokeStyle = 'rgba(0,0,0,0.2)';
-            context.lineWidth = 1;
-            context.strokeRect((piece.x + x) * BLOCK_SIZE, (piece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            roundRect(context, (piece.x + x) * BLOCK_SIZE, (piece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_RADIUS);
+            context.fill();
           }
         });
       });
@@ -344,10 +361,23 @@ export default function TetrisPage() {
         <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
             <Gamepad2 className="mr-2 h-6 w-6"/>테트리스
         </h1>
-        <Card>
-            <CardContent className="p-2">
-            <div className="flex flex-col-reverse lg:flex-row items-center justify-center gap-4">
-                <div className="w-full lg:w-40 space-y-3">
+        <Card className="flex flex-col">
+             <CardContent className="p-2">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-center gap-4">
+               
+                 <div className="relative border-4 border-primary rounded-lg overflow-hidden shadow-lg">
+                    <canvas ref={canvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} />
+                    {status !== 'playing' && (
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
+                            <h2 className="text-4xl font-bold font-headline mb-4">테트리스</h2>
+                            <Button size="lg" onClick={() => dispatch({ type: 'START' })}>
+                                게임 시작
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="w-full sm:w-40 space-y-3">
                     <Card>
                         <CardHeader className="p-3"><CardTitle className="text-sm">점수</CardTitle></CardHeader>
                         <CardContent className="p-3 pt-0 text-xl font-bold font-mono">{score}</CardContent>
@@ -372,8 +402,7 @@ export default function TetrisPage() {
                                                     width: BLOCK_SIZE / 2,
                                                     height: BLOCK_SIZE / 2,
                                                     backgroundColor: value ? COLORS[SHAPES.findIndex(s => s === nextPieceShape)] : 'transparent',
-                                                    border: value ? '1px solid rgba(0,0,0,0.5)' : 'none'
-                                                }}/>
+                                                }} className="rounded-sm"/>
                                             ))}
                                         </div>
                                     ))}
@@ -382,21 +411,10 @@ export default function TetrisPage() {
                         </CardContent>
                     </Card>
                 </div>
-                <div className="relative border-4 border-primary rounded-lg overflow-hidden shadow-lg">
-                    <canvas ref={canvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} />
-                    {status !== 'playing' && (
-                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
-                            <h2 className="text-4xl font-bold font-headline mb-4">테트리스</h2>
-                            <Button size="lg" onClick={() => dispatch({ type: 'START' })}>
-                                게임 시작
-                            </Button>
-                        </div>
-                    )}
-                </div>
             </div>
             </CardContent>
             <CardFooter className="flex-col gap-2">
-                 <div className="mt-4 flex lg:hidden items-center justify-center w-full gap-2">
+                 <div className="mt-4 flex sm:hidden items-center justify-center w-full gap-2">
                     <div className="flex flex-col gap-2">
                         <Button size="lg" className="h-16 w-16" onTouchStart={() => handleMobileControl({type: 'MOVE', payload: {dx:-1, dy:0}})}><ArrowLeft /></Button>
                     </div>

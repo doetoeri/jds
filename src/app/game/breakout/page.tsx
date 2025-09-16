@@ -41,7 +41,7 @@ export default function BreakoutPage() {
     setBricksBroken(0);
 
     let ball = { x: canvas.width / 2, y: canvas.height - 30, dx: 3, dy: -3, radius: 8 };
-    let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10 };
+    let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
     
     const brickRowCount = 5;
     const brickColumnCount = 8;
@@ -50,6 +50,7 @@ export default function BreakoutPage() {
     const brickPadding = 10;
     const brickOffsetTop = 30;
     const brickOffsetLeft = (canvas.width - (brickColumnCount * (brickWidth + brickPadding) - brickPadding)) / 2;
+    const brickRadius = 4;
     
     let bricks: { x: number, y: number, status: number }[][] = [];
     for (let c = 0; c < brickColumnCount; c++) {
@@ -62,19 +63,36 @@ export default function BreakoutPage() {
     let totalBricksBroken = 0;
 
     const drawBall = () => {
+        const gradient = context.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.radius);
+        gradient.addColorStop(0, 'hsl(var(--primary), 0.8)');
+        gradient.addColorStop(1, 'hsl(var(--primary))');
+
         context.beginPath();
         context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        context.fillStyle = 'hsl(var(--primary))';
+        context.fillStyle = gradient;
         context.fill();
         context.closePath();
     };
+    
+    function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }
+
 
     const drawPaddle = () => {
-        context.beginPath();
-        context.rect(paddle.x, canvas.height - paddle.height, paddle.width, paddle.height);
         context.fillStyle = 'hsl(var(--primary))';
+        roundRect(context, paddle.x, canvas.height - paddle.height, paddle.width, paddle.height, paddle.radius);
         context.fill();
-        context.closePath();
     };
     
     const drawBricks = () => {
@@ -85,13 +103,13 @@ export default function BreakoutPage() {
                     const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
                     bricks[c][r].x = brickX;
                     bricks[c][r].y = brickY;
-                    context.beginPath();
-                    context.rect(brickX, brickY, brickWidth, brickHeight);
+                    
                     const saturation = 100 - (r * 10);
                     const lightness = 60 + (r * 5);
                     context.fillStyle = `hsl(var(--primary-h, 18), ${saturation}%, ${lightness}%)`;
+                    
+                    roundRect(context, brickX, brickY, brickWidth, brickHeight, brickRadius);
                     context.fill();
-                    context.closePath();
                 }
             }
         }
