@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for the word chain game.
@@ -33,13 +34,13 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export const PlayWordChainInputSchema = z.object({
+const PlayWordChainInputSchema = z.object({
   userId: z.string().describe('The UID of the user playing the game.'),
   word: z.string().describe('The word submitted by the user.'),
 });
 export type PlayWordChainInput = z.infer<typeof PlayWordChainInputSchema>;
 
-export const PlayWordChainOutputSchema = z.object({
+const PlayWordChainOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
 });
