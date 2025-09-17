@@ -15,13 +15,15 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
     }
     document.documentElement.className = theme;
     
-    // Apply skeuomorphism theme if enabled
-    const savedTheme = localStorage.getItem('skeuomorphism-theme');
-    if (savedTheme === 'enabled') {
-      document.body.classList.add('skeuo-theme-enabled');
-    } else {
-      document.body.classList.remove('skeuo-theme-enabled');
+    // Apply visual theme if enabled
+    const savedTheme = localStorage.getItem('theme') || 'default';
+    document.body.classList.remove('skeuo-theme-enabled', 'liquid-glass-theme-enabled');
+    if (savedTheme === 'skeuomorphism') {
+        document.body.classList.add('skeuo-theme-enabled');
+    } else if (savedTheme === 'liquid-glass') {
+        document.body.classList.add('liquid-glass-theme-enabled');
     }
+
   }, [pathname]);
 
   return (

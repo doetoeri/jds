@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, '닉네임은 2자 이상이어야 합니다.').max(20, '닉네임은 20자 이하이어야 합니다.'),
@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedGradient, setSelectedGradient] = useState<string>('orange');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
-  const [isSkeuomorphismEnabled, setIsSkeuomorphismEnabled] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState('default');
 
   const { toast } = useToast();
 
@@ -64,10 +64,14 @@ export default function SettingsPage() {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
     }
-    const savedTheme = localStorage.getItem('skeuomorphism-theme');
-    const isEnabled = savedTheme === 'enabled';
-    setIsSkeuomorphismEnabled(isEnabled);
-    document.body.classList.toggle('skeuo-theme-enabled', isEnabled);
+    const savedTheme = localStorage.getItem('theme') || 'default';
+    setSelectedTheme(savedTheme);
+    document.body.classList.remove('skeuo-theme-enabled', 'liquid-glass-theme-enabled');
+    if (savedTheme === 'skeuomorphism') {
+      document.body.classList.add('skeuo-theme-enabled');
+    } else if (savedTheme === 'liquid-glass') {
+        document.body.classList.add('liquid-glass-theme-enabled');
+    }
   }, []);
 
   useEffect(() => {
@@ -134,12 +138,17 @@ export default function SettingsPage() {
          toast({ title: "알림 거부됨", description: "알림을 받으려면 브라우저 설정에서 권한을 변경해야 합니다.", variant: "destructive" });
     }
   };
-
-  const handleThemeToggle = (enabled: boolean) => {
-    setIsSkeuomorphismEnabled(enabled);
-    localStorage.setItem('skeuomorphism-theme', enabled ? 'enabled' : 'disabled');
-    document.body.classList.toggle('skeuo-theme-enabled', enabled);
-  };
+  
+  const handleThemeChange = (theme: string) => {
+    setSelectedTheme(theme);
+    localStorage.setItem('theme', theme);
+    document.body.classList.remove('skeuo-theme-enabled', 'liquid-glass-theme-enabled');
+    if (theme === 'skeuomorphism') {
+        document.body.classList.add('skeuo-theme-enabled');
+    } else if (theme === 'liquid-glass') {
+        document.body.classList.add('liquid-glass-theme-enabled');
+    }
+  }
 
   const getInitials = () => {
     return userData?.displayName?.substring(0, 1).toUpperCase() || user?.email?.substring(0, 1).toUpperCase() || 'U';
@@ -268,20 +277,26 @@ export default function SettingsPage() {
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center"><Beaker className="mr-2"/>실험실</CardTitle>
-                <CardDescription>새로운 기능을 먼저 사용해 보세요. 불안정할 수 있습니다.</CardDescription>
+                <CardDescription>새로운 테마를 적용해 보세요. 불안정할 수 있습니다.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="skeuomorphism-mode" className="text-base">스큐어모피즘 테마</Label>
-                        <p className="text-sm text-muted-foreground">앱 전체에 실제와 같은 질감과 입체감을 더합니다.</p>
+                <RadioGroup value={selectedTheme} onValueChange={handleThemeChange}>
+                    <div className="space-y-2">
+                        <Label>앱 테마</Label>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="default" id="theme-default" />
+                            <Label htmlFor="theme-default">기본</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="skeuomorphism" id="theme-skeuomorphism" />
+                            <Label htmlFor="theme-skeuomorphism">스큐어모피즘</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="liquid-glass" id="theme-liquid-glass" />
+                            <Label htmlFor="theme-liquid-glass">리퀴드 글래스</Label>
+                        </div>
                     </div>
-                    <Switch
-                        id="skeuomorphism-mode"
-                        checked={isSkeuomorphismEnabled}
-                        onCheckedChange={handleThemeToggle}
-                    />
-                </div>
+                </RadioGroup>
             </CardContent>
         </Card>
     </div>
