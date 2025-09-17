@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, playWordChain } from '@/lib/firebase';
-import { Loader2, Send, MessageCircle } from 'lucide-react';
+import { Loader2, Send, MessageCircle, ArrowRight } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -84,11 +84,11 @@ export default function WordChainPage() {
   }
 
   const lastWord = history.length > 0 ? history[history.length - 1].text : null;
-  const placeholder = lastWord ? `${lastWord} (으)로 시작하는 단어 입력` : '첫 단어를 입력하세요!';
+  const placeholder = lastWord ? `'${lastWord[lastWord.length-1]}'(으)로 시작하는 단어` : '첫 단어를 입력하세요!';
 
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
         <Card className="flex flex-col h-full max-h-[calc(100vh-160px)]">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -111,19 +111,22 @@ export default function WordChainPage() {
                             <p className="text-muted-foreground">아직 기록이 없습니다. 첫 단어를 입력해보세요!</p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-center gap-2 p-4">
                             {history.map((h, index) => (
-                                <div key={index} className={cn("flex items-end gap-2", h.uid === user?.uid ? "flex-row-reverse" : "flex-row")}>
-                                     <Avatar className={cn("h-8 w-8", `gradient-${h.avatarGradient}`)}>
-                                        <AvatarFallback className="text-white font-bold bg-transparent">
-                                            {getInitials(h.displayName)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className={cn("p-3 rounded-lg max-w-[80%]", h.uid === user?.uid ? "bg-primary text-primary-foreground" : "bg-muted")}>
-                                        <p className="font-bold text-xs mb-1">{h.displayName}</p>
-                                        <p className="text-lg font-bold break-words">{h.text}</p>
+                                <React.Fragment key={index}>
+                                    <div className={cn(
+                                        "flex items-center gap-2 p-3 rounded-lg animate-in fade-in zoom-in-95",
+                                        index === history.length - 1 ? 'bg-primary/20 ring-2 ring-primary' : 'bg-muted'
+                                    )}>
+                                        <Avatar className={cn("h-6 w-6 text-xs", `gradient-${h.avatarGradient}`)}>
+                                            <AvatarFallback className="text-white font-bold bg-transparent">
+                                                {getInitials(h.displayName)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span className="font-bold text-lg">{h.text}</span>
                                     </div>
-                                </div>
+                                    {index < history.length - 1 && <ArrowRight className="h-5 w-5 text-muted-foreground" />}
+                                </React.Fragment>
                             ))}
                         </div>
                     )}

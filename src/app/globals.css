@@ -53,6 +53,30 @@
   .dark {
     /* Define dark theme variables if needed */
   }
+
+  /* Liquid Glass Theme */
+  body.liquid-glass-theme-enabled {
+    --background: 220 50% 95%;
+    --foreground: 220 30% 20%;
+    --card: 220 30% 100% / 0.5;
+    --card-foreground: 220 30% 10%;
+    --popover: 220 30% 100% / 0.7;
+    --popover-foreground: 220 30% 10%;
+    --primary: 220 90% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 90% / 0.5;
+    --secondary-foreground: 220 20% 20%;
+    --muted: 220 20% 96% / 0.5;
+    --muted-foreground: 220 20% 45%;
+    --accent: 220 90% 60% / 0.1;
+    --accent-foreground: 220 90% 50%;
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 30% 90% / 0.8;
+    --input: 220 30% 98% / 0.6;
+    --ring: 220 90% 65%;
+  }
+
 }
 
 @layer base {
@@ -61,6 +85,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.5s ease, color 0.5s ease;
   }
 
   body.theme-student {
@@ -69,6 +94,59 @@
   body.theme-teacher {
       background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
   }
+  
+  body.liquid-glass-theme-enabled {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(circle at 1% 1%, hsl(var(--primary) / 0.1), rgba(255,255,255,0) 25%),
+                      radial-gradient(circle at 99% 99%, hsl(var(--ring) / 0.15), rgba(255,255,255,0) 35%);
+  }
+  
+  .liquid-glass-theme-enabled .card,
+  .liquid-glass-theme-enabled .popover,
+  .liquid-glass-theme-enabled [role="dialog"],
+  .liquid-glass-theme-enabled [role="alert-dialog"],
+  .liquid-glass-theme-enabled .sheet,
+  .liquid-glass-theme-enabled [cmdk-root] {
+      @apply bg-card border border-white/50 shadow-soft-lg;
+      backdrop-filter: blur(16px);
+  }
+  
+  .liquid-glass-theme-enabled [cmdk-item][aria-selected=true] {
+      @apply bg-primary/10;
+  }
+
+  .liquid-glass-theme-enabled .table > :not([hidden]) ~ :not([hidden]) {
+    @apply border-white/50;
+  }
+
+  .liquid-glass-theme-enabled .card-content, 
+  .liquid-glass-theme-enabled .popover-content,
+  .liquid-glass-theme-enabled .dialog-content,
+  .liquid-glass-theme-enabled .alert-dialog-content {
+    background-color: hsl(var(--card) / 0.2);
+  }
+
+  .liquid-glass-theme-enabled .button,
+  .liquid-glass-theme-enabled input,
+  .liquid-glass-theme-enabled textarea,
+  .liquid-glass-theme-enabled .select-trigger
+   {
+      @apply bg-input border-white/60 shadow-inner;
+  }
+  
+  .liquid-glass-theme-enabled .button {
+    @apply hover:bg-primary/10;
+  }
+  
+   .liquid-glass-theme-enabled .button[data-variant="default"] {
+      @apply bg-primary/80 text-primary-foreground hover:bg-primary;
+      box-shadow: 0 2px 10px hsl(var(--primary) / 0.4);
+   }
+   
+   .liquid-glass-theme-enabled .button[data-variant="destructive"] {
+      @apply bg-destructive/80 text-destructive-foreground hover:bg-destructive;
+      box-shadow: 0 2px 10px hsl(var(--destructive) / 0.4);
+   }
 
   .card {
      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
