@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db, playWordChain } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { playWordChain } from '@/ai/flows/play-word-chain-flow';
 import { Loader2, Send, MessageCircle, ArrowRight } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -65,7 +66,7 @@ export default function WordChainPage() {
 
     setIsSubmitting(true);
     try {
-        const result = await playWordChain(user.uid, word);
+        const result = await playWordChain({userId: user.uid, word});
         if (result.success) {
             toast({ title: "성공!", description: result.message });
             setWord('');
