@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -13,6 +14,14 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
       theme = 'theme-teacher';
     }
     document.documentElement.className = theme;
+    
+    // Apply skeuomorphism theme if enabled
+    const savedTheme = localStorage.getItem('skeuomorphism-theme');
+    if (savedTheme === 'enabled') {
+      document.body.classList.add('skeuo-theme-enabled');
+    } else {
+      document.body.classList.remove('skeuo-theme-enabled');
+    }
   }, [pathname]);
 
   return (

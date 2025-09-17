@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, updateUserProfile } from '@/lib/firebase';
-import { Loader2, User, Palette, Bell, BellOff } from 'lucide-react';
+import { Loader2, User, Palette, Bell, BellOff, Beaker } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, '닉네임은 2자 이상이어야 합니다.').max(20, '닉네임은 20자 이하이어야 합니다.'),
@@ -51,6 +52,7 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedGradient, setSelectedGradient] = useState<string>('orange');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
+  const [isSkeuomorphismEnabled, setIsSkeuomorphismEnabled] = useState(false);
 
   const { toast } = useToast();
 
@@ -62,6 +64,10 @@ export default function SettingsPage() {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
     }
+    const savedTheme = localStorage.getItem('skeuomorphism-theme');
+    const isEnabled = savedTheme === 'enabled';
+    setIsSkeuomorphismEnabled(isEnabled);
+    document.body.classList.toggle('skeuo-theme-enabled', isEnabled);
   }, []);
 
   useEffect(() => {
@@ -127,6 +133,12 @@ export default function SettingsPage() {
     } else if (permission === 'denied') {
          toast({ title: "알림 거부됨", description: "알림을 받으려면 브라우저 설정에서 권한을 변경해야 합니다.", variant: "destructive" });
     }
+  };
+
+  const handleThemeToggle = (enabled: boolean) => {
+    setIsSkeuomorphismEnabled(enabled);
+    localStorage.setItem('skeuomorphism-theme', enabled ? 'enabled' : 'disabled');
+    document.body.classList.toggle('skeuo-theme-enabled', enabled);
   };
 
   const getInitials = () => {
@@ -250,6 +262,26 @@ export default function SettingsPage() {
                         </Button>
                     </div>
                 )}
+            </CardContent>
+        </Card>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center"><Beaker className="mr-2"/>실험실</CardTitle>
+                <CardDescription>새로운 기능을 먼저 사용해 보세요. 불안정할 수 있습니다.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                        <Label htmlFor="skeuomorphism-mode" className="text-base">스큐어모피즘 테마</Label>
+                        <p className="text-sm text-muted-foreground">앱 전체에 실제와 같은 질감과 입체감을 더합니다.</p>
+                    </div>
+                    <Switch
+                        id="skeuomorphism-mode"
+                        checked={isSkeuomorphismEnabled}
+                        onCheckedChange={handleThemeToggle}
+                    />
+                </div>
             </CardContent>
         </Card>
     </div>
