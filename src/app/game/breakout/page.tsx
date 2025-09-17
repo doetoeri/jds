@@ -27,7 +27,7 @@ export default function BreakoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bricksBroken, setBricksBroken] = useState(0);
 
-  const [primaryColor, setPrimaryColor] = useState('18 100% 50%');
+  const [primaryColor, setPrimaryColor] = useState('18, 100%, 50%');
   const [primaryHue, setPrimaryHue] = useState('18');
 
   const { toast } = useToast();
@@ -36,7 +36,8 @@ export default function BreakoutPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const style = getComputedStyle(document.documentElement);
-      setPrimaryColor(style.getPropertyValue('--primary').trim());
+      const colorValue = style.getPropertyValue('--primary').trim().replace(/ /g, ', ');
+      setPrimaryColor(colorValue);
       setPrimaryHue(style.getPropertyValue('--primary-h')?.trim() || '18');
     }
   }, [gameState]);
