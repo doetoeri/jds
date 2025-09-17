@@ -27,8 +27,20 @@ export default function BreakoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bricksBroken, setBricksBroken] = useState(0);
 
+  const [primaryColor, setPrimaryColor] = useState('18 100% 50%');
+  const [primaryHue, setPrimaryHue] = useState('18');
+
   const { toast } = useToast();
   const [user] = useAuthState(auth);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const style = getComputedStyle(document.documentElement);
+      setPrimaryColor(style.getPropertyValue('--primary').trim());
+      setPrimaryHue(style.getPropertyValue('--primary-h')?.trim() || '18');
+    }
+  }, [gameState]);
+
 
   const startGame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -64,8 +76,8 @@ export default function BreakoutPage() {
 
     const drawBall = () => {
         const gradient = context.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.radius);
-        gradient.addColorStop(0, 'hsl(var(--primary), 0.8)');
-        gradient.addColorStop(1, 'hsl(var(--primary))');
+        gradient.addColorStop(0, `hsla(${primaryColor}, 0.8)`);
+        gradient.addColorStop(1, `hsl(${primaryColor})`);
 
         context.beginPath();
         context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
@@ -90,7 +102,7 @@ export default function BreakoutPage() {
 
 
     const drawPaddle = () => {
-        context.fillStyle = 'hsl(var(--primary))';
+        context.fillStyle = `hsl(${primaryColor})`;
         roundRect(context, paddle.x, canvas.height - paddle.height, paddle.width, paddle.height, paddle.radius);
         context.fill();
     };
@@ -106,7 +118,7 @@ export default function BreakoutPage() {
                     
                     const saturation = 100 - (r * 10);
                     const lightness = 60 + (r * 5);
-                    context.fillStyle = `hsl(var(--primary-h, 18), ${saturation}%, ${lightness}%)`;
+                    context.fillStyle = `hsl(${primaryHue}, ${saturation}%, ${lightness}%)`;
                     
                     roundRect(context, brickX, brickY, brickWidth, brickHeight, brickRadius);
                     context.fill();
@@ -205,7 +217,7 @@ export default function BreakoutPage() {
         document.removeEventListener("mousemove", handleMouseMove);
     };
 
-  }, [user, toast]);
+  }, [user, toast, primaryColor, primaryHue]);
   
    useEffect(() => {
     let cleanup: (() => void) | undefined;
