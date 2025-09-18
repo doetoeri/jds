@@ -49,13 +49,6 @@ const games = [
     icon: Gamepad2,
     status: "active"
   },
-  {
-    title: "플래피 종달",
-    description: "파이프를 피해 종달새를 최대한 멀리 날려보내세요.",
-    href: "/game/flappy-bird",
-    icon: Bird,
-    status: "active"
-  }
 ]
 
 export default function GamePage() {
@@ -98,3 +91,5 @@ export default function GamePage() {
     </div>
   )
 }
+
+    

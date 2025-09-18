@@ -836,8 +836,35 @@ export const createCommunityPost = async (userId: string, title: string, content
 
 export const deleteCommunityPost = async (postId: string) => {
     const postRef = doc(db, 'community_posts', postId);
-    await deleteDoc(postRef);
+    const commentsQuery = query(collection(db, `community_posts/${postId}/comments`));
+    const commentsSnapshot = await getDocs(commentsQuery);
+    const batch = writeBatch(db);
+    commentsSnapshot.forEach(doc => batch.delete(doc.ref));
+    batch.delete(postRef);
+    await batch.commit();
 };
+
+export const addCommentToPost = async (userId: string, postId: string, text: string) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+        throw new Error('사용자 정보를 찾을 수 없습니다.');
+    }
+    const userData = userDoc.data();
+
+    const postRef = doc(db, 'community_posts', postId);
+    const commentData = {
+        authorId: userId,
+        authorName: userData.displayName,
+        avatarGradient: userData.avatarGradient,
+        text,
+        createdAt: Timestamp.now(),
+    };
+
+    await addDoc(collection(postRef, 'comments'), commentData);
+    await updateDoc(postRef, { commentCount: increment(1) });
+};
+
 
 export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard', time: number) => {
   const userRef = doc(db, 'users', userId);
@@ -1086,3 +1113,5 @@ export const awardPongScore = async (userId: string) => {
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    

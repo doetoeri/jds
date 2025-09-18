@@ -225,13 +225,13 @@ export default function MinesweeperPage() {
 
   return (
     <>
-      <Card className="max-w-fit mx-auto bg-primary/10 border-primary/20">
+      <Card className="max-w-fit mx-auto bg-primary/5 border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bomb />지뢰찾기</CardTitle>
           <CardDescription>지뢰를 모두 찾아내면 순위표에 기록이 남습니다!</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-between items-center mb-4 p-2 bg-background/50 border-2 border-border rounded-lg">
+          <div className="flex justify-between items-center mb-4 p-2 bg-background/50 border rounded-lg">
             <div className="flex gap-2">
                 <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)} disabled={timerActive && !gameOver && !gameWon}>
                   <SelectTrigger className="w-[120px]">
@@ -245,13 +245,13 @@ export default function MinesweeperPage() {
                 </Select>
             </div>
             <div className="flex gap-2 text-lg font-mono font-bold">
-                 <Button onClick={restartGame} variant="secondary" className="px-4 py-4 active:bg-accent">
+                 <Button onClick={restartGame} variant="secondary" className="px-4 py-4 active:bg-accent rounded-md">
                     <GameStatusIcon className={cn("h-6 w-6 text-primary", isProcessing && "animate-spin")} />
                  </Button>
             </div>
           </div>
           
-           <div className="flex justify-between items-center mb-4 p-1 bg-background/50 border-2 border-border rounded-lg">
+           <div className="flex justify-between items-center mb-4 p-1 bg-background/50 border rounded-lg">
               <div className="flex items-center gap-2 bg-black text-red-500 px-3 py-1 rounded-md font-mono text-2xl font-bold">
                 <span className="w-12">{String(remainingMines).padStart(3, '0')}</span>
               </div>
@@ -261,9 +261,10 @@ export default function MinesweeperPage() {
           </div>
 
           <div
-            className="grid bg-muted/50 p-1 border-2 border-border"
+            className="grid bg-muted/50 p-1 border rounded-lg"
             style={{
               gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              gap: '2px'
             }}
           >
             {board.map((row, r) =>
@@ -274,8 +275,8 @@ export default function MinesweeperPage() {
                   onClick={() => handleClick(r, c)}
                   onContextMenu={(e) => toggleFlag(e, r, c)}
                   className={cn(
-                    'h-8 w-8 flex items-center justify-center font-bold text-lg border',
-                    !cell.isRevealed ? 'bg-background hover:bg-accent border-border' : 'bg-muted border-secondary',
+                    'h-8 w-8 flex items-center justify-center font-bold text-lg rounded-sm',
+                    !cell.isRevealed ? 'bg-background hover:bg-accent shadow-md' : 'bg-muted border border-secondary',
                     cell.isRevealed && cell.isMine && 'bg-destructive'
                   )}
                 >
@@ -331,3 +332,5 @@ export default function MinesweeperPage() {
     </>
   );
 }
+
+    
