@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, MessageCircle, ArrowRight, Gamepad2, Bomb } from 'lucide-react';
+import { Swords, MessageCircle, ArrowRight, Gamepad2, Bomb, Puzzle } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -25,6 +25,27 @@ const games = [
     title: "벽돌깨기",
     description: "공을 튕겨 모든 벽돌을 부수는 클래식 게임입니다.",
     href: "/game/breakout",
+    icon: Gamepad2,
+    status: "active"
+  },
+   {
+    title: "테트리스",
+    description: "블록을 쌓아 줄을 없애는 중독성 강한 퍼즐 게임입니다.",
+    href: "/game/tetris",
+    icon: Puzzle,
+    status: "active"
+  },
+  {
+    title: "스네이크",
+    description: "먹이를 먹고 꼬리가 길어지는 뱀을 조종하세요.",
+    href: "/game/snake",
+    icon: Gamepad2,
+    status: "active"
+  },
+  {
+    title: "퐁",
+    description: "공을 받아치며 컴퓨터와 경쟁하는 최초의 아케이드 게임입니다.",
+    href: "/game/pong",
     icon: Gamepad2,
     status: "active"
   },
