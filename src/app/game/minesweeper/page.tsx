@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bomb, Flag, Loader2, Award, Smile, Frown } from 'lucide-react';
+import { Bomb, Flag, Loader2, Award, Smile, Frown, Sunglasses } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -132,7 +132,7 @@ export default function MinesweeperPage() {
       const row = Math.floor(Math.random() * rows);
       const col = Math.floor(Math.random() * cols);
       
-      const isFirstClickArea = Math.abs(row - firstClickRow) <= 0 && Math.abs(col - firstClickCol) <= 0;
+      const isFirstClickArea = Math.abs(row - firstClickRow) <= 1 && Math.abs(col - firstClickCol) <= 1;
       if (!newBoard[row][col].isMine && !isFirstClickArea) {
         newBoard[row][col].isMine = true;
         minesPlaced++;
@@ -163,9 +163,12 @@ export default function MinesweeperPage() {
     if (r < 0 || r >= rows || c < 0 || c >= cols) return;
     
     const cell = boardToUpdate[r][c];
-    if (cell.isRevealed || cell.isFlagged || cell.isMine) return;
+    if (cell.isRevealed || cell.isFlagged) return;
 
     cell.isRevealed = true;
+    
+    if (cell.isMine) return;
+
 
     if (cell.adjacentMines === 0) {
       for (let dr = -1; dr <= 1; dr++) {
@@ -218,17 +221,17 @@ export default function MinesweeperPage() {
   const { rows, cols, mines } = difficulties[difficulty];
   const remainingMines = mines - board.flat().filter(c => c.isFlagged).length;
   
-  const GameStatusIcon = gameWon ? Smile : gameOver ? Frown : isProcessing ? Loader2 : Smile;
+  const GameStatusIcon = gameWon ? Sunglasses : gameOver ? Frown : isProcessing ? Loader2 : Smile;
 
   return (
     <>
-      <Card className="max-w-fit mx-auto">
+      <Card className="max-w-fit mx-auto bg-slate-200 border-slate-300">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bomb />지뢰찾기</CardTitle>
           <CardDescription>지뢰를 모두 찾아내면 순위표에 기록이 남습니다!</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-between items-center mb-4 p-2 bg-muted rounded-lg">
+          <div className="flex justify-between items-center mb-4 p-2 bg-slate-300 border-2 border-slate-400/50 border-t-slate-100 border-l-slate-100 rounded-lg">
             <div className="flex gap-2">
                 <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)} disabled={timerActive && !gameOver && !gameWon}>
                   <SelectTrigger className="w-[120px]">
@@ -240,27 +243,27 @@ export default function MinesweeperPage() {
                     <SelectItem value="hard">고급</SelectItem>
                   </SelectContent>
                 </Select>
-                 <Button onClick={restartGame} variant="outline">
-                    재시작
+            </div>
+            <div className="flex gap-2 text-lg font-mono font-bold">
+                 <Button onClick={restartGame} variant="outline" className="px-4 py-4 bg-slate-200 border-2 border-slate-400/50 border-b-slate-100 border-r-slate-100 active:border-t-slate-400/50 active:border-l-slate-400/50">
+                    <GameStatusIcon className={cn("h-6 w-6 text-yellow-500", isProcessing && "animate-spin")} />
                  </Button>
             </div>
-            <div className="flex gap-4 text-lg font-mono font-bold">
-                 <div className="flex items-center gap-2 bg-background px-3 py-1 rounded-md">
-                    <Bomb className="text-red-500"/>
-                    <span className="w-8">{String(remainingMines).padStart(3, '0')}</span>
-                 </div>
-                  <div className="flex items-center gap-2 bg-background px-3 py-1 rounded-md">
-                    <GameStatusIcon className={cn("text-yellow-500", isProcessing && "animate-spin")} />
-                    <span className="w-8">{String(time).padStart(3, '0')}</span>
-                  </div>
-            </div>
+          </div>
+          
+           <div className="flex justify-between items-center mb-4 p-1 bg-slate-300 border-2 border-slate-400/50 border-t-slate-100 border-l-slate-100 rounded-lg">
+              <div className="flex items-center gap-2 bg-black text-red-500 px-3 py-1 rounded-md font-mono text-2xl font-bold">
+                <span className="w-12">{String(remainingMines).padStart(3, '0')}</span>
+              </div>
+              <div className="flex items-center gap-2 bg-black text-red-500 px-3 py-1 rounded-md font-mono text-2xl font-bold">
+                <span className="w-12">{String(time).padStart(3, '0')}</span>
+              </div>
           </div>
 
           <div
-            className="grid bg-muted/50 p-1 border rounded-md"
+            className="grid bg-slate-300 p-1 border-2 border-slate-400/50 border-t-slate-100 border-l-slate-100"
             style={{
               gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-              width: `${cols * 28}px`,
             }}
           >
             {board.map((row, r) =>
@@ -271,23 +274,26 @@ export default function MinesweeperPage() {
                   onClick={() => handleClick(r, c)}
                   onContextMenu={(e) => toggleFlag(e, r, c)}
                   className={cn(
-                    'h-7 w-7 flex items-center justify-center font-bold text-sm border',
-                    !cell.isRevealed ? 'bg-background border-muted hover:bg-accent' : 'bg-muted/30 border-muted',
+                    'h-8 w-8 flex items-center justify-center font-bold text-lg border-2',
+                    !cell.isRevealed ? 'bg-slate-300 border-b-slate-500/50 border-r-slate-500/50 border-t-slate-100 border-l-slate-100 active:border-slate-400/50 active:border-t-slate-300 active:border-l-slate-300' : 'bg-slate-300 border-slate-400/50',
                     cell.isRevealed && cell.isMine && 'bg-red-500'
                   )}
                 >
                   {cell.isRevealed ? (
                     cell.isMine ? (
-                      <Bomb className="h-4 w-4 text-white" />
+                      <Bomb className="h-5 w-5 text-white" />
                     ) : cell.adjacentMines > 0 ? (
                       <span className={cn(
                           'font-mono',
                           {
                               'text-blue-600': cell.adjacentMines === 1,
-                              'text-green-600': cell.adjacentMines === 2,
+                              'text-green-700': cell.adjacentMines === 2,
                               'text-red-600': cell.adjacentMines === 3,
-                              'text-purple-600': cell.adjacentMines === 4,
-                              'text-orange-600': cell.adjacentMines === 5,
+                              'text-purple-700': cell.adjacentMines === 4,
+                              'text-maroon-700': cell.adjacentMines === 5,
+                              'text-teal-600': cell.adjacentMines === 6,
+                              'text-black': cell.adjacentMines === 7,
+                              'text-gray-500': cell.adjacentMines === 8,
                           }
                       )}>
                           {cell.adjacentMines}
@@ -296,7 +302,7 @@ export default function MinesweeperPage() {
                       ''
                     )
                   ) : cell.isFlagged ? (
-                    <Flag className="h-4 w-4 text-primary" />
+                    <Flag className="h-5 w-5 text-red-600" />
                   ) : (
                     ''
                   )}
