@@ -271,5 +271,3 @@ export default function SnakePage() {
     </div>
   );
 }
-
-    

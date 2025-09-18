@@ -1000,6 +1000,47 @@ export const processPosPayment = async (
   });
 };
 
+export const givePointsToMultipleStudentsAtBooth = async (
+  operatorId: string,
+  studentIds: string[],
+  value: number,
+  reason: string
+) => {
+  const result = { successCount: 0, failCount: 0, errors: [] as string[] };
+  
+  for (const studentId of studentIds) {
+    try {
+      await runTransaction(db, async (transaction) => {
+        const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
+        const studentSnapshot = await getDocs(studentQuery);
+
+        if (studentSnapshot.empty) {
+          throw new Error(`학번 ${studentId} 학생 없음`);
+        }
+        
+        const studentRef = studentSnapshot.docs[0].ref;
+        transaction.update(studentRef, { lak: increment(value) });
+
+        const historyRef = doc(collection(studentRef, 'transactions'));
+        transaction.set(historyRef, {
+          date: Timestamp.now(),
+          description: `부스 참여: ${reason}`,
+          amount: value,
+          type: 'credit',
+          operator: operatorId,
+        });
+      });
+      result.successCount++;
+    } catch (error: any) {
+      result.failCount++;
+      result.errors.push(error.message);
+    }
+  }
+
+  return result;
+};
+
+
 export const awardLeaderboardRewards = async (leaderboardName: string) => {
   const leaderboardIdMap: Record<string, { path: string, order: 'desc' | 'asc' }> = {
     'word-chain': { path: 'leaderboards/word-chain/users', order: 'desc' },
@@ -1113,5 +1154,3 @@ export const awardPongScore = async (userId: string) => {
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    

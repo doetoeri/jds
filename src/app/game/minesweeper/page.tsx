@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bomb, Flag, Loader2, Award, Smile, Frown, Sunglasses } from 'lucide-react';
+import { Bomb, Flag, Loader2, Smile, Frown, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -221,7 +221,7 @@ export default function MinesweeperPage() {
   const { rows, cols, mines } = difficulties[difficulty];
   const remainingMines = mines - board.flat().filter(c => c.isFlagged).length;
   
-  const GameStatusIcon = gameWon ? Sunglasses : gameOver ? Frown : isProcessing ? Loader2 : Smile;
+  const GameStatusIcon = gameWon ? Trophy : gameOver ? Frown : isProcessing ? Loader2 : Smile;
 
   return (
     <>
@@ -317,7 +317,7 @@ export default function MinesweeperPage() {
        <AlertDialog open={gameWon && !isProcessing}>
           <AlertDialogContent>
              <AlertDialogHeader>
-               <AlertDialogTitle className="flex items-center gap-2"><Award className="text-amber-500"/>승리!</AlertDialogTitle>
+               <AlertDialogTitle className="flex items-center gap-2"><Trophy className="text-amber-500"/>승리!</AlertDialogTitle>
                 <AlertDialogDescription>
                     축하합니다! 지뢰를 모두 찾았습니다.
                     <br/>
@@ -332,5 +332,3 @@ export default function MinesweeperPage() {
     </>
   );
 }
-
-    
