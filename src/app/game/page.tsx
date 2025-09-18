@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, MessageCircle, ArrowRight, Gamepad2, Bomb } from 'lucide-react';
+import { Swords, MessageCircle, ArrowRight, Gamepad2, Bomb, Bird } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -47,6 +47,13 @@ const games = [
     description: "AI를 상대로 공을 받아쳐 점수를 내는 클래식 탁구 게임입니다.",
     href: "/game/pong",
     icon: Gamepad2,
+    status: "active"
+  },
+  {
+    title: "플래피 종달",
+    description: "파이프를 피해 종달새를 최대한 멀리 날려보내세요.",
+    href: "/game/flappy-bird",
+    icon: Bird,
     status: "active"
   }
 ]

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useReducer, useCallback } from 'react';
@@ -134,7 +135,7 @@ function gameReducer(state: GameState, action: Action): GameState {
             const newBoard = JSON.parse(JSON.stringify(state.board));
              state.piece.shape.forEach((row, y) => {
                 row.forEach((value, x) => {
-                    if (value !== 0) {
+                    if (value !== 0 && (state.piece!.y + y) >= 0) {
                         newBoard[state.piece!.y + y][state.piece!.x + x] = state.piece!.value;
                     }
                 });

@@ -56,25 +56,25 @@
 
   /* Liquid Glass Theme */
   body.liquid-glass-theme-enabled {
-    --background: 220 50% 95%;
-    --foreground: 220 30% 20%;
-    --card: 220 30% 100% / 0.5;
-    --card-foreground: 220 30% 10%;
-    --popover: 220 30% 100% / 0.7;
-    --popover-foreground: 220 30% 10%;
-    --primary: 220 90% 60%;
+    --background: 18 100% 96%;
+    --foreground: 24 10% 10%;
+    --card: 24 20% 100% / 0.5;
+    --card-foreground: 24 10% 10%;
+    --popover: 24 20% 100% / 0.7;
+    --popover-foreground: 24 10% 10%;
+    --primary: 18 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 90% / 0.5;
-    --secondary-foreground: 220 20% 20%;
-    --muted: 220 20% 96% / 0.5;
-    --muted-foreground: 220 20% 45%;
-    --accent: 220 90% 60% / 0.1;
-    --accent-foreground: 220 90% 50%;
+    --secondary: 30 10% 96% / 0.5;
+    --secondary-foreground: 30 10% 20%;
+    --muted: 30 10% 96% / 0.5;
+    --muted-foreground: 30 10% 45%;
+    --accent: 18 100% 50% / 0.1;
+    --accent-foreground: 18 100% 40%;
     --destructive: 0 80% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 30% 90% / 0.8;
-    --input: 220 30% 98% / 0.6;
-    --ring: 220 90% 65%;
+    --border: 30 20% 90% / 0.8;
+    --input: 30 20% 98% / 0.6;
+    --ring: 18 100% 55%;
   }
 
 }
@@ -123,7 +123,7 @@
   .liquid-glass-theme-enabled .popover-content,
   .liquid-glass-theme-enabled .dialog-content,
   .liquid-glass-theme-enabled .alert-dialog-content {
-    background-color: hsl(var(--card) / 0.2);
+    background-color: transparent;
   }
 
   .liquid-glass-theme-enabled .button,
