@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, MessageCircle, ArrowRight, Gamepad2, Bomb, Bird } from 'lucide-react';
+import { Swords, MessageCircle, ArrowRight, Gamepad2, Bomb } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -91,5 +91,3 @@ export default function GamePage() {
     </div>
   )
 }
-
-    
