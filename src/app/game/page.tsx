@@ -35,6 +35,20 @@ const games = [
     icon: Gamepad2,
     status: "active"
   },
+  {
+    title: "스네이크",
+    description: "벽과 자신의 꼬리를 피해 먹이를 먹고 점수를 얻으세요.",
+    href: "/game/snake",
+    icon: Gamepad2,
+    status: "active"
+  },
+  {
+    title: "퐁",
+    description: "AI를 상대로 공을 받아쳐 점수를 내는 클래식 탁구 게임입니다.",
+    href: "/game/pong",
+    icon: Gamepad2,
+    status: "active"
+  }
 ]
 
 export default function GamePage() {
