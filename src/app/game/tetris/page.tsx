@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useReducer, useCallback } from 'react';
@@ -290,10 +289,10 @@ export default function TetrisPage() {
   }, [user, score, toast]);
 
   useEffect(() => {
-    if (status === 'over') {
+    if (status === 'over' && score > 0) {
       submitScore();
     }
-  }, [status, submitScore]);
+  }, [status, submitScore, score]);
   
   useEffect(() => {
     draw();

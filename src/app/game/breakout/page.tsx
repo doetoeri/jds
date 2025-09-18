@@ -21,6 +21,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export default function BreakoutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
+  const keysPressed = useRef<{[key: string]: boolean}>({});
   
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
@@ -55,6 +56,7 @@ export default function BreakoutPage() {
 
     let ball = { x: canvas.width / 2, y: canvas.height - 30, dx: 3, dy: -3, radius: 8 };
     let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
+    const paddleSpeed = 7;
     
     const brickRowCount = 5;
     const brickColumnCount = 8;
@@ -180,6 +182,12 @@ export default function BreakoutPage() {
         drawPaddle();
         collisionDetection();
 
+        if (keysPressed.current.ArrowRight) {
+            paddle.x = Math.min(paddle.x + paddleSpeed, canvas.width - paddle.width);
+        } else if (keysPressed.current.ArrowLeft) {
+            paddle.x = Math.max(paddle.x - paddleSpeed, 0);
+        }
+
         if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
             ball.dx = -ball.dx;
         }
@@ -208,14 +216,27 @@ export default function BreakoutPage() {
             paddle.x = relativeX - paddle.width / 2;
         }
     };
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+        keysPressed.current[e.key] = true;
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+        keysPressed.current[e.key] = false;
+    };
 
     document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+
 
     draw();
 
     return () => {
         if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("keydown", handleKeyDown);
+        document.removeEventListener("keyup", handleKeyUp);
     };
 
   }, [user, toast, primaryColor, primaryHue]);
@@ -261,7 +282,7 @@ export default function BreakoutPage() {
             </div>
         </CardContent>
       </Card>
-      <p className="text-sm text-muted-foreground">마우스를 움직여 패들을 조종하세요.</p>
+      <p className="text-sm text-muted-foreground">마우스 또는 키보드 방향키로 패들을 조종하세요.</p>
       
        <AlertDialog open={gameState === 'over' && !isSubmitting}>
           <AlertDialogContent>
