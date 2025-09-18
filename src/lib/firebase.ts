@@ -905,27 +905,6 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
     return { success: true, message: `점수 ${bricksBroken}점이 기록되었습니다!`};
 };
 
-export const awardTetrisScore = async (userId: string, score: number) => {
-  if (score <= 0) return;
-  const userRef = doc(db, 'users', userId);
-  const userDoc = await getDoc(userRef);
-  if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-
-  const leaderboardRef = doc(db, `leaderboards/tetris/users`, userId);
-  const leaderboardDoc = await getDoc(leaderboardRef);
-
-  if (!leaderboardDoc.exists() || score > leaderboardDoc.data().score) {
-      await setDoc(leaderboardRef, {
-        score: score,
-        displayName: userDoc.data().displayName,
-        studentId: userDoc.data().studentId,
-        avatarGradient: userDoc.data().avatarGradient,
-        lastUpdated: Timestamp.now(),
-      }, { merge: true });
-  }
-};
-
-
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
     await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
@@ -1046,7 +1025,6 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
     'word-chain': { path: 'leaderboards/word-chain/users', order: 'desc' },
     'minesweeper-easy': { path: 'leaderboards/minesweeper-easy/users', order: 'asc' },
     'breakout': { path: 'leaderboards/breakout/users', order: 'desc' },
-    'tetris': { path: 'leaderboards/tetris/users', order: 'desc' },
   };
 
   const gameInfo = leaderboardIdMap[leaderboardName];
@@ -1088,69 +1066,6 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
 
   await batch.commit();
   return { successCount, failCount };
-};
-
-export const awardSnakeScore = async (userId: string, score: number) => {
-    if (score < 5) return { success: false, message: '점수가 너무 낮아 포인트가 지급되지 않습니다.'};
-
-    const points = Math.floor(score / 5);
-    
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, "users", userId);
-        const userDoc = await transaction.get(userRef);
-
-        if (!userDoc.exists()) {
-            throw new Error("User does not exist.");
-        }
-        
-        const currentPoints = userDoc.data().lak || 0;
-        if(currentPoints >= POINT_LIMIT) return { success: false, message: '일일 포인트 획득 한도를 초과했습니다.'};
-        
-        const actualPoints = Math.min(points, POINT_LIMIT - currentPoints);
-        if (actualPoints <= 0) return { success: false, message: '포인트를 더 이상 획득할 수 없습니다.'};
-
-        transaction.update(userRef, { lak: increment(actualPoints) });
-
-        const historyRef = doc(collection(userRef, "transactions"));
-        transaction.set(historyRef, {
-            date: Timestamp.now(),
-            description: `스네이크 게임 보상 (점수: ${score})`,
-            amount: actualPoints,
-            type: 'credit',
-        });
-        
-        return { success: true, message: `스네이크 게임으로 ${actualPoints} 포인트를 획득했습니다!` };
-
-    }).catch((error: any) => {
-        console.error("Snake score award error:", error);
-        return { success: false, message: error.message || "점수 기록 중 오류가 발생했습니다." };
-    });
-};
-
-export const awardPongScore = async (userId: string) => {
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, "users", userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error("User not found");
-
-        const currentPoints = userDoc.data().lak || 0;
-        if(currentPoints >= POINT_LIMIT) return { success: false, message: '일일 포인트 획득 한도를 초과했습니다.' };
-
-        transaction.update(userRef, { lak: increment(1) });
-
-        const historyRef = doc(collection(userRef, "transactions"));
-        transaction.set(historyRef, {
-            date: Timestamp.now(),
-            description: "퐁 게임 점수 획득",
-            amount: 1,
-            type: 'credit',
-        });
-
-        return { success: true, message: "1 포인트를 획득했습니다!" };
-    }).catch((error: any) => {
-        console.error("Pong score award error:", error);
-        return { success: false, message: error.message || "점수 기록 중 오류가 발생했습니다." };
-    });
 };
 
 export { auth, db, storage, sendPasswordResetEmail };

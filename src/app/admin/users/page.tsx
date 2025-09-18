@@ -757,7 +757,6 @@ export default function AdminUsersPage() {
                   <SelectItem value="word-chain">끝말잇기</SelectItem>
                   <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
                   <SelectItem value="breakout">벽돌깨기</SelectItem>
-                  <SelectItem value="tetris">테트리스</SelectItem>
                 </SelectContent>
               </Select>
             </div>
