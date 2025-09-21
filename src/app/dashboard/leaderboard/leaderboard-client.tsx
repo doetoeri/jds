@@ -145,8 +145,6 @@ export default function LeaderboardPageClient() {
                <TabsTrigger value="minesweeper" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">지뢰찾기</TabsTrigger>
                <TabsTrigger value="breakout" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">벽돌깨기</TabsTrigger>
                <TabsTrigger value="tetris" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">테트리스</TabsTrigger>
-               <TabsTrigger value="snake" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">스네이크</TabsTrigger>
-               <TabsTrigger value="pong" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">퐁</TabsTrigger>
             </TabsList>
             <TabsContent value="word-chain" className="p-0">
                 <LeaderboardTab leaderboardId="leaderboards/word-chain/users" order="desc" unit="점" />
@@ -159,12 +157,6 @@ export default function LeaderboardPageClient() {
             </TabsContent>
              <TabsContent value="tetris" className="p-0">
                 <LeaderboardTab leaderboardId="leaderboards/tetris/users" order="desc" unit="점" />
-            </TabsContent>
-             <TabsContent value="snake" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/snake/users" order="desc" unit="점" />
-            </TabsContent>
-             <TabsContent value="pong" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/pong/users" order="desc" unit="점" />
             </TabsContent>
           </Tabs>
         </CardContent>

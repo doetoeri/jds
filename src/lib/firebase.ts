@@ -1026,8 +1026,6 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
     'minesweeper-easy': { path: 'leaderboards/minesweeper-easy/users', order: 'asc' },
     'breakout': { path: 'leaderboards/breakout/users', order: 'desc' },
     'tetris': { path: 'leaderboards/tetris/users', order: 'desc' },
-    'snake': { path: 'leaderboards/snake/users', order: 'desc' },
-    'pong': { path: 'leaderboards/pong/users', order: 'desc' },
   };
 
   const gameInfo = leaderboardIdMap[leaderboardName];
@@ -1097,67 +1095,5 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
 };
-
-export const awardSnakeScore = async (userId: string, score: number) => {
-    if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다."};
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-
-    const points = Math.floor(score / 5); // 5점당 1포인트
-    if(points > 0) {
-        await updateDoc(userRef, { lak: increment(points) });
-        const historyRef = doc(collection(userRef, 'transactions'));
-        await setDoc(historyRef, {
-            amount: points, date: Timestamp.now(), description: `스네이크 플레이 보상 (${score}점)`, type: 'credit',
-        });
-    }
-
-    const leaderboardRef = doc(db, 'leaderboards/snake/users', userId);
-    await setDoc(leaderboardRef, {
-        score: increment(score),
-        displayName: userDoc.data().displayName,
-        studentId: userDoc.data().studentId,
-        avatarGradient: userDoc.data().avatarGradient,
-        lastUpdated: Timestamp.now()
-    }, { merge: true });
-
-    return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
-};
-
-export const awardPongScore = async (userId: string) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-
-    const today = new Date().toISOString().split('T')[0];
-    const pongHistoryRef = collection(userRef, 'pong_history');
-    const q = query(pongHistoryRef, where('date', '==', today));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.size >= 5) {
-        // Limit reached, do not award points
-        return;
-    }
-
-    await updateDoc(userRef, { lak: increment(1) });
-    const historyRef = doc(collection(userRef, 'transactions'));
-    await setDoc(historyRef, {
-        amount: 1, date: Timestamp.now(), description: `퐁 플레이 보상`, type: 'credit',
-    });
-    
-    // Log the pong score for daily limit
-    await addDoc(pongHistoryRef, { date: today, score: 1, createdAt: Timestamp.now() });
-
-    const leaderboardRef = doc(db, 'leaderboards/pong/users', userId);
-    await setDoc(leaderboardRef, {
-        score: increment(1),
-        displayName: userDoc.data().displayName,
-        studentId: userDoc.data().studentId,
-        avatarGradient: userDoc.data().avatarGradient,
-        lastUpdated: Timestamp.now()
-    }, { merge: true });
-};
-
 
 export { auth, db, storage, sendPasswordResetEmail };

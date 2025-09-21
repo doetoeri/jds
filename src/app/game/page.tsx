@@ -35,20 +35,6 @@ const games = [
     icon: Puzzle,
     status: "active"
   },
-  {
-    title: "스네이크",
-    description: "먹이를 먹고 꼬리가 길어지는 뱀을 조종하세요.",
-    href: "/game/snake",
-    icon: Gamepad2,
-    status: "active"
-  },
-  {
-    title: "퐁",
-    description: "공을 받아치며 컴퓨터와 경쟁하는 최초의 아케이드 게임입니다.",
-    href: "/game/pong",
-    icon: Gamepad2,
-    status: "active"
-  },
 ]
 
 export default function GamePage() {
