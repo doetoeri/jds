@@ -1085,15 +1085,22 @@ export const awardTetrisScore = async (userId: string, score: number) => {
     }
 
     const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-    await setDoc(leaderboardRef, {
-        score: increment(score),
-        displayName: userDoc.data().displayName,
-        studentId: userDoc.data().studentId,
-        avatarGradient: userDoc.data().avatarGradient,
-        lastUpdated: Timestamp.now()
-    }, { merge: true });
+    const leaderboardDoc = await getDoc(leaderboardRef);
+
+    // Only update if the new score is higher
+    if (!leaderboardDoc.exists() || score > (leaderboardDoc.data().score || 0)) {
+        await setDoc(leaderboardRef, {
+            score: score,
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now()
+        }, { merge: true });
+    }
 
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
