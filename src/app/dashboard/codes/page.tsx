@@ -144,7 +144,11 @@ export default function CodesPage() {
             toast({ title: "오류", description: "유효하지 않은 코드입니다.", variant: "destructive" });
             return;
         }
-        // It's a mate code, so proceed
+        // It's a mate code, so it's a partner code now
+        setCode(codeToUse);
+        setIsPartnerDialogVisible(true);
+        setIsLoading(false);
+        return;
     }
     
     setIsLoading(false); // Stop loading after initial checks
@@ -301,7 +305,7 @@ export default function CodesPage() {
                  <div className="flex items-start gap-2">
                    <UserPlus className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
                    <p>
-                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하면 친구의 팀 링크에 참여하게 됩니다. 5명이 모이면 모두 보너스 포인트를 받아요!
+                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하고 나의 학번을 입력하면, 나와 친구 모두 포인트를 받습니다!
                      <br/>
                      <span className="font-mono text-sm font-bold bg-muted px-2 py-1 rounded-md mt-1 inline-block">나의 메이트코드: {myMateCode || "로딩중..."}</span>
                    </p>
@@ -326,7 +330,7 @@ export default function CodesPage() {
               파트너 지정하기
             </AlertDialogTitle>
             <AlertDialogDescription>
-              이 코드는 '히든코드'입니다! 함께 포인트를 받을 친구의 5자리 학번을 입력해주세요. 본인과 입력한 친구 모두에게 보상이 지급됩니다.
+              이 코드는 파트너와 함께 사용하는 코드입니다! 함께 포인트를 받을 친구의 5자리 학번을 입력해주세요. 본인과 입력한 친구 모두에게 보상이 지급됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-4 py-4">

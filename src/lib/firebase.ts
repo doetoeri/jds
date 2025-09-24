@@ -132,8 +132,6 @@ export const signUp = async (
         await runTransaction(db, async (transaction) => {
             const mateCode = user.uid.substring(0, 4).toUpperCase();
             
-            const teamLinkRef = doc(collection(db, 'team_links'));
-            
             transaction.set(userDocRef, {
                 studentId: studentId,
                 email: email,
@@ -143,7 +141,6 @@ export const signUp = async (
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange',
-                activeTeamId: teamLinkRef.id, 
             });
             
             const historyRef = doc(collection(userDocRef, 'transactions'));
@@ -152,14 +149,6 @@ export const signUp = async (
                 date: Timestamp.now(),
                 description: '가입 축하 포인트',
                 type: 'credit',
-            });
-            
-            transaction.set(teamLinkRef, {
-                ownerUid: user.uid,
-                ownerStudentId: studentId,
-                members: [studentId],
-                isComplete: false,
-                createdAt: Timestamp.now(),
             });
         });
     } else { 
@@ -253,7 +242,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userCurrentLak = userData.lak || 0;
 
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
-    const codeSnapshot = await getDocs(codeQuery); // Use getDocs outside transaction for reads
+    const codeSnapshot = await getDocs(codeQuery);
 
     if (codeSnapshot.empty) {
         // If no regular code found, check if it's a mate code
@@ -263,99 +252,9 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (mateCodeOwnerSnapshot.empty) {
             throw "유효하지 않은 코드입니다.";
         }
-        // It's a mate code, proceed with mate code logic
     }
     
     const isMateCode = codeSnapshot.empty;
-
-    if (isMateCode) {
-        const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
-        const ownerSnapshot = await getDocs(mateCodeOwnerQuery);
-        const ownerDoc = ownerSnapshot.docs[0];
-        const ownerData = ownerDoc.data();
-        const ownerRef = ownerDoc.ref;
-        const ownerStudentId = ownerData.studentId;
-
-        if (ownerStudentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
-
-        let teamToJoinId = ownerData.activeTeamId;
-        
-        // If the owner doesn't have an active team, create one for both users.
-        if (!teamToJoinId) {
-            const newTeamRef = doc(collection(db, 'team_links'));
-            transaction.set(newTeamRef, {
-                ownerUid: ownerRef.id,
-                ownerStudentId: ownerStudentId,
-                members: [ownerStudentId, userStudentId], // Start team with both
-                isComplete: false,
-                createdAt: Timestamp.now(),
-            });
-            teamToJoinId = newTeamRef.id;
-            transaction.update(ownerRef, { activeTeamId: teamToJoinId });
-            transaction.update(userRef, { activeTeamId: teamToJoinId });
-            return { success: true, message: `새로운 팀을 만들었습니다! ${3}명만 더 모으면 보너스 포인트를 받을 수 있습니다!` };
-        }
-
-        const teamLinkRef = doc(db, 'team_links', teamToJoinId);
-        const teamLinkDoc = await transaction.get(teamLinkRef);
-
-        if (!teamLinkDoc.exists()) throw new Error("가입하려는 팀을 찾을 수 없습니다.");
-        
-        const teamLinkData = teamLinkDoc.data();
-        if (teamLinkData.members && teamLinkData.members.includes(userStudentId)) throw new Error("이미 이 팀에 합류했습니다.");
-        if (teamLinkData.isComplete) throw new Error("이 팀은 이미 5명이 모두 모여 마감되었습니다.");
-
-        const newMembers = [...(teamLinkData.members || []), userStudentId];
-        transaction.update(teamLinkRef, { members: newMembers });
-        
-        transaction.update(userRef, { activeTeamId: teamToJoinId });
-
-        if (newMembers.length === 5) {
-            transaction.update(teamLinkRef, { isComplete: true, completedAt: Timestamp.now() });
-            const teamLinkBonus = 7;
-            
-            for (const memberStudentId of newMembers) {
-                const memberQuery = query(collection(db, 'users'), where('studentId', '==', memberStudentId));
-                const memberDocs = await getDocs(memberQuery);
-                if (!memberDocs.empty) {
-                    const memberDoc = memberDocs.docs[0];
-                    const memberRef = memberDoc.ref;
-                    const memberData = memberDoc.data();
-                    const currentPoints = memberData.lak || 0;
-
-                    if (currentPoints < POINT_LIMIT && currentPoints + teamLinkBonus <= POINT_LIMIT) {
-                        transaction.update(memberRef, { lak: increment(teamLinkBonus) });
-                        const historyRef = doc(collection(memberRef, 'transactions'));
-                        transaction.set(historyRef, {
-                            amount: teamLinkBonus, date: Timestamp.now(), description: `팀 링크 완성 보너스!`, type: 'credit',
-                        });
-                    }
-
-                    const newTeamRef = doc(collection(db, 'team_links'));
-                    transaction.set(newTeamRef, {
-                        ownerUid: memberDoc.id,
-                        ownerStudentId: memberStudentId,
-                        members: [memberStudentId],
-                        isComplete: false,
-                        createdAt: Timestamp.now(),
-                    });
-                    transaction.update(memberRef, { activeTeamId: newTeamRef.id });
-                }
-            }
-            return { success: true, message: `축하합니다! 5명의 팀을 완성하여 모두 ${teamLinkBonus} 포인트를 받았습니다!` };
-        } else {
-            return { success: true, message: `팀에 합류했습니다. ${5 - newMembers.length}명만 더 모으면 보너스 포인트를 받을 수 있습니다!` };
-        }
-    }
-
-
-    // Logic for regular codes
-    const codeDoc = codeSnapshot.docs[0];
-    const codeRef = codeDoc.ref;
-    
-    const freshCodeDoc = await transaction.get(codeRef);
-    const freshCodeData = freshCodeDoc.data();
-    if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
 
     const checkAndIncrementPoints = (ref: any, currentPoints: number, pointsToAdd: number, historyDesc: string) => {
       if (currentPoints >= POINT_LIMIT) {
@@ -371,11 +270,39 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       }
       
       transaction.update(ref, { lak: increment(pointsToAdd) });
-      const historyRef = doc(collection(userRef, 'transactions'));
+      const historyRef = doc(collection(ref, 'transactions'));
       transaction.set(historyRef, {
         date: Timestamp.now(), description: historyDesc, amount: pointsToAdd, type: 'credit',
       });
     };
+
+    if (isMateCode) {
+        const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
+        const ownerSnapshot = await getDocs(mateCodeOwnerQuery);
+        const ownerDoc = ownerSnapshot.docs[0];
+        const ownerData = ownerDoc.data();
+
+        if (ownerData.studentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
+        if (ownerDoc.data()?.usedMatePartners?.includes(userStudentId)) throw "이미 이 친구와 메이트코드를 교환했습니다.";
+
+        const matePointValue = 2;
+        checkAndIncrementPoints(userRef, userCurrentLak, matePointValue, `메이트코드 사용 (파트너: ${ownerData.studentId})`);
+        checkAndIncrementPoints(ownerDoc.ref, ownerData.lak || 0, matePointValue, `메이트코드 파트너 보상 (사용자: ${userStudentId})`);
+        
+        transaction.update(userRef, { usedMatePartners: arrayUnion(ownerData.studentId) });
+        transaction.update(ownerDoc.ref, { usedMatePartners: arrayUnion(userStudentId) });
+        
+        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${matePointValue} 포인트를 받았습니다!` };
+    }
+
+
+    // Logic for regular codes
+    const codeDoc = codeSnapshot.docs[0];
+    const codeRef = codeDoc.ref;
+    
+    const freshCodeDoc = await transaction.get(codeRef);
+    const freshCodeData = freshCodeDoc.data();
+    if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
     
     switch (freshCodeData.type) {
       case '히든코드':
@@ -787,33 +714,6 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
   });
 };
 
-export const postTeamChatMessage = async (userId: string, teamId: string, text: string) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) throw new Error('사용자 정보를 찾을 수 없습니다.');
-    const userData = userDoc.data();
-
-    const teamRef = doc(db, 'team_links', teamId);
-    const teamDoc = await getDoc(teamRef);
-    if (!teamDoc.exists()) throw new Error('팀 정보를 찾을 수 없습니다.');
-    
-    const teamData = teamDoc.data();
-    if (!teamData.members.includes(userData.studentId)) {
-        throw new Error('팀 멤버만 채팅에 참여할 수 있습니다.');
-    }
-
-    const messageData = {
-        uid: userId,
-        text: text,
-        createdAt: Timestamp.now(),
-        displayName: userData.displayName,
-        avatarGradient: userData.avatarGradient || 'orange',
-    };
-
-    const messagesCollection = collection(db, `team_chats/${teamId}/messages`);
-    await addDoc(messagesCollection, messageData);
-};
-
 export const createCommunityPost = async (userId: string, title: string, content: string) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
@@ -1034,7 +934,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
   }
 
   const { path, order } = gameInfo;
-  const rewards = [10, 7, 5, 3, 1]; // 1등부터 5등까지 보상
+  const rewards = [5, 4, 3, 2, 1]; // 1등부터 5등까지 보상
   let successCount = 0;
   let failCount = 0;
 
@@ -1044,26 +944,33 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
 
   const batch = writeBatch(db);
 
-  snapshot.docs.forEach((docSnapshot, index) => {
+  for (const docSnapshot of snapshot.docs) {
     const rankerId = docSnapshot.id;
-    const rewardAmount = rewards[index];
+    const rewardAmount = rewards[successCount];
     
     if (rankerId && rewardAmount) {
       const userRef = doc(db, 'users', rankerId);
-      batch.update(userRef, { lak: increment(rewardAmount) });
-      
-      const historyRef = doc(collection(userRef, 'transactions'));
-      batch.set(historyRef, {
-        date: Timestamp.now(),
-        description: `리더보드 보상 (${leaderboardName} ${index + 1}등)`,
-        amount: rewardAmount,
-        type: 'credit',
-      });
-      successCount++;
-    } else {
-      failCount++;
+      const userDoc = await getDoc(userRef); // Need to get current points
+      if (userDoc.exists()) {
+        const currentPoints = userDoc.data().lak || 0;
+        if (currentPoints < POINT_LIMIT && currentPoints + rewardAmount <= POINT_LIMIT) {
+          batch.update(userRef, { lak: increment(rewardAmount) });
+          const historyRef = doc(collection(userRef, 'transactions'));
+          batch.set(historyRef, {
+            date: Timestamp.now(),
+            description: `리더보드 보상 (${leaderboardName} ${successCount + 1}등)`,
+            amount: rewardAmount,
+            type: 'credit',
+          });
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } else {
+        failCount++;
+      }
     }
-  });
+  }
 
   await batch.commit();
   return { successCount, failCount };
@@ -1102,5 +1009,3 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    
