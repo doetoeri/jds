@@ -181,7 +181,7 @@ const TetrisPage: React.FC = () => {
             const boardY = currentPiece.y + y;
             const boardX = currentPiece.x + x;
             if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
-              newBoard[boardY][boardX] = currentPiece.shape;
+               newBoard[boardY][boardX] = currentPiece.shape;
             }
           }
         });
@@ -280,16 +280,24 @@ const TetrisPage: React.FC = () => {
     const transposed = currentPiece.matrix[0].map((_, colIndex) => currentPiece.matrix.map(row => row[colIndex]));
     const rotated = transposed.map(row => row.reverse());
     
-    let offsetX = 1; // Wall kick offset
-    if (!isValidMove(rotated, currentPiece.x, currentPiece.y, board)) {
-        if (isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-            setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x + offsetX } : null);
-        } else if (isValidMove(rotated, currentPiece.x - offsetX, currentPiece.y, board)) {
-            setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x - offsetX } : null);
+    let offsetX = 1; 
+    let currentX = currentPiece.x;
+
+    if (!isValidMove(rotated, currentX, currentPiece.y, board)) {
+        if (isValidMove(rotated, currentX + offsetX, currentPiece.y, board)) {
+           currentX += offsetX;
+        } else if (isValidMove(rotated, currentX - offsetX, currentPiece.y, board)) {
+           currentX -= offsetX;
+        } else if (isValidMove(rotated, currentX + (offsetX * 2), currentPiece.y, board)) { // for I piece
+           currentX += (offsetX * 2);
+        } else if (isValidMove(rotated, currentX - (offsetX * 2), currentPiece.y, board)) { // for I piece
+           currentX -= (offsetX * 2);
+        } else {
+            return; // Invalid rotation
         }
-    } else {
-        setCurrentPiece(prev => prev ? { ...prev, matrix: rotated } : null);
     }
+    
+    setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: currentX } : null);
   };
 
   const playerDrop = (hard = false) => {
@@ -300,8 +308,7 @@ const TetrisPage: React.FC = () => {
         newY++;
       }
       setCurrentPiece(prev => prev ? {...prev, y: newY} : null);
-      // Immediately lock the piece
-      setTimeout(() => pieceDrop(), 0);
+      dropCounterRef.current = dropIntervalRef.current;
     } else {
       pieceDrop();
     }
@@ -409,5 +416,3 @@ const TetrisPage: React.FC = () => {
 };
 
 export default TetrisPage;
-
-    
