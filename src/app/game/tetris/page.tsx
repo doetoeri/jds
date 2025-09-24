@@ -110,15 +110,6 @@ const TetrisPage: React.FC = () => {
     ctx.strokeStyle = 'rgba(0,0,0,0.2)';
     ctx.lineWidth = 1;
     ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.beginPath();
-    ctx.moveTo(x * BLOCK_SIZE, y * BLOCK_SIZE);
-    ctx.lineTo((x + 1) * BLOCK_SIZE, y * BLOCK_SIZE);
-    ctx.lineTo((x + 1) * BLOCK_SIZE - 2, y * BLOCK_SIZE + 2);
-    ctx.lineTo(x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2);
-    ctx.closePath();
-    ctx.fill();
   };
   
   const draw = useCallback(() => {
@@ -183,27 +174,24 @@ const TetrisPage: React.FC = () => {
     if (isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y + 1, board)) {
       setCurrentPiece(prev => prev ? { ...prev, y: prev.y + 1 } : null);
     } else {
-      // Lock the piece and create a new one
       const newBoard = board.map(row => [...row]);
       currentPiece.matrix.forEach((row, y) => {
         row.forEach((val, x) => {
           if (val !== 0) {
             const boardY = currentPiece.y + y;
             const boardX = currentPiece.x + x;
-            if (boardY >= 0 && boardY < ROWS) {
+            if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
               newBoard[boardY][boardX] = currentPiece.shape;
             }
           }
         });
       });
 
-      // Check for cleared lines
       const clearedBoardWithoutFullLines = newBoard.filter(row => !row.every(cell => cell !== null));
       const linesClearedCount = ROWS - clearedBoardWithoutFullLines.length;
       
       const newEmptyRows = Array.from({ length: linesClearedCount }, () => Array(COLS).fill(null));
       const finalBoard = [...newEmptyRows, ...clearedBoardWithoutFullLines];
-
 
       if (linesClearedCount > 0) {
         const newLines = linesCleared + linesClearedCount;
@@ -238,11 +226,9 @@ const TetrisPage: React.FC = () => {
 
   const gameLoop = useCallback((time: number) => {
     if (gameState !== 'playing') return;
-
     if (lastTimeRef.current === 0) lastTimeRef.current = time;
     const deltaTime = time - lastTimeRef.current;
     lastTimeRef.current = time;
-
     dropCounterRef.current += deltaTime;
     if (dropCounterRef.current > dropIntervalRef.current) {
       pieceDrop();
@@ -273,7 +259,6 @@ const TetrisPage: React.FC = () => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     }
-    // Cleanup on unmount
     return () => {
       if (gameLoopRef.current) {
         cancelAnimationFrame(gameLoopRef.current);
@@ -290,26 +275,21 @@ const TetrisPage: React.FC = () => {
 
   const playerRotate = () => {
     if (!currentPiece || gameState !== 'playing') return;
-    const rotated = currentPiece.matrix[0].map((_, colIndex) => currentPiece.matrix.map(row => row[colIndex]).reverse());
     
-    // Wall kick logic
-    let offsetX = 0;
+    // Transpose and reverse rows for clockwise rotation
+    const transposed = currentPiece.matrix[0].map((_, colIndex) => currentPiece.matrix.map(row => row[colIndex]));
+    const rotated = transposed.map(row => row.reverse());
+    
+    let offsetX = 1; // Wall kick offset
     if (!isValidMove(rotated, currentPiece.x, currentPiece.y, board)) {
-        offsetX = 1;
-        if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-            offsetX = -1;
-             if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-                offsetX = 2;
-                 if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-                    offsetX = -2;
-                     if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-                        return; // Cannot rotate
-                    }
-                }
-            }
+        if (isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
+            setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x + offsetX } : null);
+        } else if (isValidMove(rotated, currentPiece.x - offsetX, currentPiece.y, board)) {
+            setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x - offsetX } : null);
         }
+    } else {
+        setCurrentPiece(prev => prev ? { ...prev, matrix: rotated } : null);
     }
-    setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x + offsetX } : null);
   };
 
   const playerDrop = (hard = false) => {
@@ -320,7 +300,8 @@ const TetrisPage: React.FC = () => {
         newY++;
       }
       setCurrentPiece(prev => prev ? {...prev, y: newY} : null);
-      setTimeout(() => pieceDrop(), 50);
+      // Immediately lock the piece
+      setTimeout(() => pieceDrop(), 0);
     } else {
       pieceDrop();
     }
@@ -340,7 +321,8 @@ const TetrisPage: React.FC = () => {
       e.preventDefault();
       keyMap[e.key]();
     }
-  }, [gameState]);
+  }, [gameState, playerMove, playerDrop, playerRotate]);
+
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -352,6 +334,7 @@ const TetrisPage: React.FC = () => {
   }, [draw]);
 
   const handleTouch = (e: React.TouchEvent, action: Function) => {
+    if (gameState !== 'playing') return;
     e.preventDefault();
     action();
   };
