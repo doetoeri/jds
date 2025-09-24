@@ -168,61 +168,66 @@ const TetrisPage: React.FC = () => {
     }
   }, [score, user, toast, gameState]);
 
+  const lockPieceAndContinue = useCallback((pieceToLock: Piece, boardToUpdate: Board) => {
+    const newBoard = boardToUpdate.map(row => [...row]);
+    pieceToLock.matrix.forEach((row, y) => {
+      row.forEach((val, x) => {
+        if (val !== 0) {
+          const boardY = pieceToLock.y + y;
+          const boardX = pieceToLock.x + x;
+          if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
+            newBoard[boardY][boardX] = pieceToLock.shape;
+          }
+        }
+      });
+    });
+
+    const clearedBoardWithoutFullLines = newBoard.filter(row => !row.every(cell => cell !== null));
+    const linesClearedCount = ROWS - clearedBoardWithoutFullLines.length;
+    
+    const newEmptyRows = Array.from({ length: linesClearedCount }, () => Array(COLS).fill(null));
+    const finalBoard = [...newEmptyRows, ...clearedBoardWithoutFullLines];
+
+    if (linesClearedCount > 0) {
+      const newLines = linesCleared + linesClearedCount;
+      setLinesCleared(newLines);
+      setScore(prev => prev + [0, 10, 30, 50, 100][linesClearedCount] * level);
+      const newLevel = Math.floor(newLines / 10) + 1;
+      if (newLevel > level) {
+        setLevel(newLevel);
+        dropIntervalRef.current = Math.max(100, 1000 - (newLevel - 1) * 50);
+      }
+    }
+    
+    setBoard(finalBoard);
+    
+    if (nextPiece) {
+      const nextPieceWithStartPosition = {
+          ...nextPiece,
+          x: Math.floor(COLS / 2) - Math.floor(nextPiece.matrix[0].length / 2),
+          y: 0,
+      };
+      
+      if (!isValidMove(nextPieceWithStartPosition.matrix, nextPieceWithStartPosition.x, nextPieceWithStartPosition.y, finalBoard)) {
+        endGame();
+        return;
+      }
+      setCurrentPiece(nextPieceWithStartPosition);
+      setNextPiece(createPiece());
+    }
+  }, [linesCleared, level, nextPiece, createPiece, endGame, isValidMove]);
+
   const pieceDrop = useCallback(() => {
     if (!currentPiece) return;
 
     if (isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y + 1, board)) {
-      setCurrentPiece(prev => prev ? { ...prev, y: prev.y + 1 } : null);
+      setCurrentPiece(prev => (prev ? { ...prev, y: prev.y + 1 } : null));
     } else {
-      const newBoard = board.map(row => [...row]);
-      currentPiece.matrix.forEach((row, y) => {
-        row.forEach((val, x) => {
-          if (val !== 0) {
-            const boardY = currentPiece.y + y;
-            const boardX = currentPiece.x + x;
-            if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
-               newBoard[boardY][boardX] = currentPiece.shape;
-            }
-          }
-        });
-      });
-
-      const clearedBoardWithoutFullLines = newBoard.filter(row => !row.every(cell => cell !== null));
-      const linesClearedCount = ROWS - clearedBoardWithoutFullLines.length;
-      
-      const newEmptyRows = Array.from({ length: linesClearedCount }, () => Array(COLS).fill(null));
-      const finalBoard = [...newEmptyRows, ...clearedBoardWithoutFullLines];
-
-      if (linesClearedCount > 0) {
-        const newLines = linesCleared + linesClearedCount;
-        setLinesCleared(newLines);
-        setScore(prev => prev + [0, 10, 30, 50, 100][linesClearedCount] * level);
-        const newLevel = Math.floor(newLines / 10) + 1;
-        if (newLevel > level) {
-          setLevel(newLevel);
-          dropIntervalRef.current = Math.max(100, 1000 - (newLevel - 1) * 50);
-        }
-      }
-      
-      setBoard(finalBoard);
-      
-      if (nextPiece) {
-        const nextPieceWithStartPosition = {
-            ...nextPiece,
-            x: Math.floor(COLS / 2) - Math.floor(nextPiece.matrix[0].length / 2),
-            y: 0,
-        };
-        
-        if (!isValidMove(nextPieceWithStartPosition.matrix, nextPieceWithStartPosition.x, nextPieceWithStartPosition.y, finalBoard)) {
-          endGame();
-          return;
-        }
-        setCurrentPiece(nextPieceWithStartPosition);
-        setNextPiece(createPiece());
-      }
+      lockPieceAndContinue(currentPiece, board);
     }
     dropCounterRef.current = 0;
-  }, [board, currentPiece, isValidMove, nextPiece, createPiece, endGame, level, linesCleared]);
+  }, [board, currentPiece, isValidMove, lockPieceAndContinue]);
+  
 
   const gameLoop = useCallback((time: number) => {
     if (gameState !== 'playing') return;
@@ -276,7 +281,6 @@ const TetrisPage: React.FC = () => {
   const playerRotate = () => {
     if (!currentPiece || gameState !== 'playing') return;
     
-    // Transpose and reverse rows for clockwise rotation
     const transposed = currentPiece.matrix[0].map((_, colIndex) => currentPiece.matrix.map(row => row[colIndex]));
     const rotated = transposed.map(row => row.reverse());
     
@@ -288,27 +292,27 @@ const TetrisPage: React.FC = () => {
            currentX += offsetX;
         } else if (isValidMove(rotated, currentX - offsetX, currentPiece.y, board)) {
            currentX -= offsetX;
-        } else if (isValidMove(rotated, currentX + (offsetX * 2), currentPiece.y, board)) { // for I piece
+        } else if (isValidMove(rotated, currentX + (offsetX * 2), currentPiece.y, board)) {
            currentX += (offsetX * 2);
-        } else if (isValidMove(rotated, currentX - (offsetX * 2), currentPiece.y, board)) { // for I piece
+        } else if (isValidMove(rotated, currentX - (offsetX * 2), currentPiece.y, board)) {
            currentX -= (offsetX * 2);
         } else {
-            return; // Invalid rotation
+            return;
         }
     }
     
     setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: currentX } : null);
   };
-
+  
   const playerDrop = (hard = false) => {
     if (!currentPiece || gameState !== 'playing') return;
     if (hard) {
-      let newY = currentPiece.y;
-      while(isValidMove(currentPiece.matrix, currentPiece.x, newY + 1, board)) {
-        newY++;
+      let ghostY = currentPiece.y;
+      while (isValidMove(currentPiece.matrix, currentPiece.x, ghostY + 1, board)) {
+        ghostY++;
       }
-      setCurrentPiece(prev => prev ? {...prev, y: newY} : null);
-      dropCounterRef.current = dropIntervalRef.current;
+      const finalPiece = { ...currentPiece, y: ghostY };
+      lockPieceAndContinue(finalPiece, board);
     } else {
       pieceDrop();
     }
@@ -317,6 +321,7 @@ const TetrisPage: React.FC = () => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (gameState !== 'playing') return;
     
+    e.preventDefault();
     const keyMap: {[key: string]: Function} = {
       'ArrowLeft': () => playerMove(-1),
       'ArrowRight': () => playerMove(1),
@@ -325,7 +330,6 @@ const TetrisPage: React.FC = () => {
       ' ': () => playerDrop(true),
     };
     if (keyMap[e.key]) {
-      e.preventDefault();
       keyMap[e.key]();
     }
   }, [gameState, playerMove, playerDrop, playerRotate]);
