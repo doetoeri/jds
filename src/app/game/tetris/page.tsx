@@ -106,8 +106,19 @@ const TetrisPage: React.FC = () => {
   const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string) => {
     ctx.fillStyle = color;
     ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    
     ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.lineWidth = 1;
     ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(x * BLOCK_SIZE, y * BLOCK_SIZE);
+    ctx.lineTo((x + 1) * BLOCK_SIZE, y * BLOCK_SIZE);
+    ctx.lineTo((x + 1) * BLOCK_SIZE - 2, y * BLOCK_SIZE + 2);
+    ctx.lineTo(x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2);
+    ctx.closePath();
+    ctx.fill();
   };
   
   const draw = useCallback(() => {
@@ -179,7 +190,7 @@ const TetrisPage: React.FC = () => {
           if (val !== 0) {
             const boardY = currentPiece.y + y;
             const boardX = currentPiece.x + x;
-            if (boardY >= 0) {
+            if (boardY >= 0 && boardY < ROWS) {
               newBoard[boardY][boardX] = currentPiece.shape;
             }
           }
@@ -187,11 +198,11 @@ const TetrisPage: React.FC = () => {
       });
 
       // Check for cleared lines
-      let clearedBoard = newBoard.filter(row => !row.every(cell => cell !== null));
-      const linesClearedCount = ROWS - clearedBoard.length;
+      const clearedBoardWithoutFullLines = newBoard.filter(row => !row.every(cell => cell !== null));
+      const linesClearedCount = ROWS - clearedBoardWithoutFullLines.length;
       
       const newEmptyRows = Array.from({ length: linesClearedCount }, () => Array(COLS).fill(null));
-      clearedBoard = [...newEmptyRows, ...clearedBoard];
+      const finalBoard = [...newEmptyRows, ...clearedBoardWithoutFullLines];
 
 
       if (linesClearedCount > 0) {
@@ -205,22 +216,28 @@ const TetrisPage: React.FC = () => {
         }
       }
       
-      setBoard(clearedBoard);
+      setBoard(finalBoard);
       
       if (nextPiece) {
-        setCurrentPiece(nextPiece);
-        setNextPiece(createPiece());
-        if (!isValidMove(nextPiece.matrix, nextPiece.x, nextPiece.y, clearedBoard)) {
+        const nextPieceWithStartPosition = {
+            ...nextPiece,
+            x: Math.floor(COLS / 2) - Math.floor(nextPiece.matrix[0].length / 2),
+            y: 0,
+        };
+        
+        if (!isValidMove(nextPieceWithStartPosition.matrix, nextPieceWithStartPosition.x, nextPieceWithStartPosition.y, finalBoard)) {
           endGame();
           return;
         }
+        setCurrentPiece(nextPieceWithStartPosition);
+        setNextPiece(createPiece());
       }
     }
     dropCounterRef.current = 0;
   }, [board, currentPiece, isValidMove, nextPiece, createPiece, endGame, level, linesCleared]);
 
   const gameLoop = useCallback((time: number) => {
-    if (gameState !== 'playing' || !gameLoopRef.current) return;
+    if (gameState !== 'playing') return;
 
     if (lastTimeRef.current === 0) lastTimeRef.current = time;
     const deltaTime = time - lastTimeRef.current;
@@ -256,6 +273,7 @@ const TetrisPage: React.FC = () => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     }
+    // Cleanup on unmount
     return () => {
       if (gameLoopRef.current) {
         cancelAnimationFrame(gameLoopRef.current);
@@ -274,20 +292,24 @@ const TetrisPage: React.FC = () => {
     if (!currentPiece || gameState !== 'playing') return;
     const rotated = currentPiece.matrix[0].map((_, colIndex) => currentPiece.matrix.map(row => row[colIndex]).reverse());
     
-    let offsetX = 1;
-    if (isValidMove(rotated, currentPiece.x, currentPiece.y, board)) {
-      setCurrentPiece(prev => prev ? { ...prev, matrix: rotated } : null);
-      return;
+    // Wall kick logic
+    let offsetX = 0;
+    if (!isValidMove(rotated, currentPiece.x, currentPiece.y, board)) {
+        offsetX = 1;
+        if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
+            offsetX = -1;
+             if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
+                offsetX = 2;
+                 if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
+                    offsetX = -2;
+                     if (!isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
+                        return; // Cannot rotate
+                    }
+                }
+            }
+        }
     }
-    if (isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-      setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x + offsetX } : null);
-      return;
-    }
-    offsetX = -1;
-    if (isValidMove(rotated, currentPiece.x + offsetX, currentPiece.y, board)) {
-      setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x + offsetX } : null);
-      return;
-    }
+    setCurrentPiece(prev => prev ? { ...prev, matrix: rotated, x: prev.x + offsetX } : null);
   };
 
   const playerDrop = (hard = false) => {
@@ -298,7 +320,6 @@ const TetrisPage: React.FC = () => {
         newY++;
       }
       setCurrentPiece(prev => prev ? {...prev, y: newY} : null);
-      // After hard drop, immediately lock and get next piece
       setTimeout(() => pieceDrop(), 50);
     } else {
       pieceDrop();
@@ -307,7 +328,7 @@ const TetrisPage: React.FC = () => {
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (gameState !== 'playing') return;
-    e.preventDefault();
+    
     const keyMap: {[key: string]: Function} = {
       'ArrowLeft': () => playerMove(-1),
       'ArrowRight': () => playerMove(1),
@@ -316,9 +337,10 @@ const TetrisPage: React.FC = () => {
       ' ': () => playerDrop(true),
     };
     if (keyMap[e.key]) {
+      e.preventDefault();
       keyMap[e.key]();
     }
-  }, [gameState, playerMove, playerDrop, playerRotate]);
+  }, [gameState]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -342,12 +364,12 @@ const TetrisPage: React.FC = () => {
           테트리스
         </h1>
         <div className="flex flex-col md:flex-row gap-4 items-start">
-          <Card className="order-2 md:order-1 bg-gray-900 shadow-lg">
+          <Card className="order-2 md:order-1 bg-gray-900 shadow-lg rounded-lg">
             <CardContent className="p-1">
               <div className="relative">
-                <canvas ref={mainCanvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} />
+                <canvas ref={mainCanvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} className="rounded-md" />
                 {gameState !== 'playing' && (
-                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4">
+                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 rounded-md">
                     <h2 className="text-4xl font-bold font-headline mb-4 text-center">TETRIS</h2>
                     <Button size="lg" onClick={startGame}>게임 시작</Button>
                   </div>
@@ -377,7 +399,7 @@ const TetrisPage: React.FC = () => {
           </div>
         </div>
         <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종, 스페이스 바로 하드 드롭</p>
-        {/* Mobile Controls */}
+        
         <div className="grid grid-cols-3 gap-2 w-full max-w-sm md:hidden mt-4">
           <Button onTouchStart={(e) => handleTouch(e, () => playerMove(-1))} className="py-6 h-auto"><ArrowLeft /></Button>
           <Button onTouchStart={(e) => handleTouch(e, () => playerRotate())} className="py-6 h-auto"><RotateCw /></Button>
