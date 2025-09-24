@@ -275,7 +275,7 @@ export default function MinesweeperPage() {
                   onClick={() => handleClick(r, c)}
                   onContextMenu={(e) => toggleFlag(e, r, c)}
                   className={cn(
-                    'h-8 w-8 flex items-center justify-center font-bold text-lg rounded-sm',
+                    'aspect-square flex items-center justify-center font-bold text-lg rounded-sm',
                     !cell.isRevealed ? 'bg-background hover:bg-accent shadow-md' : 'bg-muted border border-secondary',
                     cell.isRevealed && cell.isMine && 'bg-destructive'
                   )}
