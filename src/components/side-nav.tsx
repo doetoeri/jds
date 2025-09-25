@@ -40,7 +40,6 @@ import { Separator } from './ui/separator';
 
 const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
-  { name: '내 프로필', href: '/dashboard/profile', icon: UserIcon },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '미니게임', href: '/game', icon: Swords },
@@ -134,10 +133,6 @@ export function SideNav({ role }: { role: Role }) {
         </SheetHeader>
         <nav className="grid gap-2 text-lg font-medium flex-1 py-4 overflow-y-auto">
           {links.map((link) => {
-            if (role === 'student' && link.href === '/dashboard/profile') {
-              // Special handling to link to the user's own profile
-              return <UserSpecificNavLink key={link.href} name={link.name} href={link.href} icon={link.icon} />
-            }
             return <NavLink key={link.href} {...link} />
           })}
           {role === 'student' && (
@@ -158,23 +153,4 @@ export function SideNav({ role }: { role: Role }) {
       </SheetContent>
     </Sheet>
   );
-}
-
-// A new component to get the current user's ID for the profile link
-function UserSpecificNavLink({ name, href, icon: Icon }: { name: string, href: string, icon: React.ElementType }) {
-    const { auth } = require('@/lib/firebase'); // Use require here to avoid top-level client dependency issues
-    const [user] = require('react-firebase-hooks/auth').useAuthState(auth);
-    const finalHref = user ? `${href}/${user.uid}` : '/login';
-    const pathname = usePathname();
-    const isActive = pathname.startsWith(href);
-    
-    return (
-         <Link href={finalHref} className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-            isActive && "bg-muted text-primary"
-        )}>
-            <Icon className="h-4 w-4" />
-            {name}
-        </Link>
-    )
 }
