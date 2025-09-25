@@ -21,10 +21,12 @@ import {
   ShoppingCart,
   ListOrdered,
   HelpCircle,
-  Link as LinkIcon,
   MessageSquareText,
   Swords,
   Trophy,
+  User as UserIcon,
+  CheckSquare,
+  BarChart3,
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -34,6 +36,8 @@ const studentLinks = [
   { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '미니게임', href: '/game', icon: Swords },
   { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
+  { name: '도전과제', href: '/dashboard/quests', icon: Award },
+  { name: '설문/투표', href: '/dashboard/polls', icon: CheckSquare },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
@@ -50,6 +54,7 @@ const adminLinks = [
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
+  { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
@@ -59,6 +64,7 @@ const adminLinks = [
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
+  { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
   { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
   { name: '상점 관리', href: '/council/shop', icon: Cog },

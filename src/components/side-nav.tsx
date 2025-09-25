@@ -27,10 +27,12 @@ import {
   ShoppingCart,
   ListOrdered,
   HelpCircle,
-  Link as LinkIcon,
   MessageSquareText,
   Swords,
   Trophy,
+  User as UserIcon,
+  CheckSquare,
+  BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -40,10 +42,13 @@ import { Separator } from './ui/separator';
 
 const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
+  { name: '내 프로필', href: '/dashboard/profile', icon: UserIcon },
   { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
   { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '미니게임', href: '/game', icon: Swords },
   { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
+  { name: '도전과제', href: '/dashboard/quests', icon: Award },
+  { name: '설문/투표', href: '/dashboard/polls', icon: CheckSquare },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
@@ -61,6 +66,7 @@ const adminLinks = [
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
+  { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
@@ -70,6 +76,7 @@ const adminLinks = [
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
+  { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
   { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
   { name: '상점 관리', href: '/council/shop', icon: Cog },
@@ -98,7 +105,7 @@ export function SideNav({ role }: { role: Role }) {
   const links = navConfig[role];
   
   const NavLink = ({ name, href, icon: Icon }: { name: string; href: string; icon: React.ElementType }) => {
-    const isActive = pathname === href;
+    const isActive = pathname === href || (href.startsWith('/dashboard/profile') && pathname.startsWith('/dashboard/profile'));
     return (
         <Link href={href} className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
@@ -128,9 +135,13 @@ export function SideNav({ role }: { role: Role }) {
             </SheetTitle>
         </SheetHeader>
         <nav className="grid gap-2 text-lg font-medium flex-1 py-4 overflow-y-auto">
-          {links.map((link) => (
-            <NavLink key={link.href} {...link} />
-          ))}
+          {links.map((link) => {
+            if (role === 'student' && link.href === '/dashboard/profile') {
+              // Special handling to link to the user's own profile
+              return <UserSpecificNavLink key={link.href} name={link.name} href={link.href} icon={link.icon} />
+            }
+            return <NavLink key={link.href} {...link} />
+          })}
           {role === 'student' && (
               <>
                 <Separator className="my-2" />
@@ -149,4 +160,23 @@ export function SideNav({ role }: { role: Role }) {
       </SheetContent>
     </Sheet>
   );
+}
+
+// A new component to get the current user's ID for the profile link
+function UserSpecificNavLink({ name, href, icon: Icon }: { name: string, href: string, icon: React.ElementType }) {
+    const { auth } = require('@/lib/firebase'); // Use require here to avoid top-level client dependency issues
+    const [user] = require('react-firebase-hooks/auth').useAuthState(auth);
+    const finalHref = user ? `${href}/${user.uid}` : '/login';
+    const pathname = usePathname();
+    const isActive = pathname.startsWith(href);
+    
+    return (
+         <Link href={finalHref} className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+            isActive && "bg-muted text-primary"
+        )}>
+            <Icon className="h-4 w-4" />
+            {name}
+        </Link>
+    )
 }
