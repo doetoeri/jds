@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -271,98 +272,91 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userCurrentPiggyBank = userData.piggyBank || 0;
 
 
+    // Check for regular codes first
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     const codeSnapshot = await getDocs(codeQuery);
+    
+    if (!codeSnapshot.empty) {
+        const codeDoc = codeSnapshot.docs[0];
+        const codeRef = codeDoc.ref;
+        const freshCodeData = (await transaction.get(codeRef)).data();
+        if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
 
-    if (codeSnapshot.empty) {
-        // If no regular code found, check if it's a mate code
-        const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
-        const mateCodeOwnerSnapshot = await getDocs(mateCodeOwnerQuery);
+        switch (freshCodeData.type) {
+          case '히든코드':
+            if (freshCodeData.used) throw "이미 사용된 코드입니다.";
+            if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
+            if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
+            if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
+            
+            const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId), where('role', '==', 'student'));
+            const partnerSnapshot = await getDocs(partnerQuery);
+            if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
+            
+            const partnerRef = partnerSnapshot.docs[0].ref;
+            const partnerDoc = await transaction.get(partnerRef);
+            if(!partnerDoc.exists()) throw `파트너(${partnerStudentId}) 정보를 찾을 수 없습니다.`;
 
-        if (mateCodeOwnerSnapshot.empty) {
-            throw "유효하지 않은 코드입니다.";
+            distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`);
+
+            const partnerData = partnerDoc.data();
+            const partnerLak = partnerData?.lak || 0;
+            const partnerPiggyBank = partnerData?.piggyBank || 0;
+            distributePoints(transaction, partnerRef, partnerLak, partnerPiggyBank, freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`);
+            
+            transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
+
+            return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
+          
+          case '선착순코드':
+            const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
+            if (usedBy.includes(userStudentId)) throw "이미 이 코드를 사용했습니다.";
+            if (usedBy.length >= freshCodeData.limit) throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
+
+            distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`);
+            transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
+            
+            return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
+
+          default:
+            if (freshCodeData.used) throw "이미 사용된 코드입니다.";
+
+            distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`);
+            transaction.update(codeRef, { used: true, usedBy: userStudentId });
+
+            return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
         }
     }
-    
-    const isMateCode = codeSnapshot.empty;
 
-    if (isMateCode) {
-        const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
-        const ownerSnapshot = await getDocs(mateCodeOwnerQuery);
-        const ownerDoc = ownerSnapshot.docs[0];
-        const ownerData = ownerDoc.data();
+    // If no regular code, check for mate code
+    const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
+    const ownerSnapshot = await getDocs(mateCodeOwnerQuery);
 
-        if (ownerData.studentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
-        if (ownerData?.usedMatePartners?.includes(userStudentId)) throw "이미 이 친구와 메이트코드를 교환했습니다.";
-
-        const matePointValue = 2;
-        
-        distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, matePointValue, `메이트코드 사용 (파트너: ${ownerData.studentId})`);
-
-        const ownerRef = ownerDoc.ref;
-        const ownerLak = ownerData.lak || 0;
-        const ownerPiggyBank = ownerData.piggyBank || 0;
-        distributePoints(transaction, ownerRef, ownerLak, ownerPiggyBank, matePointValue, `메이트코드 파트너 보상 (사용자: ${userStudentId})`);
-        
-        transaction.update(userRef, { usedMatePartners: arrayUnion(ownerData.studentId) });
-        transaction.update(ownerRef, { usedMatePartners: arrayUnion(userStudentId) });
-        
-        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${matePointValue} 포인트를 받았습니다!` };
+    if (ownerSnapshot.empty) {
+        throw "유효하지 않은 코드입니다.";
     }
-
-
-    // Logic for regular codes
-    const codeDoc = codeSnapshot.docs[0];
-    const codeRef = codeDoc.ref;
     
-    const freshCodeDoc = await transaction.get(codeRef);
-    const freshCodeData = freshCodeDoc.data();
-    if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
+    const ownerDoc = ownerSnapshot.docs[0];
+    const ownerData = ownerDoc.data();
+
+    if (ownerData.studentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
     
-    switch (freshCodeData.type) {
-      case '히든코드':
-        if (freshCodeData.used) throw "이미 사용된 코드입니다.";
-        if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
-        if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
-        if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
-        
-        const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId), where('role', '==', 'student'));
-        const partnerSnapshot = await getDocs(partnerQuery);
-        if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
-        
-        const partnerRef = partnerSnapshot.docs[0].ref;
-        const partnerDoc = await transaction.get(partnerRef);
-        if(!partnerDoc.exists()) throw `파트너(${partnerStudentId}) 정보를 찾을 수 없습니다.`;
+    const usedMatePartners = userData.usedMatePartners || [];
+    if (usedMatePartners.includes(ownerData.studentId)) throw "이미 이 친구와 메이트코드를 교환했습니다.";
 
-        distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`);
+    const matePointValue = 2;
+    
+    distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, matePointValue, `메이트코드 사용 (파트너: ${ownerData.studentId})`);
 
-        const partnerData = partnerDoc.data();
-        const partnerLak = partnerData?.lak || 0;
-        const partnerPiggyBank = partnerData?.piggyBank || 0;
-        distributePoints(transaction, partnerRef, partnerLak, partnerPiggyBank, freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`);
-        
-        transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
-
-        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
-      
-      case '선착순코드':
-        const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
-        if (usedBy.includes(userStudentId)) throw "이미 이 코드를 사용했습니다.";
-        if (usedBy.length >= freshCodeData.limit) throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
-
-        distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`);
-        transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
-        
-        return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
-
-      default:
-        if (freshCodeData.used) throw "이미 사용된 코드입니다.";
-
-        distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`);
-        transaction.update(codeRef, { used: true, usedBy: userStudentId });
-
-        return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
-    }
+    const ownerRef = ownerDoc.ref;
+    const ownerLak = ownerData.lak || 0;
+    const ownerPiggyBank = ownerData.piggyBank || 0;
+    distributePoints(transaction, ownerRef, ownerLak, ownerPiggyBank, matePointValue, `메이트코드 파트너 보상 (사용자: ${userStudentId})`);
+    
+    transaction.update(userRef, { usedMatePartners: arrayUnion(ownerData.studentId) });
+    transaction.update(ownerRef, { usedMatePartners: arrayUnion(userStudentId) });
+    
+    return { success: true, message: `코드를 사용해 나와 파트너 모두 ${matePointValue} 포인트를 받았습니다!` };
 
   }).catch((error) => {
       console.error("Code redemption error: ", error);
@@ -620,6 +614,11 @@ export const updateUserRole = async (userId: string, newRole: 'student' | 'counc
   await updateDoc(userRef, { role: newRole });
 };
 
+export const updateUserMemo = async (userId: string, memo: string) => {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { memo: memo });
+};
+
 export const deleteUser = async (userId: string) => {
     const userRef = doc(db, "users", userId);
     const userDoc = await getDoc(userRef);
@@ -723,6 +722,8 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
             createdAt: Timestamp.now(),
         };
         transaction.set(letterRef, letterData);
+        
+        distributePoints(transaction, senderRef, senderData.lak || 0, senderData.piggyBank || 0, 1, '편지 쓰기 보상');
 
         return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
     }).catch((error) => {
@@ -803,7 +804,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         }, { merge: true });
     }
 
-    const { points } = difficulties[difficulty];
+    const { points } = { easy: { points: 1 }, medium: { points: 3 }, hard: { points: 5 } }[difficulty];
     const userData = userDoc.data();
     await runTransaction(db, async (transaction) => {
         distributePoints(transaction, userRef, userData.lak || 0, userData.piggyBank || 0, points, `지뢰찾기 (${difficulty}) 승리 보상`);
@@ -842,6 +843,25 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
     await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
 };
+
+export const resetLeaderboard = async (leaderboardName: string) => {
+    const pathMap: Record<string, string> = {
+        'word-chain': 'leaderboards/word-chain/users',
+        'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
+        'breakout': 'leaderboards/breakout/users',
+        'tetris': 'leaderboards/tetris/users',
+    };
+    const collectionPath = pathMap[leaderboardName];
+    if (!collectionPath) throw new Error("유효하지 않은 리더보드입니다.");
+
+    const snapshot = await getDocs(collection(db, collectionPath));
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+};
+
 
 export const processPosPayment = async (
     operatorId: string, 
@@ -962,7 +982,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
   }
 
   const { path, order } = gameInfo;
-  const rewards = [5, 4, 3, 2, 1]; // 1등부터 5등까지 보상
+  const rewards = [5, 4, 3, 2, 1];
   let successCount = 0;
   let failCount = 0;
 
@@ -1057,3 +1077,5 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
