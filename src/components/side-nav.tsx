@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import {
@@ -105,7 +103,7 @@ export function SideNav({ role }: { role: Role }) {
   const links = navConfig[role];
   
   const NavLink = ({ name, href, icon: Icon }: { name: string; href: string; icon: React.ElementType }) => {
-    const isActive = pathname === href || (href.startsWith('/dashboard/profile') && pathname.startsWith('/dashboard/profile'));
+    const isActive = pathname === href;
     return (
         <Link href={href} className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",

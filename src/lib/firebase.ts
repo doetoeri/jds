@@ -1,4 +1,3 @@
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1006,6 +1005,36 @@ export const awardTetrisScore = async (userId: string, score: number) => {
     }
 
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
+};
+
+export const voteOnPoll = async (userId: string, pollId: string, option: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const pollRef = doc(db, 'polls', pollId);
+    const pollDoc = await transaction.get(pollRef);
+
+    if (!pollDoc.exists()) {
+      throw new Error("설문조사를 찾을 수 없습니다.");
+    }
+
+    const pollData = pollDoc.data();
+    if (!pollData.isActive) {
+      throw new Error("이미 종료된 설문조사입니다.");
+    }
+    
+    // Check if user has already voted
+    const allVotes = Object.values(pollData.votes || {}).flat();
+    if (allVotes.includes(userId)) {
+        throw new Error("이미 이 설문조사에 투표했습니다.");
+    }
+
+    // Atomically update the votes for the selected option
+    const newVotes = {
+        ...pollData.votes,
+        [option]: arrayUnion(userId)
+    };
+    
+    transaction.update(pollRef, { votes: newVotes });
+  });
 };
 
 export { auth, db, storage, sendPasswordResetEmail };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -95,7 +94,7 @@ interface NavLinkProps {
 
 const NavLink = ({ name, href, icon: Icon }: NavLinkProps) => {
   const pathname = usePathname();
-  const isActive = pathname.startsWith(href) && (href !== '/dashboard' || pathname === href);
+  const isActive = pathname === href;
   return (
     <Link
       href={href}
