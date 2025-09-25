@@ -225,4 +225,8 @@ export default function PostDetailPage({ params: { id: postId } }: { params: { i
                     </Button>
                 </div>
             </form>
-        
+        </CardFooter>
+       </Card>
+    </div>
+    );
+}
