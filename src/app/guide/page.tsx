@@ -36,34 +36,6 @@ export default function GuidePage() {
         <Card>
             <CardContent className="p-6">
             <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-chrome">
-                <AccordionTrigger className="text-lg font-semibold">
-                    <Download className="mr-2 text-primary" />
-                    크롬 확장 프로그램 설치
-                </AccordionTrigger>
-                <AccordionContent className="text-base pl-8 space-y-4">
-                    <p>
-                    교실 크롬북에 종달샘 허브 확장 프로그램을 설치하여 포인트를 확인하고 주요 기능에 더 빠르게 접근하세요!
-                    </p>
-                    <a href="/extension.zip" download>
-                        <Button>
-                            <Download className="mr-2 h-4 w-4" />
-                            확장 프로그램 다운로드 (.zip)
-                        </Button>
-                    </a>
-                    <div className="text-sm space-y-2 mt-4">
-                        <h4 className="font-semibold">설치 방법:</h4>
-                        <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                            <li>위 버튼을 눌러 `extension.zip` 파일을 다운로드하고, 압축을 풉니다.</li>
-                            <li>크롬 브라우저에서 주소창에 `chrome://extensions`를 입력하여 확장 프로그램 페이지로 이동합니다.</li>
-                            <li>오른쪽 상단에서 **'개발자 모드'** 스위치를 켭니다.</li>
-                            <li>**'압축 해제된 확장 프로그램을 로드합니다'** 버튼을 클릭합니다.</li>
-                            <li>파일 선택 창이 열리면, 아까 압축을 풀었던 **'extension' 폴더**를 선택하고 '열기'를 누릅니다.</li>
-                            <li>설치가 완료되었습니다! 이제 브라우저 툴바에서 종달새 아이콘을 찾아보세요.</li>
-                        </ol>
-                    </div>
-                </AccordionContent>
-                </AccordionItem>
                 <AccordionItem value="item-1">
                 <AccordionTrigger className="text-lg font-semibold">
                     <Coins className="mr-2 text-primary" />
@@ -92,8 +64,8 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">메이트코드 (팀 링크용)</h4>
-                        <p className="text-sm text-muted-foreground">친구의 메이트코드를 입력하면 해당 친구가 속한 팀에 합류하게 됩니다. 5명이 한 팀을 완성하면 모두가 큰 보너스 포인트를 받습니다! 자세한 내용은 아래 '팀 링크' 항목을 참고하세요.</p>
+                        <h4 className="font-semibold text-md">메이트코드 (파트너 코드)</h4>
+                        <p className="text-sm text-muted-foreground">친구의 메이트코드를 입력하고 자신의 학번을 입력하면, 나와 친구 모두 포인트를 받습니다!</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
@@ -109,32 +81,6 @@ export default function GuidePage() {
                       </li>
                     </ul>
                 </AccordionContent>
-                </AccordionItem>
-
-                 <AccordionItem value="item-5">
-                  <AccordionTrigger className="text-lg font-semibold">
-                      <LinkIcon className="mr-2 text-primary" />
-                      '팀 링크'는 어떤 기능인가요?
-                  </AccordionTrigger>
-                  <AccordionContent className="text-base pl-8 space-y-2">
-                      <p>
-                      '팀 링크'는 친구들과 팀을 만들어 보너스 포인트를 받는 소셜 기능입니다.
-                      </p>
-                      <ul className="list-disc pl-6 mt-2 space-y-2">
-                        <li>
-                          모든 학생은 고유한 '메이트코드'를 가지고 있습니다. 이 코드가 곧 나의 팀 초대 코드입니다.
-                        </li>
-                        <li>
-                          '코드 사용' 페이지에서 친구의 메이트코드를 입력하여 팀에 합류할 수 있습니다.
-                        </li>
-                        <li>
-                          <strong className="text-primary">총 5명의 팀이 완성되면, 모든 팀원이 각각 7포인트의 보너스를 받습니다!</strong>
-                        </li>
-                         <li>
-                          한 번 팀을 완성하면, 소속되었던 모든 팀원들은 각자 새로운 팀을 다시 시작하게 됩니다. 다른 친구들과는 언제든지 새로운 팀을 만들 수 있습니다.
-                        </li>
-                      </ul>
-                  </AccordionContent>
                 </AccordionItem>
 
                 <AccordionItem value="item-3">
@@ -157,7 +103,7 @@ export default function GuidePage() {
                         편지가 성공적으로 승인되면, <strong className="text-primary">편지를 보낸 사람과 받은 사람 모두에게 각각 2 포인트가 지급됩니다.</strong>
                     </li>
                      <li>
-                        '오프라인으로 전달하기'를 체크하면, 학생회에서 내용을 확인 후 직접 편지를 전달해드립니다. 이 경우 포인트 지급도 오프라인으로 이루어집니다.
+                        '오프라인으로 전달하기'를 체크하면, 학생회에서 편지 내용을 확인 후 직접 편지를 전달해드립니다. 이 경우 포인트 지급도 오프라인으로 이루어집니다.
                     </li>
                     </ul>
                 </AccordionContent>
