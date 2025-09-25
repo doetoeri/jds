@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -44,7 +45,6 @@ const studentLinks = [
   { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '미니게임', href: '/game', icon: Swords },
   { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
-  { name: '도전과제', href: '/dashboard/quests', icon: Award },
   { name: '설문/투표', href: '/dashboard/polls', icon: CheckSquare },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },

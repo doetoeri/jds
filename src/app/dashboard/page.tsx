@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2, Award, Trophy, Info, Instagram } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -14,6 +14,8 @@ import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { toPng } from 'html-to-image';
+import { MateCodeShareCard } from '@/components/mate-code-share-card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface NewUpdate {
   title: string;
@@ -21,19 +23,24 @@ interface NewUpdate {
   icon: React.ElementType;
 }
 
+const POINT_THRESHOLDS = [
+    { threshold: 100, label: '영광의 뱃지', icon: Trophy, color: 'text-amber-400' },
+    { threshold: 50, label: '빛나는 뱃지', icon: Award, color: 'text-slate-400' },
+    { threshold: 25, label: '반짝이는 뱃지', icon: Gift, color: 'text-amber-600' }
+];
+
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
-  const [lakBalance, setLakBalance] = useState<number | null>(null);
-  const [mateCode, setMateCode] = useState<string | null>(null);
+  const [userData, setUserData] = useState<{ lak?: number; mateCode?: string; displayName?: string; avatarGradient?: string; piggyBank?: number } | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [newUpdate, setNewUpdate] = useState<NewUpdate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentMateCode, setCurrentMateCode] = useState<string | null>(null);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
   const { toast } = useToast();
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
 
-  // Effect for user data (lak, mateCode)
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
@@ -44,29 +51,26 @@ export default function DashboardPage() {
     const unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
       setIsLoading(true);
       if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        setLakBalance(userData.lak ?? 0);
+        const data = userDocSnap.data();
+        setUserData({
+            lak: data.lak ?? 0,
+            mateCode: data.mateCode,
+            displayName: data.displayName,
+            avatarGradient: data.avatarGradient,
+            piggyBank: data.piggyBank ?? 0,
+        });
         
-        // Update mateCode and QR code only if it has changed
-        if (userData.mateCode && userData.mateCode !== currentMateCode) {
-          const code = userData.mateCode;
-          setCurrentMateCode(code);
-          setMateCode(code);
+        if (data.mateCode && data.mateCode !== userData?.mateCode) {
           try {
-            const url = await QRCode.toDataURL(code, { width: 200, margin: 2 });
+            const url = await QRCode.toDataURL(data.mateCode, { width: 200, margin: 2 });
             setQrCodeUrl(url);
           } catch (err) {
             console.error("QR Code generation failed:", err);
             setQrCodeUrl(null);
           }
-        } else if (!userData.mateCode) {
-          setMateCode(null);
-          setQrCodeUrl(null);
         }
       } else {
-        setLakBalance(0);
-        setMateCode(null);
-        setQrCodeUrl(null);
+        setUserData({ lak: 0, mateCode: null });
       }
       setIsLoading(false);
     }, (error) => {
@@ -75,9 +79,8 @@ export default function DashboardPage() {
     });
 
     return () => unsubscribeUser();
-  }, [user, currentMateCode]);
+  }, [user]);
   
-  // Effect for checking new announcements
     useEffect(() => {
         if (!user) return;
 
@@ -120,7 +123,6 @@ export default function DashboardPage() {
     }, [user]);
 
 
-  // Effect for counting unused Hidden codes
     useEffect(() => {
         const q = query(
             collection(db, "codes"),
@@ -139,11 +141,11 @@ export default function DashboardPage() {
     }, []);
 
     const handleShare = async () => {
-        if (!mateCode) return;
+        if (!userData?.mateCode) return;
     
         const shareData = {
           title: '종달샘 허브 메이트코드',
-          text: `종달샘 허브에서 함께 포인트 받자! 🙌\n내 코드: ${mateCode}\n`,
+          text: `종달샘 허브에서 함께 포인트 받자! 🙌\n내 코드: ${userData.mateCode}\n`,
           url: 'https://jongdalsam.shop',
         };
     
@@ -170,8 +172,44 @@ export default function DashboardPage() {
         }
       };
 
+    const handleInstagramShare = async () => {
+        if (!shareCardRef.current || !userData) return;
+        setIsSharing(true);
+
+        try {
+            const dataUrl = await toPng(shareCardRef.current, { cacheBust: true, pixelRatio: 2 });
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], "jongdalsam_matecode.png", { type: "image/png" });
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: '나의 종달샘 메이트코드',
+                    text: `종달샘 허브에서 함께 포인트를 모아봐요!\n내 코드: ${userData.mateCode}`,
+                });
+            } else {
+                 const link = document.createElement('a');
+                 link.download = 'jongdalsam_matecode.png';
+                 link.href = dataUrl;
+                 link.click();
+                 toast({
+                    title: "이미지 다운로드 완료",
+                    description: "다운로드된 이미지를 인스타그램에 공유해주세요!",
+                 });
+            }
+
+        } catch (err: any) {
+            console.error(err);
+            toast({ title: "이미지 생성 오류", description: "공유 이미지 생성에 실패했습니다.", variant: "destructive" });
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
+    const currentBadge = POINT_THRESHOLDS.find(b => (userData?.lak || 0) >= b.threshold);
 
   return (
+    <>
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight font-headline">대시보드</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -184,10 +222,18 @@ export default function DashboardPage() {
             {isLoading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
-              <div className="text-2xl font-bold">{lakBalance?.toLocaleString() ?? 0} 포인트</div>
+                <>
+                <div className="text-2xl font-bold">{userData?.lak?.toLocaleString() ?? 0} 포인트</div>
+                 {currentBadge && (
+                    <p className={`flex items-center text-xs mt-1 font-semibold ${currentBadge.color}`}>
+                        <currentBadge.icon className="w-3.5 h-3.5 mr-1" />
+                        {currentBadge.label}
+                    </p>
+                )}
+                </>
             )}
-            <p className="text-xs text-muted-foreground">
-              다양한 활동으로 포인트를 모아보세요.
+            <p className="text-xs text-muted-foreground mt-1">
+              초과 포인트 저금통: {userData?.piggyBank?.toLocaleString() ?? 0} 포인트
             </p>
           </CardContent>
         </Card>
@@ -237,27 +283,52 @@ export default function DashboardPage() {
                 <Skeleton className="h-[120px] w-[120px]" />
                 <Skeleton className="h-6 w-24" />
               </>
-            ) : mateCode && qrCodeUrl ? (
+            ) : userData?.mateCode && qrCodeUrl ? (
               <>
                 <Image src={qrCodeUrl} alt="Mate Code QR" width={120} height={120} />
                 <div className="text-center">
-                   <p className="font-mono text-2xl font-bold">{mateCode}</p>
+                   <p className="font-mono text-2xl font-bold">{userData.mateCode}</p>
                    <p className="text-xs text-muted-foreground">친구에게 코드를 공유하고 함께 포인트를 받으세요!</p>
                 </div>
-                 <Button onClick={handleShare} size="sm" variant="outline">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    공유하기
-                </Button>
+                 <div className="flex gap-2">
+                    <Button onClick={handleShare} size="sm" variant="outline" disabled={isSharing}>
+                        <Share2 className="mr-2 h-4 w-4" />
+                        일반 공유
+                    </Button>
+                    <Button onClick={handleInstagramShare} size="sm" disabled={isSharing}>
+                        {isSharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Instagram className="mr-2 h-4 w-4" />}
+                        인스타그램 스토리 카드
+                    </Button>
+                 </div>
               </>
             ) : (
                <p className="text-sm text-muted-foreground py-10 text-center">메이트 코드를 불러올 수 없습니다.</p>
             )}
           </CardContent>
         </Card>
-
+         <Alert className="md:col-span-2 lg:col-span-3">
+            <Info className="h-4 w-4"/>
+            <AlertTitle>인스타그램으로 공유하는 법</AlertTitle>
+            <AlertDescription>
+                <ul className="list-disc pl-4 space-y-1 mt-2">
+                    <li><strong>모바일:</strong> '인스타그램 스토리 카드' 버튼을 누르면 공유 창이 나타납니다. 여기서 'Instagram' 앱의 '스토리' 또는 '피드'를 선택하여 바로 공유할 수 있습니다.</li>
+                    <li><strong>PC:</strong> '인스타그램 스토리 카드' 버튼을 누르면 공유용 이미지가 컴퓨터에 다운로드됩니다. 인스타그램 웹사이트에 접속하여 다운로드된 이미지를 직접 업로드해주세요.</li>
+                </ul>
+            </AlertDescription>
+        </Alert>
       </div>
     </div>
+    <div className="absolute -left-[9999px] top-0">
+        {userData && qrCodeUrl && (
+          <MateCodeShareCard
+            ref={shareCardRef}
+            displayName={userData.displayName || '학생'}
+            mateCode={userData.mateCode || ''}
+            qrCodeUrl={qrCodeUrl}
+            avatarGradient={userData.avatarGradient || 'orange'}
+          />
+        )}
+      </div>
+    </>
   );
 }
-
-  
