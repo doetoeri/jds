@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -23,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle as DialogTitleComponent, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -269,12 +268,12 @@ export default function AdminPage() {
                                 <Button variant="secondary" size="sm"><Crown className="h-4 w-4"/><span className="ml-2">초기화</span></Button>
                             </DialogTrigger>
                             <DialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>리더보드 초기화</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <DialogHeader>
+                                <DialogTitleComponent>리더보드 초기화</DialogTitleComponent>
+                                <DialogDescription>
                                     초기화할 게임 리더보드를 선택해주세요. 이 작업은 되돌릴 수 없습니다.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
+                                </DialogDescription>
+                                </DialogHeader>
                                 <div className="py-4">
                                   <Select value={leaderboardToReset} onValueChange={setLeaderboardToReset}>
                                     <SelectTrigger>
@@ -288,13 +287,13 @@ export default function AdminPage() {
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>취소</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleResetLeaderboard} disabled={isResettingLeaderboard || !leaderboardToReset}>
+                                <DialogFooter>
+                                <DialogClose asChild><Button variant="outline">취소</Button></DialogClose>
+                                <Button onClick={handleResetLeaderboard} disabled={isResettingLeaderboard || !leaderboardToReset}>
                                     {isResettingLeaderboard && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                     초기화 실행
-                                </AlertDialogAction>
-                                </AlertDialogFooter>
+                                </Button>
+                                </DialogFooter>
                             </DialogContent>
                         </Dialog>
                     </div>
@@ -307,5 +306,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
