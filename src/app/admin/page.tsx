@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus } from "@/lib/firebase";
+import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -79,8 +80,7 @@ export default function AdminPage() {
                     }
                     break;
                 case '메이트코드':
-                    // This logic is now the same as 히든코드
-                    if (code.used && Array.isArray(code.usedBy) && code.usedBy.length > 0) {
+                    if (code.used && Array.isArray(code.usedBy)) {
                         redeemed += (code.usedBy.length * code.value);
                     }
                     break;
@@ -307,3 +307,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
