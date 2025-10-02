@@ -37,7 +37,6 @@ const distributePoints = (
   transaction: any,
   userRef: any,
   currentLak: number,
-  currentPiggyBank: number,
   pointsToAdd: number,
   historyDesc: string
 ) => {
@@ -89,9 +88,8 @@ const addSignupBonusToExistingUsers = async () => {
                 const userRef = userDoc.ref;
                 const userData = userDoc.data();
                 const currentLak = userData.lak || 0;
-                const currentPiggyBank = userData.piggyBank || 0;
 
-                distributePoints(transaction, userRef, currentLak, currentPiggyBank, 3, '가입 축하 포인트');
+                distributePoints(transaction, userRef, currentLak, 3, '가입 축하 포인트');
             }
 
             transaction.set(flagDocRef, { completed: true, timestamp: Timestamp.now() });
@@ -269,8 +267,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userData = userDoc.data();
     const userStudentId = userData.studentId;
     const userCurrentLak = userData.lak || 0;
-    const userCurrentPiggyBank = userData.piggyBank || 0;
-
 
     // Check for regular codes first
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
@@ -297,12 +293,11 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             const partnerDoc = await transaction.get(partnerRef);
             if(!partnerDoc.exists()) throw `파트너(${partnerStudentId}) 정보를 찾을 수 없습니다.`;
 
-            distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`);
+            distributePoints(transaction, userRef, userCurrentLak, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`);
 
             const partnerData = partnerDoc.data();
             const partnerLak = partnerData?.lak || 0;
-            const partnerPiggyBank = partnerData?.piggyBank || 0;
-            distributePoints(transaction, partnerRef, partnerLak, partnerPiggyBank, freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`);
+            distributePoints(transaction, partnerRef, partnerLak, freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`);
             
             transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
 
@@ -313,7 +308,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (usedBy.includes(userStudentId)) throw "이미 이 코드를 사용했습니다.";
             if (usedBy.length >= freshCodeData.limit) throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
 
-            distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`);
+            distributePoints(transaction, userRef, userCurrentLak, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`);
             transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             
             return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
@@ -321,7 +316,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           default:
             if (freshCodeData.used) throw "이미 사용된 코드입니다.";
 
-            distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`);
+            distributePoints(transaction, userRef, userCurrentLak, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`);
             transaction.update(codeRef, { used: true, usedBy: userStudentId });
 
             return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
@@ -346,12 +341,11 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
     const matePointValue = 2;
     
-    distributePoints(transaction, userRef, userCurrentLak, userCurrentPiggyBank, matePointValue, `메이트코드 사용 (파트너: ${ownerData.studentId})`);
+    distributePoints(transaction, userRef, userCurrentLak, matePointValue, `메이트코드 사용 (파트너: ${ownerData.studentId})`);
 
     const ownerRef = ownerDoc.ref;
     const ownerLak = ownerData.lak || 0;
-    const ownerPiggyBank = ownerData.piggyBank || 0;
-    distributePoints(transaction, ownerRef, ownerLak, ownerPiggyBank, matePointValue, `메이트코드 파트너 보상 (사용자: ${userStudentId})`);
+    distributePoints(transaction, ownerRef, ownerLak, matePointValue, `메이트코드 파트너 보상 (사용자: ${userStudentId})`);
     
     transaction.update(userRef, { usedMatePartners: arrayUnion(ownerData.studentId) });
     transaction.update(ownerRef, { usedMatePartners: arrayUnion(userStudentId) });
@@ -723,7 +717,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
         };
         transaction.set(letterRef, letterData);
         
-        distributePoints(transaction, senderRef, senderData.lak || 0, senderData.piggyBank || 0, 1, '편지 쓰기 보상');
+        distributePoints(transaction, senderRef, senderData.lak || 0, 1, '편지 쓰기 보상');
 
         return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
     }).catch((error) => {
@@ -807,7 +801,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
     const { points } = { easy: { points: 1 }, medium: { points: 3 }, hard: { points: 5 } }[difficulty];
     const userData = userDoc.data();
     await runTransaction(db, async (transaction) => {
-        distributePoints(transaction, userRef, userData.lak || 0, userData.piggyBank || 0, points, `지뢰찾기 (${difficulty}) 승리 보상`);
+        distributePoints(transaction, userRef, userData.lak || 0, points, `지뢰찾기 (${difficulty}) 승리 보상`);
     });
 };
 
@@ -832,7 +826,7 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
     if (points > 0) {
         const userData = userDoc.data();
         await runTransaction(db, async (transaction) => {
-            distributePoints(transaction, userRef, userData.lak || 0, userData.piggyBank || 0, points, `벽돌깨기 점수 보상 (${bricksBroken}점)`);
+            distributePoints(transaction, userRef, userData.lak || 0, points, `벽돌깨기 점수 보상 (${bricksBroken}점)`);
         });
     }
 
@@ -840,9 +834,15 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
 };
 
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
-    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
-    await setDoc(maintenanceRef, { isMaintenanceMode: isMaintenance });
+    const settingsRef = doc(db, 'system_settings', 'main');
+    await setDoc(settingsRef, { isMaintenanceMode: isMaintenance }, { merge: true });
 };
+
+export const setShopStatus = async (isEnabled: boolean) => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    await setDoc(settingsRef, { isShopEnabled: isEnabled }, { merge: true });
+};
+
 
 export const resetLeaderboard = async (leaderboardName: string) => {
     const pathMap: Record<string, string> = {
@@ -954,7 +954,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
         const studentData = (await transaction.get(studentRef)).data();
         if (!studentData) throw new Error("사용자 정보를 찾을 수 없습니다.");
         
-        distributePoints(transaction, studentRef, studentData.lak || 0, studentData.piggyBank || 0, value, `부스 참여: ${reason}`);
+        distributePoints(transaction, studentRef, studentData.lak || 0, value, `부스 참여: ${reason}`);
 
       });
       result.successCount++;
@@ -1002,7 +1002,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
                 const userDoc = await transaction.get(userRef);
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    distributePoints(transaction, userRef, userData.lak || 0, userData.piggyBank || 0, rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`);
+                    distributePoints(transaction, userRef, userData.lak || 0, rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`);
                     successCount++;
                 } else {
                     failCount++;
@@ -1028,7 +1028,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
     const points = Math.floor(score / 500); // 500점당 1포인트
     if(points > 0) {
        await runTransaction(db, async (transaction) => {
-           distributePoints(transaction, userRef, userData.lak || 0, userData.piggyBank || 0, points, `테트리스 플레이 보상 (${score}점)`);
+           distributePoints(transaction, userRef, userData.lak || 0, points, `테트리스 플레이 보상 (${score}점)`);
        });
     }
 
@@ -1067,15 +1067,15 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
         throw new Error("이미 이 설문조사에 투표했습니다.");
     }
 
-    const newVotes = {
-        ...pollData.votes,
-        [option]: arrayUnion(userId)
-    };
+    // This is not a great way to handle nested objects, but it's a workaround for this specific structure.
+    const newVotes = { ...pollData.votes };
+    if (!newVotes[option]) {
+        newVotes[option] = [];
+    }
+    newVotes[option].push(userId);
     
     transaction.update(pollRef, { votes: newVotes });
   });
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    

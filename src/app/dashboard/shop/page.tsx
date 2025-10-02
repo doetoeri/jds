@@ -6,12 +6,12 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2 } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, purchaseItems } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,14 +34,23 @@ export default function ShopPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [totalCost, setTotalCost] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isShopEnabled, setIsShopEnabled] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
 
   useEffect(() => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    const unsubSettings = onSnapshot(settingsRef, (doc) => {
+        if (doc.exists()) {
+            setIsShopEnabled(doc.data().isShopEnabled ?? true);
+        }
+        setIsLoading(false);
+    });
+    
     const q = query(collection(db, "products"), where("stock", ">", 0));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubProducts = onSnapshot(q, (snapshot) => {
       const productsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -54,7 +63,10 @@ export default function ShopPage() {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+        unsubSettings();
+        unsubProducts();
+    };
   }, [toast]);
 
   useEffect(() => {
@@ -112,6 +124,30 @@ export default function ShopPage() {
     setIsPurchasing(false);
   };
 
+  if (isLoading) {
+      return (
+        <div className="pb-24">
+            <div className="space-y-1 mb-6">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-72" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
+            </div>
+        </div>
+      )
+  }
+
+  if (!isShopEnabled) {
+      return (
+          <div className="flex flex-col items-center justify-center text-center py-20">
+            <Store className="h-16 w-16 text-muted-foreground mb-4"/>
+            <h2 className="text-2xl font-bold">상점 준비중</h2>
+            <p className="text-muted-foreground">현재 상점은 준비중입니다. 잠시만 기다려주세요.</p>
+          </div>
+      )
+  }
+
   return (
     <div className="pb-24">
        <div className="space-y-1 mb-6">
@@ -125,9 +161,7 @@ export default function ShopPage() {
         </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
-        ) : products.length === 0 ? (
+        {products.length === 0 ? (
             <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
         ) : (
             products.map((product) => (
@@ -183,5 +217,3 @@ export default function ShopPage() {
     </div>
   );
 }
-
-    

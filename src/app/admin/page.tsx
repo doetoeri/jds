@@ -7,9 +7,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords, Users, Coins } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, setMaintenanceMode, resetWordChainGame } from "@/lib/firebase";
+import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 interface Stats {
@@ -33,19 +34,27 @@ interface Stats {
 
 export default function AdminPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
-  const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(true);
+  const [isShopEnabled, setIsShopEnabled] = useState(true);
+  const [isTogglingSystem, setIsTogglingSystem] = useState(true);
   const [isResettingGame, setIsResettingGame] = useState(false);
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, totalLakIssued: 0 });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const { toast } = useToast();
   
+  const [isResetLeaderboardOpen, setIsResetLeaderboardOpen] = useState(false);
+  const [leaderboardToReset, setLeaderboardToReset] = useState('');
+  const [isResettingLeaderboard, setIsResettingLeaderboard] = useState(false);
+
+
   useEffect(() => {
-    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
-    const unsubMaintenance = onSnapshot(maintenanceRef, (doc) => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    const unsubSettings = onSnapshot(settingsRef, (doc) => {
         if (doc.exists()) {
-            setIsMaintenanceMode(doc.data().isMaintenanceMode);
+            const data = doc.data();
+            setIsMaintenanceMode(data.isMaintenanceMode);
+            setIsShopEnabled(data.isShopEnabled ?? true);
         }
-        setIsTogglingMaintenance(false);
+        setIsTogglingSystem(false);
     });
 
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
@@ -65,13 +74,14 @@ export default function AdminPage() {
                     if (code.used) redeemed += code.value;
                     break;
                 case '히든코드':
-                    if (code.used && Array.isArray(code.usedBy)) { 
+                     if (code.used && Array.isArray(code.usedBy) && code.usedBy.length > 0) { 
                         redeemed += (code.usedBy.length * code.value);
                     }
                     break;
                 case '메이트코드':
-                    if (code.isComplete && Array.isArray(code.participants)) {
-                        redeemed += code.participants.length * 7;
+                    // This logic is now the same as 히든코드
+                    if (code.used && Array.isArray(code.usedBy) && code.usedBy.length > 0) {
+                        redeemed += (code.usedBy.length * code.value);
                     }
                     break;
                 case '선착순코드':
@@ -89,29 +99,36 @@ export default function AdminPage() {
     });
 
     return () => {
-        unsubMaintenance();
+        unsubSettings();
         unsubUsers();
         unsubCodes();
     };
   }, []);
 
-  const handleMaintenanceToggle = async (checked: boolean) => {
-      setIsTogglingMaintenance(true);
+  const handleSystemToggle = async (type: 'maintenance' | 'shop', checked: boolean) => {
+      setIsTogglingSystem(true);
       try {
-          await setMaintenanceMode(checked);
-          toast({
-              title: "성공",
-              description: `시스템 점검 모드가 ${checked ? '활성화' : '비활성화'}되었습니다.`
-          });
+          if (type === 'maintenance') {
+              await setMaintenanceMode(checked);
+              toast({
+                  title: "성공",
+                  description: `시스템 점검 모드가 ${checked ? '활성화' : '비활성화'}되었습니다.`
+              });
+          } else if (type === 'shop') {
+              await setShopStatus(checked);
+              toast({
+                  title: "성공",
+                  description: `종달 상점이 ${checked ? '활성화' : '비활성화'}되었습니다.`
+              });
+          }
       } catch (error) {
           toast({
               title: "오류",
-              description: "점검 모드 변경 중 오류가 발생했습니다.",
+              description: "설정 변경 중 오류가 발생했습니다.",
               variant: "destructive"
           });
       } finally {
-        // The onSnapshot listener will update the state, so we just need to set loading to false.
-        setIsTogglingMaintenance(false);
+        setIsTogglingSystem(false);
       }
   }
   
@@ -133,6 +150,25 @@ export default function AdminPage() {
         setIsResettingGame(false);
     }
   }
+  
+  const handleResetLeaderboard = async () => {
+    if (!leaderboardToReset) {
+      toast({ title: "선택 필요", description: "초기화할 리더보드를 선택해주세요.", variant: "destructive" });
+      return;
+    }
+    setIsResettingLeaderboard(true);
+    try {
+        await resetLeaderboard(leaderboardToReset);
+        toast({ title: "초기화 완료", description: `${leaderboardToReset} 리더보드가 초기화되었습니다.`});
+        setIsResetLeaderboardOpen(false);
+        setLeaderboardToReset('');
+    } catch(error: any) {
+        toast({ title: "초기화 오류", description: error.message || "리더보드 초기화 중 오류가 발생했습니다.", variant: "destructive" });
+    } finally {
+        setIsResettingLeaderboard(false);
+    }
+  };
+
   
   return (
     <div className="grid lg:grid-cols-2 gap-6 items-start">
@@ -178,8 +214,20 @@ export default function AdminPage() {
                         <Switch
                             id="maintenance-mode"
                             checked={isMaintenanceMode}
-                            onCheckedChange={handleMaintenanceToggle}
-                            disabled={isTogglingMaintenance}
+                            onCheckedChange={(checked) => handleSystemToggle('maintenance', checked)}
+                            disabled={isTogglingSystem}
+                        />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="shop-enabled" className="text-base">종달 상점 활성화</Label>
+                            <p className="text-sm text-muted-foreground">비활성화 시 학생들이 상점에서 상품을 구매할 수 없습니다.</p>
+                        </div>
+                        <Switch
+                            id="shop-enabled"
+                            checked={isShopEnabled}
+                            onCheckedChange={(checked) => handleSystemToggle('shop', checked)}
+                            disabled={isTogglingSystem}
                         />
                     </div>
                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
@@ -210,6 +258,45 @@ export default function AdminPage() {
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label className="text-base">리더보드 초기화</Label>
+                            <p className="text-sm text-muted-foreground">선택한 게임의 리더보드 기록을 영구적으로 삭제합니다.</p>
+                        </div>
+                         <Dialog open={isResetLeaderboardOpen} onOpenChange={setIsResetLeaderboardOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="secondary" size="sm"><Crown className="h-4 w-4"/><span className="ml-2">초기화</span></Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>리더보드 초기화</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    초기화할 게임 리더보드를 선택해주세요. 이 작업은 되돌릴 수 없습니다.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <div className="py-4">
+                                  <Select value={leaderboardToReset} onValueChange={setLeaderboardToReset}>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="초기화할 리더보드 선택..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="word-chain">끝말잇기</SelectItem>
+                                      <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
+                                      <SelectItem value="breakout">벽돌깨기</SelectItem>
+                                      <SelectItem value="tetris">테트리스</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleResetLeaderboard} disabled={isResettingLeaderboard || !leaderboardToReset}>
+                                    {isResettingLeaderboard && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    초기화 실행
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </CardContent>
             </Card>
