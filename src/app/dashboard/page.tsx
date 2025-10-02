@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -14,7 +15,6 @@ import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { toPng } from 'html-to-image';
-import { MateCodeShareCard } from '@/components/mate-code-share-card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface NewUpdate {
@@ -37,7 +37,6 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
   const { toast } = useToast();
-  const shareCardRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
 
 
@@ -172,40 +171,6 @@ export default function DashboardPage() {
         }
       };
 
-    const handleInstagramShare = async () => {
-        if (!shareCardRef.current || !userData) return;
-        setIsSharing(true);
-
-        try {
-            const dataUrl = await toPng(shareCardRef.current, { cacheBust: true, pixelRatio: 2 });
-            const blob = await (await fetch(dataUrl)).blob();
-            const file = new File([blob], "jongdalsam_matecode.png", { type: "image/png" });
-
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: '나의 종달샘 메이트코드',
-                    text: `종달샘 허브에서 함께 포인트를 모아봐요!\n내 코드: ${userData.mateCode}`,
-                });
-            } else {
-                 const link = document.createElement('a');
-                 link.download = 'jongdalsam_matecode.png';
-                 link.href = dataUrl;
-                 link.click();
-                 toast({
-                    title: "이미지 다운로드 완료",
-                    description: "다운로드된 이미지를 인스타그램에 공유해주세요!",
-                 });
-            }
-
-        } catch (err: any) {
-            console.error(err);
-            toast({ title: "이미지 생성 오류", description: "공유 이미지 생성에 실패했습니다.", variant: "destructive" });
-        } finally {
-            setIsSharing(false);
-        }
-    };
-
     const currentBadge = POINT_THRESHOLDS.find(b => (userData?.lak || 0) >= b.threshold);
 
   return (
@@ -293,11 +258,7 @@ export default function DashboardPage() {
                  <div className="flex gap-2">
                     <Button onClick={handleShare} size="sm" variant="outline" disabled={isSharing}>
                         <Share2 className="mr-2 h-4 w-4" />
-                        일반 공유
-                    </Button>
-                    <Button onClick={handleInstagramShare} size="sm" disabled={isSharing}>
-                        {isSharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Instagram className="mr-2 h-4 w-4" />}
-                        인스타그램 스토리 카드
+                        메시지로 공유
                     </Button>
                  </div>
               </>
@@ -306,29 +267,11 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-         <Alert className="md:col-span-2 lg:col-span-3">
-            <Info className="h-4 w-4"/>
-            <AlertTitle>인스타그램으로 공유하는 법</AlertTitle>
-            <AlertDescription>
-                <ul className="list-disc pl-4 space-y-1 mt-2">
-                    <li><strong>모바일:</strong> '인스타그램 스토리 카드' 버튼을 누르면 공유 창이 나타납니다. 여기서 'Instagram' 앱의 '스토리' 또는 '피드'를 선택하여 바로 공유할 수 있습니다.</li>
-                    <li><strong>PC:</strong> '인스타그램 스토리 카드' 버튼을 누르면 공유용 이미지가 컴퓨터에 다운로드됩니다. 인스타그램 웹사이트에 접속하여 다운로드된 이미지를 직접 업로드해주세요.</li>
-                </ul>
-            </AlertDescription>
-        </Alert>
       </div>
     </div>
-    <div className="absolute -left-[9999px] top-0">
-        {userData && qrCodeUrl && (
-          <MateCodeShareCard
-            ref={shareCardRef}
-            displayName={userData.displayName || '학생'}
-            mateCode={userData.mateCode || ''}
-            qrCodeUrl={qrCodeUrl}
-            avatarGradient={userData.avatarGradient || 'orange'}
-          />
-        )}
-      </div>
     </>
   );
 }
+
+
+    

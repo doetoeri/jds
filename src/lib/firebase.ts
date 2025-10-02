@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1079,3 +1080,5 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    

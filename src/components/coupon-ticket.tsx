@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { forwardRef, useEffect, useState } from 'react';
@@ -43,14 +44,14 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
     }, [code]);
     
     const valueToGradient: { [key: number]: string } = {
-        1: 'from-amber-400/80',
-        3: 'from-lime-400/80',
-        5: 'from-emerald-400/80',
-        7: 'from-sky-400/80',
-        10: 'from-violet-400/80',
+        1: 'from-amber-400/80 to-amber-200/80',
+        3: 'from-lime-400/80 to-lime-200/80',
+        5: 'from-emerald-400/80 to-emerald-200/80',
+        7: 'from-sky-400/80 to-sky-200/80',
+        10: 'from-violet-400/80 to-violet-200/80',
     };
 
-    const gradientClass = valueToGradient[value] || 'from-orange-400/80';
+    const gradientClass = valueToGradient[value] || 'from-orange-400/80 to-orange-200/80';
 
     return (
         <div
@@ -108,3 +109,5 @@ export const CouponTicket = forwardRef<HTMLDivElement, CouponTicketProps>(
 );
 
 CouponTicket.displayName = 'CouponTicket';
+
+    
