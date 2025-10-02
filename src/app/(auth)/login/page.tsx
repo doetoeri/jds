@@ -61,6 +61,8 @@ export default function LoginPage() {
       }
       else if (role === 'teacher') {
         router.push('/teacher/rewards');
+      } else if (role === 'kiosk') {
+        router.push('/kiosk/setup');
       } else if (role === 'pending_teacher') {
           toast({
               title: '승인 대기중',

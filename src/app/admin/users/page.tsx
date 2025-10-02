@@ -14,13 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -55,7 +55,8 @@ interface User {
   name?: string;
   email: string;
   lak: number;
-  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth';
+  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth' | 'kiosk';
+  memo?: string;
 }
 
 type SortKey = 'lak';
@@ -71,16 +72,17 @@ export default function AdminUsersPage() {
   const [isBulkAdjustDialogOpen, setIsBulkAdjustDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMemoDialogOpen, setIsMemoDialogOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
 
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
-  const [newRole, setNewRole] = useState<'student' | 'council' | 'council_booth' | ''>('');
+  const [newRole, setNewRole] = useState<User['role'] | ''>('');
+  const [memo, setMemo] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   
-  const [gradeFilter, setGradeFilter] = useState('');
-  const [classFilter, setClassFilter] = useState('');
+  const [filter, setFilter] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('lak');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
@@ -115,22 +117,14 @@ export default function AdminUsersPage() {
   
   const sortedAndFilteredUsers = useMemo(() => {
     let filtered = users.filter(user => {
-      if (!gradeFilter && !classFilter) {
-          return true;
+      if (!filter) {
+        return true;
       }
+      const lowercasedFilter = filter.toLowerCase();
+      const identifier = renderIdentifier(user).toLowerCase();
+      const memo = user.memo?.toLowerCase() || '';
       
-      // Only filter for students
-      if (user.role !== 'student' || !user.studentId || typeof user.studentId !== 'string' || user.studentId.length !== 5) {
-        return false; 
-      }
-      
-      const grade = user.studentId.substring(0, 1);
-      const studentClass = user.studentId.substring(1, 3);
-      
-      const gradeMatch = gradeFilter ? grade === gradeFilter : true;
-      const classMatch = classFilter ? studentClass === classFilter : true;
-      
-      return gradeMatch && classMatch;
+      return identifier.includes(lowercasedFilter) || memo.includes(lowercasedFilter);
     });
 
     return filtered.sort((a, b) => {
@@ -145,7 +139,7 @@ export default function AdminUsersPage() {
         }
         return 0;
     });
-  }, [users, gradeFilter, classFilter, sortKey, sortDirection]);
+  }, [users, filter, sortKey, sortDirection]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -168,6 +162,12 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setNewRole('');
     setIsRoleDialogOpen(true);
+  };
+
+  const openMemoDialog = (user: User) => {
+    setSelectedUser(user);
+    setMemo(user.memo || '');
+    setIsMemoDialogOpen(true);
   };
   
   const openDeleteDialog = (user: User) => {
@@ -312,6 +312,20 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleUpdateMemo = async () => {
+    if (!selectedUser) return;
+    setIsProcessing(true);
+    try {
+        await updateUserMemo(selectedUser.id, memo);
+        toast({ title: '성공', description: '사용자 비고를 저장했습니다.'});
+        setIsMemoDialogOpen(false);
+    } catch (e: any) {
+        toast({ title: '오류', description: e.message, variant: 'destructive'});
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     
@@ -353,7 +367,7 @@ export default function AdminUsersPage() {
 
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
-    if (user.role === 'council' || user.role === 'council_booth') return user.name || user.email;
+    if (user.role === 'council' || user.role === 'council_booth' || user.role === 'kiosk') return user.name || user.email;
     if (user.role === 'student') return user.studentId;
     if (user.role === 'teacher') return user.name;
     return 'N/A';
@@ -366,6 +380,7 @@ export default function AdminUsersPage() {
     teacher: '교직원',
     student: '학생',
     pending_teacher: '승인 대기',
+    kiosk: '키오스크'
   };
   
   const handleSelectUser = (userId: string, isSelected: boolean) => {
@@ -408,24 +423,16 @@ export default function AdminUsersPage() {
         <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-2 flex-1">
                 <Filter className="h-4 w-4 text-muted-foreground"/>
-                <Label htmlFor="grade-filter" className="shrink-0">학년</Label>
+                <Label htmlFor="grade-filter" className="shrink-0">검색</Label>
                 <Input 
                     id="grade-filter"
-                    placeholder="예: 1" 
-                    className="w-20"
-                    value={gradeFilter}
-                    onChange={(e) => setGradeFilter(e.target.value)}
-                />
-                <Label htmlFor="class-filter" className="shrink-0">반</Label>
-                <Input 
-                    id="class-filter"
-                    placeholder="예: 03" 
-                    className="w-20"
-                    value={classFilter}
-                    onChange={(e) => setClassFilter(e.target.value)}
+                    placeholder="학번, 이름, 비고 등으로 검색..." 
+                    className="w-full"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
                 />
             </div>
-             <Button variant="outline" onClick={() => { setGradeFilter(''); setClassFilter(''); }}>필터 초기화</Button>
+             <Button variant="outline" onClick={() => { setFilter(''); }}>필터 초기화</Button>
         </CardContent>
        </Card>
 
@@ -442,6 +449,7 @@ export default function AdminUsersPage() {
                   />
                 </TableHead>
                 <TableHead>학번/성함</TableHead>
+                <TableHead>비고</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
                 <TableHead className="text-right">
@@ -459,6 +467,7 @@ export default function AdminUsersPage() {
                   <TableRow key={index}>
                     <TableCell><Skeleton className="h-5 w-5" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
@@ -476,6 +485,7 @@ export default function AdminUsersPage() {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
+                    <TableCell className="text-muted-foreground">{user.memo || '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
                     <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} 포인트</TableCell>
@@ -487,6 +497,10 @@ export default function AdminUsersPage() {
                        <Button variant="outline" size="sm" onClick={() => openRoleDialog(user)} disabled={user.role === 'admin'}>
                          <UserCog className="mr-1 h-3.5 w-3.5"/>
                          역할
+                       </Button>
+                       <Button variant="outline" size="sm" onClick={() => openMemoDialog(user)} disabled={user.role === 'admin'}>
+                         <Pencil className="mr-1 h-3.5 w-3.5"/>
+                         비고
                        </Button>
                        <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(user)} disabled={user.role === 'admin'}>
                          <Trash2 className="h-4 w-4" />
@@ -719,6 +733,7 @@ export default function AdminUsersPage() {
                   <SelectItem value="student">학생</SelectItem>
                   <SelectItem value="council">학생회</SelectItem>
                   <SelectItem value="council_booth">학생회(부스)</SelectItem>
+                  <SelectItem value="kiosk">키오스크</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -730,6 +745,37 @@ export default function AdminUsersPage() {
             <Button type="button" onClick={handleUpdateRole} disabled={isProcessing || !newRole}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               변경하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Memo Dialog */}
+      <Dialog open={isMemoDialogOpen} onOpenChange={setIsMemoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>비고 편집: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
+            <DialogDescription>
+                이 사용자에게만 보이는 비고(별명)를 추가하거나 수정합니다.
+            </DialogDescription>
+          </DialogHeader>
+           <div className="grid gap-4 py-4">
+                <Label htmlFor="memo">비고 내용</Label>
+                <Input
+                    id="memo"
+                    value={memo}
+                    onChange={(e) => setMemo(e.target.value)}
+                    placeholder="예: 1학년 1반 반장"
+                    disabled={isProcessing}
+                />
+            </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isProcessing}>취소</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleUpdateMemo} disabled={isProcessing}>
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              저장하기
             </Button>
           </DialogFooter>
         </DialogContent>
