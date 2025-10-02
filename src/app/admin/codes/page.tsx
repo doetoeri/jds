@@ -435,11 +435,8 @@ export default function AdminCodesPage() {
 
   const renderStatus = (code: Code) => {
     if (code.type === '메이트코드') {
-      const participantsCount = code.participants?.length || 0;
-      if (code.completed) {
-        return <Badge variant="default">완성됨 (5명)</Badge>;
-      }
-      return <Badge variant="secondary">{`${participantsCount} / 5명`}</Badge>;
+        const usedCount = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
+        return <Badge variant="secondary">{`${usedCount}회 사용됨`}</Badge>;
     }
     if (code.type === '선착순코드') {
         const usedCount = Array.isArray(code.usedBy) ? code.usedBy.length : 0;
