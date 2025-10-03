@@ -104,13 +104,18 @@ const addSignupBonusToExistingUsers = async () => {
 
 // Sign up function
 export const signUp = async (
-    userType: 'student' | 'teacher' | 'pending_teacher',
+    userType: 'student' | 'teacher' | 'pending_teacher' | 'council_booth' | 'kiosk',
     userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string },
     password: string,
     email: string
 ) => {
-  if (userType === 'student' && !/^\d{5}$/.test(userData.studentId!)) {
-    throw new Error('학번은 5자리 숫자여야 합니다.');
+  if (userType === 'student' && userData.studentId) {
+    if (!/^\d{5}$/.test(userData.studentId)) {
+        throw new Error('학번은 5자리 숫자여야 합니다.');
+    }
+    if (userData.studentId.startsWith('00') || userData.studentId.startsWith('99')) {
+        throw new Error('해당 학번 형식은 학생용으로 사용할 수 없습니다.');
+    }
   }
 
   try {
@@ -119,29 +124,24 @@ export const signUp = async (
     if (email === 'admin@jongdalsem.com') {
         throw new Error("해당 이메일은 사용할 수 없습니다.");
     }
-
-    if (userType === 'student') {
-        const studentId = userData.studentId!;
+    
+    const existingUserQuery = query(collection(db, "users"), where("email", "==", email));
+    const existingUserSnapshot = await getDocs(existingUserQuery);
+    if (!existingUserSnapshot.empty) {
+        throw new Error("이미 가입된 이메일입니다.");
+    }
+    
+    if (userType === 'student' && userData.studentId) {
+        const studentId = userData.studentId;
         const studentQuery = query(
           collection(db, "users"),
           where("studentId", "==", studentId),
-          where("role", "==", "student")
         );
         const studentSnapshot = await getDocs(studentQuery);
         if (!studentSnapshot.empty) {
             throw new Error("이미 등록된 학번입니다.");
         }
-    } else {
-        const teacherQuery = query(
-          collection(db, "users"),
-          where("email", "==", email),
-          where("role", "in", ["teacher", "pending_teacher", "council", "council_booth"])
-        );
-        const teacherSnapshot = await getDocs(teacherQuery);
-        if (!teacherSnapshot.empty) {
-            throw new Error("이미 가입 신청되었거나 등록된 이메일입니다.");
-        }
-
+    } else if (userType === 'teacher' && userData.nickname) {
         const nicknameQuery = query(collection(db, 'users'), where('nickname', '==', userData.nickname), where('role', '==', 'teacher'));
         const nicknameSnapshot = await getDocs(nicknameQuery);
         if (!nicknameSnapshot.empty) {
@@ -149,49 +149,73 @@ export const signUp = async (
         }
     }
 
-
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     const userDocRef = doc(db, "users", user.uid);
+    
+    let docData: any = {
+        email: email,
+        createdAt: Timestamp.now(),
+        lak: 0,
+        piggyBank: 0,
+    };
 
-    if (userType === 'student') {
-        const studentId = userData.studentId!;
-        await runTransaction(db, async (transaction) => {
+    switch(userType) {
+        case 'student':
+            const studentId = userData.studentId!;
             const mateCode = user.uid.substring(0, 4).toUpperCase();
-            
-            transaction.set(userDocRef, {
+            docData = {
+                ...docData,
                 studentId: studentId,
-                email: email,
                 lak: 3,
-                piggyBank: 0,
-                createdAt: Timestamp.now(),
                 mateCode: mateCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange',
+            };
+             await runTransaction(db, async (transaction) => {
+                transaction.set(userDocRef, docData);
+                const historyRef = doc(collection(userDocRef, 'transactions'));
+                transaction.set(historyRef, {
+                    amount: 3,
+                    date: Timestamp.now(),
+                    description: '가입 축하 포인트',
+                    type: 'credit',
+                });
             });
-            
-            const historyRef = doc(collection(userDocRef, 'transactions'));
-            transaction.set(historyRef, {
-                amount: 3,
-                date: Timestamp.now(),
-                description: '가입 축하 포인트',
-                type: 'credit',
-            });
-        });
-    } else { 
-        await setDoc(userDocRef, {
-            name: userData.name,
-            nickname: userData.nickname,
-            displayName: `${userData.name} 선생님`,
-            officeFloor: userData.officeFloor,
-            email: email,
-            role: 'pending_teacher',
-            createdAt: Timestamp.now(),
-            avatarGradient: 'blue',
-            lak: 0,
-            piggyBank: 0,
-        });
+            break;
+        case 'teacher':
+             docData = {
+                ...docData,
+                name: userData.name,
+                nickname: userData.nickname,
+                displayName: `${userData.name} 선생님`,
+                officeFloor: userData.officeFloor,
+                role: 'pending_teacher',
+                avatarGradient: 'blue',
+            };
+            await setDoc(userDocRef, docData);
+            break;
+        case 'council_booth':
+             docData = {
+                ...docData,
+                studentId: userData.studentId, // Special ID like '00001'
+                name: userData.name,
+                displayName: userData.name,
+                role: 'council_booth',
+            };
+            await setDoc(userDocRef, docData);
+            break;
+        case 'kiosk':
+             docData = {
+                ...docData,
+                studentId: userData.studentId, // Special ID like '99001'
+                name: userData.name,
+                displayName: userData.name,
+                role: 'kiosk',
+            };
+            await setDoc(userDocRef, docData);
+            break;
     }
 
     return user;
@@ -566,7 +590,7 @@ export const bulkSetUserLak = async (userIds: string[], amount: number, reason: 
 };
 
 
-export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'council_booth') => {
+export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'council_booth' | 'kiosk') => {
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) {
@@ -1040,5 +1064,3 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
 };
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    
