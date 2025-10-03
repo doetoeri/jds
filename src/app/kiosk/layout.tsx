@@ -61,7 +61,7 @@ export default function KioskLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-orange-50 p-4">
         <div className="absolute top-6 left-1/2 -translate-x-1/2">
-            <h1 className="text-3xl font-bold font-headline text-orange-500">JongDalSam</h1>
+            <h1 className="text-3xl font-bold font-batang text-orange-500">JongDalSam</h1>
         </div>
         {children}
     </div>
