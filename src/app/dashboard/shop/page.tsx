@@ -6,7 +6,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, Store } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, Store, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 interface Product {
@@ -46,7 +47,6 @@ export default function ShopPage() {
         if (doc.exists()) {
             setIsShopEnabled(doc.data().isShopEnabled ?? true);
         }
-        setIsLoading(false);
     });
     
     const q = query(collection(db, "products"), where("stock", ">", 0));
@@ -104,6 +104,10 @@ export default function ShopPage() {
   };
 
   const handlePurchase = async () => {
+    if (!isShopEnabled) {
+      toast({ title: '구매 불가', description: '현재 관리자에 의해 온라인 구매가 비활성화되었습니다.', variant: 'destructive'});
+      return;
+    }
     if (!user) {
       toast({ title: '로그인 필요', description: '구매를 위해 로그인이 필요합니다.', variant: 'destructive' });
       return;
@@ -126,7 +130,7 @@ export default function ShopPage() {
 
   if (isLoading) {
       return (
-        <div className="pb-24">
+        <div className="pb-48">
             <div className="space-y-1 mb-6">
                 <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-4 w-72" />
@@ -138,18 +142,8 @@ export default function ShopPage() {
       )
   }
 
-  if (!isShopEnabled) {
-      return (
-          <div className="flex flex-col items-center justify-center text-center py-20">
-            <Store className="h-16 w-16 text-muted-foreground mb-4"/>
-            <h2 className="text-2xl font-bold">상점 준비중</h2>
-            <p className="text-muted-foreground">현재 상점은 준비중입니다. 잠시만 기다려주세요.</p>
-          </div>
-      )
-  }
-
   return (
-    <div className="pb-24">
+    <div className="pb-48">
        <div className="space-y-1 mb-6">
             <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2">
                 <ShoppingCart className="h-6 w-6"/>
@@ -162,7 +156,11 @@ export default function ShopPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.length === 0 ? (
-            <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
+            <div className="col-span-full text-center py-20">
+                <Store className="h-16 w-16 text-muted-foreground mx-auto mb-4"/>
+                <h2 className="text-2xl font-bold">판매중인 상품이 없습니다</h2>
+                <p className="text-muted-foreground">곧 새로운 상품으로 찾아오겠습니다.</p>
+          </div>
         ) : (
             products.map((product) => (
               <Card key={product.id} className="flex flex-col overflow-hidden">
@@ -191,8 +189,17 @@ export default function ShopPage() {
       </div>
 
        {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm border-t p-4 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] lg:left-[280px] bg-background/80 backdrop-blur-sm border-t p-4 shadow-lg">
           <div className="container mx-auto max-w-4xl">
+             {!isShopEnabled && (
+                <Alert variant="destructive" className="mb-2">
+                  <Ban className="h-4 w-4" />
+                  <AlertTitle>구매 불가</AlertTitle>
+                  <AlertDescription>
+                    현재 관리자에 의해 온라인 구매가 비활성화되었습니다.
+                  </AlertDescription>
+                </Alert>
+            )}
             <h3 className="text-lg font-semibold mb-2">장바구니</h3>
             <div className="max-h-32 overflow-y-auto pr-2">
                 {cart.map(item => (
@@ -207,7 +214,7 @@ export default function ShopPage() {
               <span>총 금액:</span>
               <span>{totalCost} 포인트</span>
             </div>
-            <Button className="w-full mt-3 font-bold" onClick={handlePurchase} disabled={isPurchasing}>
+            <Button className="w-full mt-3 font-bold" onClick={handlePurchase} disabled={isPurchasing || !isShopEnabled}>
               {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {totalCost} 포인트으로 구매하기
             </Button>

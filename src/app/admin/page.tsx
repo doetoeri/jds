@@ -117,7 +117,7 @@ export default function AdminPage() {
               await setShopStatus(checked);
               toast({
                   title: "성공",
-                  description: `종달 상점이 ${checked ? '활성화' : '비활성화'}되었습니다.`
+                  description: `상점 온라인 구매가 ${checked ? '활성화' : '비활성화'}되었습니다.`
               });
           }
       } catch (error) {
@@ -219,8 +219,8 @@ export default function AdminPage() {
                     </div>
                     <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5">
-                            <Label htmlFor="shop-enabled" className="text-base">종달 상점 활성화</Label>
-                            <p className="text-sm text-muted-foreground">비활성화 시 학생들이 상점에서 상품을 구매할 수 없습니다.</p>
+                            <Label htmlFor="shop-enabled" className="text-base">상점 온라인 구매 활성화</Label>
+                            <p className="text-sm text-muted-foreground">비활성화 시 학생들이 상점에서 상품 목록은 볼 수 있지만, 온라인으로 구매할 수는 없습니다.</p>
                         </div>
                         <Switch
                             id="shop-enabled"
