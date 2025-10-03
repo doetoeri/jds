@@ -52,9 +52,15 @@ export default function SignupPage() {
   
   const nextStep = () => {
     if (step === 2) {
-      if (userType === 'student' && !studentId.match(/^\d{5}$/)) {
-        toast({ title: '오류', description: '학번은 5자리 숫자로 입력해주세요.', variant: 'destructive' });
-        return;
+      if (userType === 'student') {
+        if (!studentId.match(/^\d{5}$/)) {
+            toast({ title: '오류', description: '학번은 5자리 숫자로 입력해주세요.', variant: 'destructive' });
+            return;
+        }
+        if (studentId.startsWith('00') || studentId.startsWith('99')) {
+             toast({ title: '오류', description: '해당 학번 형식은 학생용으로 사용할 수 없습니다.', variant: 'destructive' });
+            return;
+        }
       }
        if (userType === 'teacher' && (!teacherName || !officeFloor || !teacherNickname)) {
         toast({ title: '오류', description: '성함, 닉네임, 교무실 층수를 모두 입력해주세요.', variant: 'destructive' });

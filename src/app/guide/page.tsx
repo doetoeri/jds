@@ -64,8 +64,8 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">메이트코드 (파트너 코드)</h4>
-                        <p className="text-sm text-muted-foreground">친구의 메이트코드를 입력하고 자신의 학번을 입력하면, 나와 친구 모두 포인트를 받습니다!</p>
+                        <h4 className="font-semibold text-md">메이트코드</h4>
+                        <p className="text-sm text-muted-foreground">친구의 메이트코드를 입력하고 자신의 학번을 입력하면, 나와 친구 모두 포인트를 받습니다! 사용 횟수 제한이 없습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
                         <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
