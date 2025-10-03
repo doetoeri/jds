@@ -79,7 +79,7 @@ export default function AdminPage() {
                     }
                     break;
                 case '메이트코드':
-                    if (code.used && Array.isArray(code.usedBy)) {
+                    if (Array.isArray(code.usedBy)) {
                         redeemed += (code.usedBy.length * code.value);
                     }
                     break;
