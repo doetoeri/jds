@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { auth, givePointsToMultipleStudentsAtBooth } from '@/lib/firebase';
-import { Loader2, Award, User, RotateCcw } from 'lucide-react';
+import { auth, givePointsToMultipleStudentsAtBooth, handleSignOut } from '@/lib/firebase';
+import { Loader2, Award, User, LogOut } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   Card,
@@ -18,7 +18,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import Link from 'next/link';
 
 export default function KioskAwardPage() {
   const [studentId, setStudentId] = useState('');
@@ -38,6 +37,13 @@ export default function KioskAwardPage() {
       router.push('/kiosk/setup');
     }
   }, [router]);
+
+  const handleLogout = async () => {
+      localStorage.removeItem('kiosk_point_value');
+      localStorage.removeItem('kiosk_point_reason');
+      await handleSignOut();
+      router.push('/login');
+  }
 
   const handleGivePoints = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,10 +105,8 @@ export default function KioskAwardPage() {
                 <Award className="text-primary" />
                 포인트 지급
               </div>
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/kiosk/setup">
-                    <RotateCcw className="h-4 w-4" />
-                </Link>
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
               </Button>
             </CardTitle>
             <CardDescription>

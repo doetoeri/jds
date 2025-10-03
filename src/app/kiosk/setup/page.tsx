@@ -40,6 +40,12 @@ export default function KioskSetupPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // If a session is already active, redirect to the award page
+    if (localStorage.getItem('kiosk_point_value') && localStorage.getItem('kiosk_point_reason')) {
+      router.push('/kiosk/award');
+      return;
+    }
+
     const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
     const unsubscribe = onSnapshot(reasonsRef, (doc) => {
       if (doc.exists()) {
@@ -48,7 +54,7 @@ export default function KioskSetupPage() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleStartSession = (e: React.FormEvent) => {
     e.preventDefault();
