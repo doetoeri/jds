@@ -4,26 +4,16 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { usePathname, useRouter } from 'next/navigation';
-import { auth, db, handleSignOut } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { Loader2, LogOut } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
-import { Logo } from '@/components/logo';
-import { Button } from '@/components/ui/button';
 
 export default function KioskLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const { toast } = useToast();
   const [user, loading] = useAuthState(auth);
   const [isAuthorized, setIsAuthorized] = useState(false);
-
-  const logout = async () => {
-    localStorage.removeItem('kiosk_point_value');
-    localStorage.removeItem('kiosk_point_reason');
-    await handleSignOut();
-    router.push('/login');
-  };
 
   useEffect(() => {
     const checkAuthorization = async () => {
@@ -62,22 +52,16 @@ export default function KioskLayout({ children }: { children: ReactNode }) {
 
   if (loading || !isAuthorized) {
     return (
-       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+       <div className="flex items-center justify-center min-h-screen bg-orange-50">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-        <div className="absolute top-6 left-6">
-            <Logo />
-        </div>
-        <div className="absolute top-6 right-6">
-            <Button variant="ghost" size="sm" onClick={logout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                세션 종료
-            </Button>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-orange-50 p-4">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2">
+            <h1 className="text-3xl font-bold font-headline text-orange-500">JongDalSam</h1>
         </div>
         {children}
     </div>
