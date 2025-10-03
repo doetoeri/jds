@@ -7,17 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { auth, givePointsToMultipleStudentsAtBooth, handleSignOut } from '@/lib/firebase';
+import { auth, givePointsToMultipleStudentsAtBooth } from '@/lib/firebase';
 import { Loader2, Award, User, LogOut } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 
 export default function KioskAwardPage() {
   const [studentId, setStudentId] = useState('');
@@ -37,13 +29,6 @@ export default function KioskAwardPage() {
       router.push('/kiosk/setup');
     }
   }, [router]);
-
-  const handleLogout = async () => {
-      localStorage.removeItem('kiosk_point_value');
-      localStorage.removeItem('kiosk_point_reason');
-      await handleSignOut();
-      router.push('/login');
-  }
 
   const handleGivePoints = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,27 +81,17 @@ export default function KioskAwardPage() {
   }
 
   return (
-    <div className="w-full max-w-md">
-      <Card className="w-full">
-        <form onSubmit={handleGivePoints}>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className='flex items-center gap-2'>
-                <Award className="text-primary" />
-                포인트 지급
-              </div>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" />
-              </Button>
-            </CardTitle>
-            <CardDescription>
-                지급 사유: <strong>{sessionSettings.reason}</strong> / 지급 포인트: <strong>{sessionSettings.value}</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Label htmlFor="studentId">학생 학번 (5자리)</Label>
+    <div className="w-full max-w-md mx-auto">
+        <div className="text-center mb-8">
+            <p className="text-lg text-muted-foreground">지급 사유</p>
+            <h1 className="text-4xl font-bold font-headline text-foreground">{sessionSettings.reason}</h1>
+            <p className="mt-4 text-6xl font-bold text-primary">{sessionSettings.value} <span className="text-3xl font-semibold">포인트</span></p>
+        </div>
+      <form onSubmit={handleGivePoints} className="space-y-6">
+        <div className="space-y-2">
+            <Label htmlFor="studentId" className="text-lg sr-only">학생 학번 (5자리)</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 id="studentId"
                 placeholder="학번을 입력하고 Enter를 누르세요"
@@ -124,19 +99,16 @@ export default function KioskAwardPage() {
                 onChange={(e) => setStudentId(e.target.value)}
                 disabled={isLoading}
                 required
-                className="pl-9 h-12 text-lg"
+                className="pl-12 h-16 text-2xl text-center tracking-widest font-mono"
                 autoFocus
               />
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isLoading || !studentId}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Award className="mr-2 h-4 w-4" />}
-              포인트 지급
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+        </div>
+        <Button type="submit" className="w-full h-16 text-xl font-bold" disabled={isLoading || !studentId}>
+            {isLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Award className="mr-2 h-6 w-6" />}
+            포인트 지급
+        </Button>
+      </form>
     </div>
   );
 }

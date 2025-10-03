@@ -79,7 +79,7 @@ export default function KioskSetupPage() {
         <form onSubmit={handleStartSession}>
           <CardHeader>
             <CardTitle>키오스크 세션 설정</CardTitle>
-            <CardDescription>이번 세션 동안 학생들에게 지급할 포인트와 사유를 설정합니다.</CardDescription>
+            <CardDescription>이번 세션 동안 학생들에게 지급할 포인트와 사유를 설정합니다. 세션이 시작되면 로그아웃 전까지 변경할 수 없습니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -92,12 +92,13 @@ export default function KioskSetupPage() {
                 onChange={(e) => setValue(e.target.value)}
                 disabled={isLoading}
                 required
+                className="h-12 text-lg"
               />
             </div>
             <div>
               <Label htmlFor="reason">지급 사유</Label>
               <Select onValueChange={setReason} value={reason} disabled={isLoading}>
-                <SelectTrigger id="reason">
+                <SelectTrigger id="reason" className="h-12 text-lg">
                   <SelectValue placeholder="지급 사유를 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
@@ -109,7 +110,7 @@ export default function KioskSetupPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full font-bold" disabled={isLoading || !value || !reason}>
+            <Button type="submit" className="w-full font-bold h-14 text-lg" disabled={isLoading || !value || !reason}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
               세션 시작하기
             </Button>
