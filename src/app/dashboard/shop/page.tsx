@@ -6,7 +6,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, Store, Ban } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, Store, Ban, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -164,8 +164,14 @@ export default function ShopPage() {
         ) : (
             products.map((product) => (
               <Card key={product.id} className="flex flex-col overflow-hidden">
-                <div className="relative w-full h-40">
-                    <Image src={product.imageUrl} alt={product.name} layout="fill" objectFit="cover" />
+                <div className="relative w-full h-40 bg-muted">
+                    {product.imageUrl ? (
+                        <Image src={product.imageUrl} alt={product.name} layout="fill" objectFit="cover" />
+                    ): (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <ImageIcon className="h-12 w-12"/>
+                        </div>
+                    )}
                 </div>
                 <CardContent className="p-4 flex flex-col flex-grow">
                   <div className="flex-grow">

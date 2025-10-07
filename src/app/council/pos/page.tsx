@@ -10,7 +10,7 @@ import {
   CardDescription,
   CardFooter
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, User } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -178,7 +178,7 @@ export default function CouncilPosPage() {
                         <Image src={product.imageUrl} alt={product.name} layout="fill" objectFit="cover" />
                     ): (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                            <span>이미지 없음</span>
+                            <ImageIcon className="h-10 w-10"/>
                         </div>
                     )}
                 </div>
