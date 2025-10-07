@@ -1063,4 +1063,10 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
   });
 };
 
+export const updateBoothReasons = async (reasons: string[]) => {
+    const settingsRef = doc(db, 'system_settings', 'booth_reasons');
+    await setDoc(settingsRef, { reasons }, { merge: true });
+};
+
+
 export { auth, db, storage, sendPasswordResetEmail };

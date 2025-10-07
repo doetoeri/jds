@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -63,7 +64,6 @@ const adminLinks = [
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
   { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
   { name: '상점 관리', href: '/council/shop', icon: Cog },

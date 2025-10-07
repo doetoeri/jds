@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -6,9 +7,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo } from "@/lib/firebase";
+import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,6 +26,7 @@ import {
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle as DialogTitleComponent, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 
 interface Stats {
@@ -45,6 +47,11 @@ export default function AdminPage() {
   const [leaderboardToReset, setLeaderboardToReset] = useState('');
   const [isResettingLeaderboard, setIsResettingLeaderboard] = useState(false);
 
+  const [isReasonsDialogOpen, setIsReasonsDialogOpen] = useState(false);
+  const [boothReasons, setBoothReasons] = useState<string[]>([]);
+  const [newReason, setNewReason] = useState('');
+  const [isUpdatingReasons, setIsUpdatingReasons] = useState(false);
+
 
   useEffect(() => {
     const settingsRef = doc(db, 'system_settings', 'main');
@@ -55,6 +62,13 @@ export default function AdminPage() {
             setIsShopEnabled(data.isShopEnabled ?? true);
         }
         setIsTogglingSystem(false);
+    });
+
+    const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
+    const unsubReasons = onSnapshot(reasonsRef, (doc) => {
+        if (doc.exists()) {
+            setBoothReasons(doc.data().reasons || []);
+        }
     });
 
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
@@ -79,7 +93,7 @@ export default function AdminPage() {
                     }
                     break;
                 case '메이트코드':
-                    if (Array.isArray(code.usedBy)) {
+                    if (Array.isArray(code.usedBy) && code.usedBy.length > 0) {
                         redeemed += (code.usedBy.length * code.value);
                     }
                     break;
@@ -101,6 +115,7 @@ export default function AdminPage() {
         unsubSettings();
         unsubUsers();
         unsubCodes();
+        unsubReasons();
     };
   }, []);
 
@@ -165,6 +180,32 @@ export default function AdminPage() {
         toast({ title: "초기화 오류", description: error.message || "리더보드 초기화 중 오류가 발생했습니다.", variant: "destructive" });
     } finally {
         setIsResettingLeaderboard(false);
+    }
+  };
+
+  const handleAddReason = async () => {
+    if (!newReason.trim()) return;
+    setIsUpdatingReasons(true);
+    const updatedReasons = [...boothReasons, newReason.trim()];
+    try {
+        await updateBoothReasons(updatedReasons);
+        setNewReason('');
+    } catch (e) {
+        toast({ title: '오류', description: '사유 추가에 실패했습니다.', variant: 'destructive' });
+    } finally {
+        setIsUpdatingReasons(false);
+    }
+  };
+  
+  const handleRemoveReason = async (reasonToRemove: string) => {
+    setIsUpdatingReasons(true);
+    const updatedReasons = boothReasons.filter(r => r !== reasonToRemove);
+    try {
+        await updateBoothReasons(updatedReasons);
+    } catch (e) {
+        toast({ title: '오류', description: '사유 삭제에 실패했습니다.', variant: 'destructive' });
+    } finally {
+        setIsUpdatingReasons(false);
     }
   };
 
@@ -293,6 +334,47 @@ export default function AdminPage() {
                                     {isResettingLeaderboard && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                     초기화 실행
                                 </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label className="text-base">지급 사유 관리</Label>
+                            <p className="text-sm text-muted-foreground">부스, 키오스크 등에서 사용할 포인트 지급 사유를 관리합니다.</p>
+                        </div>
+                         <Dialog open={isReasonsDialogOpen} onOpenChange={setIsReasonsDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="secondary" size="sm"><Settings className="h-4 w-4"/><span className="ml-2">관리</span></Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                <DialogTitleComponent>지급 사유 관리</DialogTitleComponent>
+                                <DialogDescription>
+                                    학생회 부스나 키오스크에서 사용할 포인트 지급 사유 목록입니다.
+                                </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4 space-y-4">
+                                    <div className="space-y-2">
+                                        {boothReasons.map((reason, i) => (
+                                            <div key={i} className="flex items-center justify-between">
+                                                <span>{reason}</span>
+                                                <Button size="icon" variant="ghost" onClick={() => handleRemoveReason(reason)} disabled={isUpdatingReasons}>
+                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Input value={newReason} onChange={e => setNewReason(e.target.value)} placeholder="새 사유 추가" disabled={isUpdatingReasons} />
+                                        <Button onClick={handleAddReason} disabled={isUpdatingReasons || !newReason.trim()}>
+                                            {isUpdatingReasons && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                            추가
+                                        </Button>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild><Button variant="outline">닫기</Button></DialogClose>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
