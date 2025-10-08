@@ -38,7 +38,7 @@ export default function AdminSignupPage() {
 
   const validateId = () => {
     if (accountType === 'council_booth' && !id.startsWith('00')) {
-      return '학생회(부스) 계정 ID는 00으로 시작해야 합니다.';
+      return '특수 계정 ID는 00으로 시작해야 합니다.';
     }
     if (accountType === 'kiosk' && !id.startsWith('99')) {
       return '키오스크 계정 ID는 99로 시작해야 합니다.';
@@ -102,7 +102,7 @@ export default function AdminSignupPage() {
         </motion.div>
         <motion.div variants={FADE_IN_VARIANTS}>
             <p className="text-lg text-muted-foreground mt-2">
-                학생회(부스) 또는 키오스크 계정을 생성합니다.
+                학생회 부스 운영, 키오스크 등 특수 목적 계정을 생성합니다.
             </p>
         </motion.div>
       </div>
@@ -115,7 +115,7 @@ export default function AdminSignupPage() {
                     <SelectValue placeholder="계정 유형 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="council_booth">학생회 (부스)</SelectItem>
+                    <SelectItem value="council_booth">특수 계정 (부스)</SelectItem>
                     <SelectItem value="kiosk">키오스크</SelectItem>
                 </SelectContent>
             </Select>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -32,17 +33,30 @@ interface Purchase {
   totalCost: number;
   status: 'pending' | 'completed';
   paymentCode?: string;
+  studentId: string;
 }
 
 export default function OrdersPage() {
   const [user] = useAuthState(auth);
+  const [userData, setUserData] = useState<{ studentId?: string } | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
+    if (user) {
+      const userDocRef = doc(db, 'users', user.uid);
+      getDoc(userDocRef).then(docSnap => {
+        if(docSnap.exists()) {
+          setUserData(docSnap.data() as any);
+        }
+      });
+    }
+  }, [user]);
+
+  useEffect(() => {
     const fetchPurchases = async () => {
-      if (!user) {
+      if (!user || !userData?.studentId) {
         setIsLoading(false);
         return;
       }
@@ -51,7 +65,7 @@ export default function OrdersPage() {
         const purchasesRef = collection(db, `purchases`);
         const q = query(
             purchasesRef, 
-            where('userId', '==', user.uid), 
+            where('studentId', '==', userData.studentId), 
             orderBy('createdAt', 'desc')
         );
         const querySnapshot = await getDocs(q);
@@ -67,8 +81,12 @@ export default function OrdersPage() {
         setIsLoading(false);
       }
     };
-    fetchPurchases();
-  }, [user, toast]);
+    
+    if (userData) { // Fetch purchases only when userData is available
+      fetchPurchases();
+    }
+
+  }, [user, userData, toast]);
 
   const formatItems = (items: Purchase['items']) => {
     if (!Array.isArray(items)) return 'N/A';

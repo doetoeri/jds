@@ -94,7 +94,8 @@ export function UserNav() {
      if (userData?.role === 'admin') return '관리자';
      if (userData?.displayName) return userData.displayName;
      if (userData?.role === 'teacher') return `${userData.name} 선생님`;
-     if (userData?.role === 'student' || userData?.role === 'council' || userData?.role === 'council_booth') return `학생 (${userData.studentId})`;
+     if (userData?.role === 'student' || userData?.role === 'council') return `학생 (${userData.studentId})`;
+     if (userData?.role === 'council_booth') return userData.name;
      return '사용자';
   }
   

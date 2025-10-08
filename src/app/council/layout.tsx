@@ -24,6 +24,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isMaintenanceMode, setMaintenanceMode] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const maintenanceRef = doc(db, 'system_settings', 'maintenance');
@@ -54,6 +55,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
 
       if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
+          setUserRole(userData.role);
           if (userData.role === 'council' || userData.role === 'council_booth') {
               setIsAuthorized(true);
           } else {
@@ -64,7 +66,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
             
             toast({
               title: '접근 권한 없음',
-              description: '학생회만 접근할 수 있는 페이지입니다.',
+              description: '학생회 또는 관련 계정만 접근할 수 있는 페이지입니다.',
               variant: 'destructive',
             });
             setTimeout(() => router.push(redirectPath), 50);
@@ -73,7 +75,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
         setIsAuthorized(false);
         toast({
           title: '접근 권한 없음',
-          description: '학생회만 접근할 수 있는 페이지입니다.',
+          description: '학생회 또는 관련 계정만 접근할 수 있는 페이지입니다.',
           variant: 'destructive',
         });
         setTimeout(() => router.push('/dashboard'), 50);
@@ -109,11 +111,11 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
             <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
                 <Logo isCouncil />
             </div>
-            <DesktopNav role="council" />
+            <DesktopNav role={userRole as any} />
         </div>
         <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <SideNav role="council" />
+          <SideNav role={userRole as any} />
           <div className="w-full flex-1" />
           <UserNav />
         </header>

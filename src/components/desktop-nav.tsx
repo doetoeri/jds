@@ -65,11 +65,14 @@ const adminLinks = [
 
 const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
-  { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
+  { name: '학생 사용자 관리', href: '/council/users', icon: Users },
   { name: '상점 관리', href: '/council/shop', icon: Cog },
   { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
-  { name: '학생 사용자 관리', href: '/council/users', icon: Users },
+];
+
+const councilBoothLinks = [
+    { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
+    { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
 ];
 
 const teacherLinks = [
@@ -82,6 +85,7 @@ const navConfig = {
   student: studentLinks,
   admin: adminLinks,
   council: councilLinks,
+  council_booth: councilBoothLinks,
   teacher: teacherLinks,
 };
 
@@ -112,7 +116,7 @@ const NavLink = ({ name, href, icon: Icon }: NavLinkProps) => {
 
 export function DesktopNav({ role }: { role: Role }) {
   const { handleLogout, isLoggingOut } = useLogout();
-  const links = navConfig[role];
+  const links = navConfig[role] || [];
 
   return (
     <div className="hidden border-r bg-muted/40 md:block">

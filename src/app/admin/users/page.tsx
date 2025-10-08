@@ -375,8 +375,8 @@ export default function AdminUsersPage() {
 
   const roleDisplayNames: Record<User['role'], string> = {
     admin: '관리자',
-    council: '학생회',
-    council_booth: '학생회(부스)',
+    council: '학생회(일반)',
+    council_booth: '특수 계정(부스)',
     teacher: '교직원',
     student: '학생',
     pending_teacher: '승인 대기',
@@ -731,8 +731,8 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="student">학생</SelectItem>
-                  <SelectItem value="council">학생회</SelectItem>
-                  <SelectItem value="council_booth">학생회(부스)</SelectItem>
+                  <SelectItem value="council">학생회(일반)</SelectItem>
+                  <SelectItem value="council_booth">특수 계정(부스)</SelectItem>
                   <SelectItem value="kiosk">키오스크</SelectItem>
                 </SelectContent>
               </Select>
