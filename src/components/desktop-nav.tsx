@@ -41,6 +41,7 @@ const studentLinks = [
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
+  { name: '주문 내역', href: '/dashboard/orders', icon: ListOrdered },
   { name: '사용 내역', href: '/dashboard/history', icon: History },
 ];
 
