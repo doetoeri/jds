@@ -33,6 +33,14 @@ const storage = getStorage(app);
 
 const POINT_LIMIT = 25;
 
+const generatePaymentCode = (type: 'ONL' | 'POS') => {
+    const now = new Date();
+    const datePart = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+    const timePart = now.toTimeString().slice(0, 5).replace(':', ''); // HHMM
+    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${type}-${datePart}${timePart}-${randomPart}`;
+}
+
 // Helper function to handle point distribution
 const distributePoints = async (
   transaction: any,
@@ -400,6 +408,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
         transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
+    const paymentCode = generatePaymentCode('ONL');
     transaction.update(userRef, { lak: increment(-totalCost) });
 
     const cartItemsDescription = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
@@ -407,7 +416,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
       date: Timestamp.now(),
-      description: `상품 구매: ${cartItemsDescription}`,
+      description: `상품 구매 (${paymentCode}): ${cartItemsDescription}`,
       amount: -totalCost,
       type: 'debit',
     });
@@ -419,7 +428,8 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
         items: cart,
         totalCost: totalCost,
         createdAt: Timestamp.now(),
-        status: 'pending'
+        status: 'pending',
+        paymentCode: paymentCode,
     });
 
 
@@ -892,7 +902,7 @@ export const processPosPayment = async (
         transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
-    // Deduct points
+    const paymentCode = generatePaymentCode('POS');
     transaction.update(studentRef, { lak: increment(-totalCost) });
 
     // Add transaction history
@@ -900,7 +910,7 @@ export const processPosPayment = async (
     const historyRef = doc(collection(studentRef, 'transactions'));
     transaction.set(historyRef, {
       date: Timestamp.now(),
-      description: `매점 결제: ${itemsDescription}`,
+      description: `매점 결제 (${paymentCode}): ${itemsDescription}`,
       amount: -totalCost,
       type: 'debit',
       operator: operatorId,
@@ -915,7 +925,8 @@ export const processPosPayment = async (
         totalCost: totalCost,
         createdAt: Timestamp.now(),
         status: 'completed', // POS transactions are completed instantly
-        operatorId: operatorId
+        operatorId: operatorId,
+        paymentCode: paymentCode,
     });
 
 
