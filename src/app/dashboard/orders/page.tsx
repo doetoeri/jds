@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { auth, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ListOrdered } from 'lucide-react';
@@ -46,21 +46,33 @@ export default function OrdersPage() {
   useEffect(() => {
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
-      getDoc(userDocRef).then(docSnap => {
+      const unsubscribe = getDoc(userDocRef).then(docSnap => {
         if(docSnap.exists()) {
           setUserData(docSnap.data() as any);
+        } else {
+            setIsLoading(false);
         }
+      }).catch(err => {
+          console.error("Failed to fetch user data", err);
+          toast({title: "오류", description: "사용자 정보를 불러오는데 실패했습니다.", variant: "destructive"});
+          setIsLoading(false);
       });
+    } else {
+        setIsLoading(false);
     }
-  }, [user]);
+  }, [user, toast]);
 
   useEffect(() => {
+    if (!userData) {
+      return;
+    }
+
     const fetchPurchases = async () => {
-      if (!user || !userData?.studentId) {
+      if (!user || !userData.studentId) {
         setIsLoading(false);
         return;
       }
-      setIsLoading(true);
+      
       try {
         const purchasesRef = collection(db, `purchases`);
         const q = query(
@@ -82,9 +94,7 @@ export default function OrdersPage() {
       }
     };
     
-    if (userData) { // Fetch purchases only when userData is available
-      fetchPurchases();
-    }
+    fetchPurchases();
 
   }, [user, userData, toast]);
 
