@@ -82,7 +82,7 @@ export default function AdminCouncilPage() {
   }, [users, filter]);
 
   const formatTimestamp = (ts: Timestamp | undefined) => {
-    if (!ts) return <Badge variant="outline">활동 기록 없음</Badge>;
+    if (!ts || typeof ts.toDate !== 'function') return <Badge variant="outline">활동 기록 없음</Badge>;
     const date = ts.toDate();
     const now = new Date();
     const diffSeconds = Math.round((now.getTime() - date.getTime()) / 1000);
