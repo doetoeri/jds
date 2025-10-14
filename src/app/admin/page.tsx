@@ -35,8 +35,8 @@ interface Stats {
 }
 
 export default function AdminPage() {
-  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
-  const [isShopEnabled, setIsShopEnabled] = useState(true);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
+  const [isShopEnabled, setIsShopEnabled] = useState<boolean>(true);
   const [isTogglingSystem, setIsTogglingSystem] = useState(true);
   const [isResettingGame, setIsResettingGame] = useState(false);
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, totalLakIssued: 0 });
@@ -58,8 +58,11 @@ export default function AdminPage() {
     const unsubSettings = onSnapshot(settingsRef, (doc) => {
         if (doc.exists()) {
             const data = doc.data();
-            setIsMaintenanceMode(data.isMaintenanceMode);
-            setIsShopEnabled(data.isShopEnabled ?? true);
+            setIsMaintenanceMode(data?.isMaintenanceMode ?? false);
+            setIsShopEnabled(data?.isShopEnabled ?? true);
+        } else {
+            setIsMaintenanceMode(false);
+            setIsShopEnabled(true);
         }
         setIsTogglingSystem(false);
     });
