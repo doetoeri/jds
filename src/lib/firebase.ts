@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -9,6 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  updateProfile,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit, arrayRemove } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -166,6 +166,7 @@ export const signUp = async (
         createdAt: Timestamp.now(),
         lak: 0,
         piggyBank: 0,
+        lastLogin: Timestamp.now(),
     };
 
     switch(userType) {
@@ -254,6 +255,10 @@ export const signIn = async (email: string, password: string) => {
 
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
+    
+    const updateLoginTime = async () => {
+        await updateDoc(userDocRef, { lastLogin: Timestamp.now() });
+    };
 
     if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -261,9 +266,10 @@ export const signIn = async (email: string, password: string) => {
             await signOut(auth);
             throw new Error('관리자 승인 대기중인 계정입니다.');
         }
+        await updateLoginTime();
     } else {
         if (email === 'admin@jongdalsem.com') {
-             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자', createdAt: Timestamp.now() });
+             await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자', createdAt: Timestamp.now(), lastLogin: Timestamp.now() });
         } else {
             await signOut(auth);
             throw new Error('사용자 데이터가 존재하지 않습니다. 관리자에게 문의하세요.');
@@ -516,6 +522,10 @@ export const updateUserProfile = async (
   const updateData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
+  
+  if (data.displayName && auth.currentUser?.uid === userId) {
+      await updateProfile(auth.currentUser, { displayName: data.displayName });
+  }
 
   if (Object.keys(updateData).length > 0) {
     await updateDoc(userRef, updateData);
@@ -1077,6 +1087,17 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
 export const updateBoothReasons = async (reasons: string[]) => {
     const settingsRef = doc(db, 'system_settings', 'booth_reasons');
     await setDoc(settingsRef, { reasons }, { merge: true });
+};
+
+export const sendNotification = async (roleCode: string, message: string) => {
+    if (!roleCode || !message) {
+        throw new Error('호출 코드와 메시지는 필수입니다.');
+    }
+    await addDoc(collection(db, 'notifications'), {
+        roleCode,
+        message,
+        createdAt: Timestamp.now()
+    });
 };
 
 

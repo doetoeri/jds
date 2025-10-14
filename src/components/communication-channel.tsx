@@ -5,14 +5,20 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, RadioTower } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, sendNotification } from '@/lib/firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { cn } from '@/lib/utils';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Label } from './ui/label';
 
 interface Message {
   id: string;
@@ -31,6 +37,10 @@ export function CommunicationChannel() {
   const [user] = useAuthState(auth);
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  const [callCode, setCallCode] = useState('');
+  const [callMessage, setCallMessage] = useState('');
+  const [isCalling, setIsCalling] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -90,6 +100,24 @@ export function CommunicationChannel() {
     }
   };
   
+  const handleCall = async () => {
+      if (!callCode.trim() || !callMessage.trim()) {
+          toast({ title: "입력 오류", description: "호출 코드와 메시지를 모두 입력해주세요.", variant: 'destructive' });
+          return;
+      }
+      setIsCalling(true);
+      try {
+          await sendNotification(callCode, callMessage);
+          toast({ title: "호출 완료", description: `${callCode} 담당자에게 알림을 보냈습니다.` });
+          setCallCode('');
+          setCallMessage('');
+      } catch (e: any) {
+          toast({ title: "호출 실패", description: e.message, variant: 'destructive'});
+      } finally {
+          setIsCalling(false);
+      }
+  }
+
   const getInitials = (name: string) => {
       if (name === '관리자') return 'A';
       return name.substring(0, 1) || 'S';
@@ -101,7 +129,7 @@ export function CommunicationChannel() {
         <CardTitle>학생회 소통 채널</CardTitle>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden">
-        <ScrollArea className="h-full max-h-[calc(100vh-300px)] pr-4" ref={scrollAreaRef}>
+        <ScrollArea className="h-full max-h-[calc(100vh-340px)] pr-4" ref={scrollAreaRef}>
           {isLoading && <Loader2 className="mx-auto h-6 w-6 animate-spin" />}
           {messages.map((msg, index) => (
             <div key={msg.id} className={cn(
@@ -130,7 +158,7 @@ export function CommunicationChannel() {
           ))}
         </ScrollArea>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col items-start gap-2">
         <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
           <Input 
             value={newMessage}
@@ -142,6 +170,49 @@ export function CommunicationChannel() {
             {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
+         <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                    <RadioTower className="mr-2 h-4 w-4"/> 담당자 호출하기
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                <div className="space-y-2">
+                    <h4 className="font-medium leading-none">담당자 호출</h4>
+                    <p className="text-sm text-muted-foreground">
+                    특정 직책 담당자에게 브라우저 알림을 보냅니다.
+                    </p>
+                </div>
+                <div className="grid gap-2">
+                    <div className="grid grid-cols-3 items-center gap-4">
+                        <Label htmlFor="width">호출 코드</Label>
+                        <Input
+                            id="width"
+                            value={callCode}
+                            onChange={(e) => setCallCode(e.target.value.toUpperCase())}
+                            placeholder="예: A계1"
+                            className="col-span-2 h-8"
+                        />
+                    </div>
+                     <div className="grid grid-cols-3 items-center gap-4">
+                        <Label htmlFor="height">메시지</Label>
+                        <Input
+                            id="height"
+                            value={callMessage}
+                            onChange={(e) => setCallMessage(e.target.value)}
+                            placeholder="예: 계산대로 와주세요"
+                            className="col-span-2 h-8"
+                        />
+                    </div>
+                </div>
+                <Button onClick={handleCall} disabled={isCalling}>
+                    {isCalling && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    호출
+                </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
       </CardFooter>
     </Card>
   );

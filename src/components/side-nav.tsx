@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -33,6 +32,7 @@ import {
   User as UserIcon,
   CheckSquare,
   BarChart3,
+  ShieldQuestion,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -63,6 +63,7 @@ const studentSettingsLinks = [
 const adminLinks = [
   { name: '관리자 홈', href: '/admin', icon: Home },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
+  { name: '학생회 관리', href: '/admin/council', icon: ShieldQuestion },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
   { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },

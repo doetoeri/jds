@@ -52,7 +52,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-            const role = userDoc.data().role;
+            const userData = userDoc.data();
+            const role = userData.role;
             
             if (role === 'council_booth') {
                 router.push('/council/booth');
@@ -73,39 +74,34 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 setTimeout(() => router.push(redirectPath), 50);
                 return; 
             }
+            
+            // Setup notifications for council members
+            if ((role === 'council' || role === 'council_booth') && userData.memo && 'Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    const notificationsQuery = query(
+                        collection(db, 'notifications'),
+                        where('roleCode', '==', userData.memo),
+                        where('createdAt', '>', Timestamp.now())
+                    );
+                    
+                    const unsubscribeNotifications = onSnapshot(notificationsQuery, (snapshot) => {
+                        snapshot.docChanges().forEach((change) => {
+                            if (change.type === 'added') {
+                                const notificationData = change.doc.data();
+                                new Notification(`호출: ${notificationData.roleCode}`, {
+                                    body: notificationData.message,
+                                    icon: '/logo-192.png',
+                                });
+                            }
+                        });
+                    });
+                    return () => unsubscribeNotifications();
+                }
+            }
+
         }
         setIsAuthorized(true);
         setCheckingAuth(false);
-        
-        // Setup notifications listener
-        const userDocData = userDoc.data();
-        if (!userDocData) return;
-
-        const lastCheck = userDocData.lastLetterCheckTimestamp || new Timestamp(0, 0);
-        
-        const q = query(
-          collection(db, 'letters'),
-          where('receiverStudentId', '==', userDocData.studentId),
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                const letter = change.doc.data();
-                if (
-                    change.type === "added" &&
-                    letter.status === 'approved' &&
-                    letter.approvedAt &&
-                    letter.approvedAt.toMillis() > lastCheck.toMillis()
-                ) {
-                    new Notification('새로운 편지가 도착했어요!', {
-                        body: `${letter.senderStudentId}님으로부터 편지가 도착했습니다.`,
-                        icon: '/logo-192.png',
-                    });
-                }
-            });
-        });
-
-        return () => unsubscribe();
     };
 
     checkRoleAndSetupNotifications();
