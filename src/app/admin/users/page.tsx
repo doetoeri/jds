@@ -498,7 +498,7 @@ export default function AdminUsersPage() {
                          <UserCog className="mr-1 h-3.5 w-3.5"/>
                          역할
                        </Button>
-                       <Button variant="outline" size="sm" onClick={() => openMemoDialog(user)} disabled={user.role === 'admin'}>
+                       <Button variant="outline" size="sm" onClick={() => openMemoDialog(user)}>
                          <Pencil className="mr-1 h-3.5 w-3.5"/>
                          비고
                        </Button>

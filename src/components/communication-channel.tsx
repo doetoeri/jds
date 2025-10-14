@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -66,10 +67,10 @@ export function CommunicationChannel() {
       if (!userDoc.exists()) throw new Error('사용자 정보를 찾을 수 없습니다.');
       
       const userData = userDoc.data();
-      const authorName = userData.role === 'admin' ? '관리자' : userData.name || '학생회';
+      const authorName = userData.memo || (userData.role === 'admin' ? '관리자' : userData.name || '학생회');
       const authorRole = userData.role;
 
-      if (authorRole !== 'admin' && authorRole !== 'council') {
+      if (authorRole !== 'admin' && authorRole !== 'council' && authorRole !== 'council_booth') {
         throw new Error('메시지를 보낼 권한이 없습니다.');
       }
 
