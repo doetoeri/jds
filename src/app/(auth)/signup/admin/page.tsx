@@ -76,9 +76,9 @@ export default function AdminSignupPage() {
       await signUp(accountType, signupData, fixedPassword, email);
       toast({
         title: '계정 생성 완료',
-        description: `${name}(${email}) 계정이 성공적으로 생성되었습니다.`,
+        description: `${name}(${email}) 계정이 성공적으로 생성되었습니다. (기본 비밀번호: 123456)`,
       });
-      router.push('/admin');
+      router.push('/admin/users');
     } catch (error: any) {
        toast({ title: '계정 생성 실패', description: error.message, variant: 'destructive' });
        setIsLoading(false);
@@ -136,11 +136,6 @@ export default function AdminSignupPage() {
             <Input id="email" type="email" placeholder="contact@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} required />
         </motion.div>
         
-         <motion.div variants={FADE_IN_VARIANTS}>
-            <Label htmlFor="password">비밀번호</Label>
-            <Input id="password" value="123456 (고정)" disabled />
-        </motion.div>
-
         <div className="flex flex-col gap-4 mt-8">
             <motion.div variants={FADE_IN_VARIANTS}>
                 <Button type="submit" className="w-full font-bold" disabled={isLoading}>

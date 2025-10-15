@@ -79,8 +79,29 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    let finalPassword = password;
+    let isSpecialAccount = false;
+    
+    // Check if it's a special account email to use fixed password
     try {
-      const user = await signIn(email, password);
+        const userQuery = query(collection(db, 'users'), where('email', '==', email));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+            const userData = userSnapshot.docs[0].data();
+            const userRole = userData.role;
+            if (userRole === 'council_booth' || userRole === 'kiosk') {
+                isSpecialAccount = true;
+                finalPassword = '123456';
+            }
+        }
+    } catch(e) {
+        // This is a pre-check, if it fails, let the sign-in handle it.
+    }
+
+
+    try {
+      const user = await signIn(email, finalPassword);
       
       if (!user) {
           throw new Error("사용자를 찾을 수 없습니다.");
@@ -242,6 +263,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                     className="h-12 text-base"
+                    placeholder="특수 계정은 이메일만 입력"
                 />
               </div>
             </motion.div>
