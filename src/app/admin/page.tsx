@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -7,9 +6,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2 } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons } from "@/lib/firebase";
+import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -51,6 +50,9 @@ export default function AdminPage() {
   const [boothReasons, setBoothReasons] = useState<string[]>([]);
   const [newReason, setNewReason] = useState('');
   const [isUpdatingReasons, setIsUpdatingReasons] = useState(false);
+  
+  const [globalDiscount, setGlobalDiscount] = useState(0);
+  const [isSavingDiscount, setIsSavingDiscount] = useState(false);
 
 
   useEffect(() => {
@@ -60,10 +62,12 @@ export default function AdminPage() {
             const data = doc.data();
             setIsMaintenanceMode(data?.isMaintenanceMode ?? false);
             setIsShopEnabled(data?.isShopEnabled ?? true);
+            setGlobalDiscount(data?.globalDiscount ?? 0);
         } else {
             // Set to default values if the document doesn't exist
             setIsMaintenanceMode(false);
             setIsShopEnabled(true);
+            setGlobalDiscount(0);
         }
         setIsTogglingSystem(false);
     });
@@ -150,6 +154,21 @@ export default function AdminPage() {
       }
   }
   
+  const handleDiscountSave = async () => {
+    setIsSavingDiscount(true);
+    try {
+        await setGlobalDiscount(globalDiscount);
+        toast({
+            title: '할인율 저장됨',
+            description: `모든 상점에 ${globalDiscount}% 할인이 적용됩니다.`
+        });
+    } catch(e) {
+        toast({ title: '오류', description: '할인율 저장에 실패했습니다.', variant: 'destructive'});
+    } finally {
+        setIsSavingDiscount(false);
+    }
+  }
+
   const handleResetGame = async () => {
     setIsResettingGame(true);
     try {
@@ -273,6 +292,30 @@ export default function AdminPage() {
                             onCheckedChange={(checked) => handleSystemToggle('shop', checked)}
                             disabled={isTogglingSystem}
                         />
+                    </div>
+                     <div className="rounded-lg border p-3 shadow-sm space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="shop-discount" className="text-base">상점 전체 할인율</Label>
+                                <p className="text-sm text-muted-foreground">모든 온라인 및 오프라인 상점 구매에 할인율을 적용합니다.</p>
+                            </div>
+                            <Button size="sm" onClick={handleDiscountSave} disabled={isSavingDiscount}>
+                                {isSavingDiscount && <Loader2 className="h-4 w-4 animate-spin mr-2" />} 저장
+                            </Button>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <Percent className="h-4 w-4 text-muted-foreground" />
+                             <Select value={String(globalDiscount)} onValueChange={(v) => setGlobalDiscount(Number(v))}>
+                              <SelectTrigger className="w-28">
+                                <SelectValue placeholder="할인율 선택" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map(p => (
+                                    <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                         </div>
                     </div>
                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5">

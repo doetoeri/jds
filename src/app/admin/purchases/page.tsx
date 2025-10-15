@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -147,7 +146,7 @@ export default function AdminPurchasesPage() {
                   <TableRow key={purchase.id}>
                     <TableCell className="font-mono text-xs">{purchase.paymentCode || 'N/A'}</TableCell>
                     <TableCell className="font-medium">{purchase.studentId}</TableCell>
-                    <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toLocaleString() : '날짜 없음'}</TableCell>
+                    <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
                     <TableCell className="max-w-[250px] truncate">{formatItems(purchase.items)}</TableCell>
                     <TableCell>{getPaymentType(purchase.paymentCode)}</TableCell>
                     <TableCell className="text-right">

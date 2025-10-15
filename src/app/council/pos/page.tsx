@@ -1,19 +1,18 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Users } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Users, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, processPosPayment } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -53,11 +52,19 @@ export default function CouncilPosPage() {
   const [totalCost, setTotalCost] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [globalDiscount, setGlobalDiscount] = useState(0);
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
 
   useEffect(() => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    const unsubSettings = onSnapshot(settingsRef, (doc) => {
+      if (doc.exists()) {
+        setGlobalDiscount(doc.data().globalDiscount ?? 0);
+      }
+    });
+    
     const qProducts = query(collection(db, "products"), where("stock", ">", 0));
     const unsubProducts = onSnapshot(qProducts, (snapshot) => {
       const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
@@ -72,15 +79,21 @@ export default function CouncilPosPage() {
     });
 
     return () => {
+        unsubSettings();
         unsubProducts();
         unsubOperators();
     };
   }, []);
 
+  const discountedTotalCost = useMemo(() => {
+    const originalTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return Math.round(originalTotal * (1 - globalDiscount / 100));
+  }, [cart, globalDiscount]);
+
+
   useEffect(() => {
-    const newTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    setTotalCost(newTotal);
-  }, [cart]);
+    setTotalCost(discountedTotalCost);
+  }, [discountedTotalCost]);
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -216,7 +229,16 @@ export default function CouncilPosPage() {
                 <CardContent className="p-4 flex flex-col flex-grow">
                   <div className="flex-grow">
                     <h3 className="font-bold text-lg">{product.name}</h3>
-                    <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
+                     {globalDiscount > 0 ? (
+                        <div className="flex items-baseline gap-2">
+                            <p className="text-sm text-muted-foreground line-through">{product.price} P</p>
+                            <p className="text-base text-primary font-semibold">
+                                {Math.round(product.price * (1 - globalDiscount / 100))} 포인트
+                            </p>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
+                    )}
                     <p className="text-xs text-muted-foreground">남은 수량: {product.stock}개</p>
                   </div>
                   <div className="mt-4 flex items-center justify-center gap-2">
@@ -242,14 +264,21 @@ export default function CouncilPosPage() {
                 {cart.map(item => (
                     <div key={item.id} className="flex justify-between items-center text-sm mb-1">
                         <span>{item.name} x{item.quantity}</span>
-                        <span>{item.price * item.quantity} 포인트</span>
+                        <span>{Math.round(item.price * (1 - globalDiscount / 100)) * item.quantity} 포인트</span>
                     </div>
                 ))}
             </div>
             <Separator className="my-2"/>
             <div className="flex justify-between items-center font-bold text-xl">
               <span>총 금액:</span>
-              <span>{totalCost} 포인트</span>
+               <div className="flex items-baseline gap-2">
+                  {globalDiscount > 0 && (
+                    <span className="text-sm text-muted-foreground font-normal line-through">
+                      {cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} P
+                    </span>
+                  )}
+                  <span className="text-primary">{totalCost} 포인트</span>
+                </div>
             </div>
             <Button className="w-full mt-3 font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId || !isOperatorSelected}>
               {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
