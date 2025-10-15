@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Loader2, Edit, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Edit, Image as ImageIcon, ShoppingCart } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -194,7 +194,7 @@ export default function CouncilShopPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight font-headline">상점 관리</h1>
+            <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2"><ShoppingCart />상점 관리</h1>
             <p className="text-muted-foreground">상품을 추가, 수정, 삭제하고 재고를 관리합니다.</p>
         </div>
         <Button size="sm" className="gap-1" onClick={() => handleOpenDialog()}>
