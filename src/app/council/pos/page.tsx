@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Users, Percent } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Users, Percent, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -38,21 +39,15 @@ interface CartItem extends Product {
   quantity: number;
 }
 
-interface Operator {
-    id: string;
-    name: string;
-}
-
 export default function CouncilPosPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [selectedOperatorId, setSelectedOperatorId] = useState('');
   const [studentId, setStudentId] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [totalCost, setTotalCost] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [globalDiscount, setGlobalDiscount] = useState(0);
+  const [manualDiscount, setManualDiscount] = useState(0);
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
@@ -72,28 +67,22 @@ export default function CouncilPosPage() {
       setIsLoading(false);
     });
 
-    const qOperators = query(collection(db, "users"), where("role", "in", ["council", "council_booth"]));
-    const unsubOperators = onSnapshot(qOperators, (snapshot) => {
-        const opsData = snapshot.docs.map(doc => ({id: doc.id, name: doc.data().name || doc.data().displayName } as Operator));
-        setOperators(opsData);
-    });
-
     return () => {
         unsubSettings();
         unsubProducts();
-        unsubOperators();
     };
   }, []);
 
-  const discountedTotalCost = useMemo(() => {
+  const finalTotalCost = useMemo(() => {
     const originalTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    return Math.round(originalTotal * (1 - globalDiscount / 100));
-  }, [cart, globalDiscount]);
+    const globallyDiscounted = Math.round(originalTotal * (1 - globalDiscount / 100));
+    return Math.max(0, globallyDiscounted - manualDiscount);
+  }, [cart, globalDiscount, manualDiscount]);
 
 
   useEffect(() => {
-    setTotalCost(discountedTotalCost);
-  }, [discountedTotalCost]);
+    setTotalCost(finalTotalCost);
+  }, [finalTotalCost]);
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -125,9 +114,9 @@ export default function CouncilPosPage() {
   };
   
   const handlePurchase = async () => {
-    if (!selectedOperatorId) {
-      toast({ title: '오류', description: '계산원(운영자)을 선택해주세요.', variant: 'destructive' });
-      return;
+    if (!user) {
+        toast({ title: '오류', description: '로그인 정보가 없습니다.', variant: 'destructive' });
+        return;
     }
     if (!studentId || !/^\d{5}$/.test(studentId)) {
       toast({ title: '입력 오류', description: '올바른 학생 학번 5자리를 입력해주세요.', variant: 'destructive' });
@@ -147,19 +136,18 @@ export default function CouncilPosPage() {
         quantity: item.quantity,
     }));
     
-    const result = await processPosPayment(selectedOperatorId, studentId, itemsForPurchase, totalCost);
+    const result = await processPosPayment(user.uid, studentId, itemsForPurchase, totalCost);
     
     if (result.success) {
       toast({ title: '결제 완료!', description: result.message });
       setCart([]);
       setStudentId('');
+      setManualDiscount(0);
     } else {
       toast({ title: '결제 실패', description: result.message, variant: 'destructive' });
     }
     setIsPurchasing(false);
   };
-
-  const isOperatorSelected = !!selectedOperatorId;
 
   return (
     <div className="pb-48">
@@ -169,28 +157,15 @@ export default function CouncilPosPage() {
             종달매점 계산원
         </h1>
         <p className="text-muted-foreground">
-            운영자를 선택하고, 상품을 선택한 뒤 학생의 학번을 입력하여 결제를 진행하세요.
+            판매할 상품을 선택한 뒤 학생의 학번을 입력하여 결제를 진행하세요.
         </p>
       </div>
       
        <Card className="mb-6">
             <CardHeader>
-                <CardTitle>계산원 및 결제 대상</CardTitle>
+                <CardTitle>결제 대상</CardTitle>
             </CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-6">
-                 <div className="space-y-2">
-                    <Label htmlFor="operator">계산원(운영자)</Label>
-                    <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId}>
-                      <SelectTrigger id="operator">
-                        <SelectValue placeholder="계산원을 선택하세요" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {operators.map(op => (
-                            <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                 </div>
+            <CardContent>
                  <div className="space-y-2">
                     <Label htmlFor="studentId">학생 학번 (5자리)</Label>
                     <div className="relative">
@@ -200,7 +175,7 @@ export default function CouncilPosPage() {
                           value={studentId}
                           onChange={(e) => setStudentId(e.target.value)}
                           placeholder="결제할 학생의 학번 입력"
-                          disabled={isPurchasing || !isOperatorSelected}
+                          disabled={isPurchasing}
                           required
                           className="pl-9"
                         />
@@ -209,7 +184,7 @@ export default function CouncilPosPage() {
             </CardContent>
         </Card>
 
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 ${!isOperatorSelected ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {isLoading ? (
             Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
         ) : products.length === 0 ? (
@@ -269,20 +244,40 @@ export default function CouncilPosPage() {
                 ))}
             </div>
             <Separator className="my-2"/>
-            <div className="flex justify-between items-center font-bold text-xl">
-              <span>총 금액:</span>
-               <div className="flex items-baseline gap-2">
+            <div className="flex justify-between items-center text-lg">
+                <span className="font-bold">상품 합계</span>
+                 <div className="flex items-baseline gap-2">
                   {globalDiscount > 0 && (
                     <span className="text-sm text-muted-foreground font-normal line-through">
                       {cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} P
                     </span>
                   )}
-                  <span className="text-primary">{totalCost} 포인트</span>
+                  <span>{Math.round(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * (1 - globalDiscount / 100))} 포인트</span>
                 </div>
             </div>
-            <Button className="w-full mt-3 font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId || !isOperatorSelected}>
+            <div className="flex justify-between items-center text-lg mt-1">
+                <Label htmlFor="manual-discount" className="font-bold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary"/>에누리</Label>
+                <div className="flex items-center gap-2">
+                 <Input 
+                    id="manual-discount"
+                    type="number"
+                    value={manualDiscount || ''}
+                    onChange={(e) => setManualDiscount(Number(e.target.value))}
+                    className="w-24 h-8 text-right font-bold"
+                    placeholder="할인액"
+                    disabled={isPurchasing}
+                 />
+                 <span className="font-bold">포인트</span>
+                </div>
+            </div>
+            <Separator className="my-2"/>
+            <div className="flex justify-between items-center font-bold text-xl">
+              <span>최종 금액:</span>
+              <span className="text-primary">{totalCost} 포인트</span>
+            </div>
+            <Button className="w-full mt-3 font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId}>
               {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {!isOperatorSelected ? '계산원을 먼저 선택해주세요' : studentId ? `${studentId} 학생 / ${totalCost} 포인트 결제하기` : '학생 학번을 입력하세요'}
+              {studentId ? `${studentId} 학생 / ${totalCost} 포인트 결제하기` : '학생 학번을 입력하세요'}
             </Button>
           </div>
         </div>

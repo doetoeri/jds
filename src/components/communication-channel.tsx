@@ -9,7 +9,7 @@ import { Send, Loader2, RadioTower } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, sendNotification } from '@/lib/firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, doc, getDoc, where } from 'firebase/firestore';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface Message {
   id: string;
@@ -27,6 +28,11 @@ interface Message {
   createdAt: Timestamp;
   authorName: string;
   authorRole: 'admin' | 'council';
+}
+
+interface CouncilMember {
+    id: string;
+    name: string; // This would be the memo/직책코드
 }
 
 export function CommunicationChannel() {
@@ -38,7 +44,8 @@ export function CommunicationChannel() {
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
-  const [callCode, setCallCode] = useState('');
+  const [councilMembers, setCouncilMembers] = useState<CouncilMember[]>([]);
+  const [selectedCouncilMember, setSelectedCouncilMember] = useState('');
   const [callMessage, setCallMessage] = useState('');
   const [isCalling, setIsCalling] = useState(false);
 
@@ -62,7 +69,18 @@ export function CommunicationChannel() {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    const councilQuery = query(collection(db, 'users'), where('role', 'in', ['council', 'council_booth']));
+    const unsubCouncil = onSnapshot(councilQuery, (snapshot) => {
+        const members = snapshot.docs
+            .map(doc => ({ id: doc.id, name: doc.data().memo || doc.data().name }))
+            .filter(member => member.name); // Ensure name/memo exists
+        setCouncilMembers(members);
+    });
+
+    return () => {
+        unsubscribe();
+        unsubCouncil();
+    };
   }, [toast]);
   
 
@@ -101,15 +119,15 @@ export function CommunicationChannel() {
   };
   
   const handleCall = async () => {
-      if (!callCode.trim() || !callMessage.trim()) {
-          toast({ title: "입력 오류", description: "호출 코드와 메시지를 모두 입력해주세요.", variant: 'destructive' });
+      if (!selectedCouncilMember || !callMessage.trim()) {
+          toast({ title: "입력 오류", description: "호출 대상과 메시지를 모두 입력해주세요.", variant: 'destructive' });
           return;
       }
       setIsCalling(true);
       try {
-          await sendNotification(callCode, callMessage);
-          toast({ title: "호출 완료", description: `${callCode} 담당자에게 알림을 보냈습니다.` });
-          setCallCode('');
+          await sendNotification(selectedCouncilMember, callMessage);
+          toast({ title: "호출 완료", description: `${selectedCouncilMember} 담당자에게 알림을 보냈습니다.` });
+          setSelectedCouncilMember('');
           setCallMessage('');
       } catch (e: any) {
           toast({ title: "호출 실패", description: e.message, variant: 'destructive'});
@@ -186,19 +204,22 @@ export function CommunicationChannel() {
                 </div>
                 <div className="grid gap-2">
                     <div className="grid grid-cols-3 items-center gap-4">
-                        <Label htmlFor="width">호출 코드</Label>
-                        <Input
-                            id="width"
-                            value={callCode}
-                            onChange={(e) => setCallCode(e.target.value.toUpperCase())}
-                            placeholder="예: A계1"
-                            className="col-span-2 h-8"
-                        />
+                        <Label htmlFor="council-member">호출 대상</Label>
+                        <Select value={selectedCouncilMember} onValueChange={setSelectedCouncilMember}>
+                            <SelectTrigger className="col-span-2 h-8">
+                                <SelectValue placeholder="담당자 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {councilMembers.map(member => (
+                                    <SelectItem key={member.id} value={member.name}>{member.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                      <div className="grid grid-cols-3 items-center gap-4">
-                        <Label htmlFor="height">메시지</Label>
+                        <Label htmlFor="call-message">메시지</Label>
                         <Input
-                            id="height"
+                            id="call-message"
                             value={callMessage}
                             onChange={(e) => setCallMessage(e.target.value)}
                             placeholder="예: 계산대로 와주세요"

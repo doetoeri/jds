@@ -241,16 +241,15 @@ export default function SettingsPage() {
                 <CardDescription>새로운 편지가 오면 브라우저 알림을 받도록 설정합니다.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {notificationPermission === 'granted' && (
+                 {notificationPermission === 'granted' ? (
                     <Alert variant="default" className="bg-green-50 border-green-200">
                         <Bell className="h-4 w-4 text-green-600" />
                         <AlertTitle className="text-green-800">알림이 현재 허용되어 있습니다.</AlertTitle>
                         <AlertDescription className="text-green-700">
-                            새로운 편지가 도착하면 브라우저를 통해 알려드립니다.
+                            이제 새로운 편지 도착 등 알림을 브라우저를 통해 받을 수 있습니다.
                         </AlertDescription>
                     </Alert>
-                )}
-                 {notificationPermission === 'denied' && (
+                ) : notificationPermission === 'denied' ? (
                     <Alert variant="destructive">
                         <BellOff className="h-4 w-4" />
                         <AlertTitle>알림이 차단되었습니다.</AlertTitle>
@@ -258,10 +257,9 @@ export default function SettingsPage() {
                             알림을 받으려면 브라우저 주소창 옆의 아이콘을 클릭하여 사이트 설정에서 직접 권한을 변경해야 합니다.
                         </AlertDescription>
                     </Alert>
-                )}
-                {notificationPermission === 'default' && (
+                ) : (
                     <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                        <p className="text-sm text-muted-foreground">새로운 편지 도착 알림을 받으시겠어요?</p>
+                        <p className="text-sm text-muted-foreground">새로운 편지 도착 등 중요 알림을 받으시겠어요?</p>
                         <Button onClick={handleRequestPermission}>
                            <Bell className="mr-2 h-4 w-4"/> 알림 권한 요청하기
                         </Button>
