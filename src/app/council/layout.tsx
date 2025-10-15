@@ -55,14 +55,14 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
 
       if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          setUserRole(userData.role);
-          if (userData.role === 'council' || userData.role === 'council_booth') {
+          const role = userData.role;
+          setUserRole(role);
+          if (role === 'admin' || role === 'council' || role === 'council_booth') {
               setIsAuthorized(true);
           } else {
             setIsAuthorized(false);
             let redirectPath = '/dashboard';
-            if (userData.role === 'admin') redirectPath = '/admin';
-            else if (userData.role === 'teacher') redirectPath = '/teacher/rewards';
+            if (role === 'teacher') redirectPath = '/teacher/rewards';
             
             toast({
               title: '접근 권한 없음',
