@@ -61,6 +61,7 @@ export default function AdminPage() {
             setIsMaintenanceMode(data?.isMaintenanceMode ?? false);
             setIsShopEnabled(data?.isShopEnabled ?? true);
         } else {
+            // Set to default values if the document doesn't exist
             setIsMaintenanceMode(false);
             setIsShopEnabled(true);
         }

@@ -1,12 +1,12 @@
 
 {
-    "name": "JongDalSam Hub",
-    "short_name": "JDS Hub",
-    "start_url": "/",
+    "name": "종달샘 허브",
+    "short_name": "종달샘",
+    "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#FF781F",
-    "description": "고촌중학교 학생들을 위한 포인트 시스템 및 커뮤니티",
+    "description": "고촌중학교 학생들을 위한 공식 포인트 및 커뮤니티 플랫폼입니다.",
     "icons": [
         {
             "src": "/logo-192.png",
