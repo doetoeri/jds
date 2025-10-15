@@ -30,53 +30,38 @@ export default function AdminSignupPage() {
   const [accountType, setAccountType] = useState<SpecialAccountType | ''>('');
   const [id, setId] = useState('');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
 
-  const validateId = () => {
-    if (accountType === 'council_booth' && !id.startsWith('00')) {
-      return '특수 계정 ID는 00으로 시작해야 합니다.';
-    }
-    if (accountType === 'kiosk' && !id.startsWith('99')) {
-      return '키오스크 계정 ID는 99로 시작해야 합니다.';
-    }
-    if (!/^\d{5}$/.test(id)) {
-      return 'ID는 5자리 숫자여야 합니다.';
-    }
-    return null;
-  };
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!accountType || !id || !name || !email) {
+    if (!accountType || !id || !name) {
         toast({ title: '입력 오류', description: '모든 필드를 입력해주세요.', variant: 'destructive' });
         return;
-    }
-    
-    const idValidationError = validateId();
-    if (idValidationError) {
-      toast({ title: 'ID 형식 오류', description: idValidationError, variant: 'destructive' });
-      return;
     }
 
     setIsLoading(true);
     
+    // For special accounts, we'll use the ID as the main identifier and generate a dummy email.
+    // The password will be fixed.
     const signupData = {
-      studentId: id, // Use studentId field for simplicity
+      studentId: id, // This field will now hold the custom ID.
       name: name,
     };
     
+    // The fixed password for all special accounts
     const fixedPassword = '123456';
+    // The generated email for Firebase Auth, not visible to the user.
+    const emailForAuth = `${id.toLowerCase().replace(/\s/g, '_')}@special.account`;
 
     try {
-      await signUp(accountType, signupData, fixedPassword, email);
+      await signUp(accountType, signupData, fixedPassword, emailForAuth);
       toast({
         title: '계정 생성 완료',
-        description: `${name}(${email}) 계정이 성공적으로 생성되었습니다. (기본 비밀번호: 123456)`,
+        description: `'${name}'(${id}) 계정이 성공적으로 생성되었습니다. (기본 비밀번호는 '123456'입니다)`,
       });
       router.push('/admin/users');
     } catch (error: any) {
@@ -122,8 +107,8 @@ export default function AdminSignupPage() {
         </motion.div>
         
         <motion.div variants={FADE_IN_VARIANTS}>
-            <Label htmlFor="id">ID (5자리 숫자)</Label>
-            <Input id="id" placeholder={accountType === 'council_booth' ? '예: 00001' : accountType === 'kiosk' ? '예: 99001' : '유형을 먼저 선택하세요'} value={id} onChange={(e) => setId(e.target.value)} disabled={isLoading || !accountType} required />
+            <Label htmlFor="id">ID (로그인 시 사용)</Label>
+            <Input id="id" placeholder="예: A-1 부스, 이벤트 부스" value={id} onChange={(e) => setId(e.target.value)} disabled={isLoading} required />
         </motion.div>
 
         <motion.div variants={FADE_IN_VARIANTS}>
@@ -131,11 +116,6 @@ export default function AdminSignupPage() {
             <Input id="name" placeholder="예: 학생회 이벤트 부스" value={name} onChange={(e) => setName(e.target.value)} disabled={isLoading} required />
         </motion.div>
 
-        <motion.div variants={FADE_IN_VARIANTS}>
-            <Label htmlFor="email">이메일</Label>
-            <Input id="email" type="email" placeholder="contact@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} required />
-        </motion.div>
-        
         <div className="flex flex-col gap-4 mt-8">
             <motion.div variants={FADE_IN_VARIANTS}>
                 <Button type="submit" className="w-full font-bold" disabled={isLoading}>

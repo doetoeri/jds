@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, KeyRound, User, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { signIn, db, auth } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import {
   AlertDialog,
@@ -42,7 +42,7 @@ const FADE_IN_VARIANTS = {
 };
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [emailOrId, setEmailOrId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -81,27 +81,17 @@ export default function LoginPage() {
     setIsLoading(true);
 
     let finalPassword = password;
+    let finalEmail = emailOrId;
     let isSpecialAccount = false;
-    
-    // Check if it's a special account email to use fixed password
-    try {
-        const userQuery = query(collection(db, 'users'), where('email', '==', email));
-        const userSnapshot = await getDocs(userQuery);
-        if (!userSnapshot.empty) {
-            const userData = userSnapshot.docs[0].data();
-            const userRole = userData.role;
-            if (userRole === 'council_booth' || userRole === 'kiosk') {
-                isSpecialAccount = true;
-                finalPassword = '123456';
-            }
-        }
-    } catch(e) {
-        // This is a pre-check, if it fails, let the sign-in handle it.
+
+    // This is a simplified check for special account based on ID format
+    // A more robust check is now inside the signIn function
+    if (!emailOrId.includes('@')) {
+        isSpecialAccount = true;
     }
 
-
     try {
-      const user = await signIn(email, finalPassword);
+      const user = await signIn(finalEmail, isSpecialAccount ? '123456' : finalPassword);
       
       if (!user) {
           throw new Error("사용자를 찾을 수 없습니다.");
@@ -124,8 +114,8 @@ export default function LoginPage() {
             router.push('/teacher/login');
             return;
         }
-      } else if (email === 'admin@jongdalsem.com') {
-        await setDoc(userDocRef, { email, role: 'admin', name: '관리자', displayName: '관리자' });
+      } else if (finalEmail === 'admin@jongdalsem.com') {
+        await setDoc(userDocRef, { email: finalEmail, role: 'admin', name: '관리자', displayName: '관리자' });
         userRole = 'admin';
       }
 
@@ -204,15 +194,15 @@ export default function LoginPage() {
         <div className="space-y-4">
             <motion.div variants={FADE_IN_VARIANTS}>
               <div className="space-y-2">
-                <Label htmlFor="email">이메일</Label>
+                <Label htmlFor="email">이메일 또는 ID</Label>
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
                   autoComplete="email"
-                  placeholder="hello@example.com"
+                  placeholder="hello@example.com 또는 특수 계정 ID"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={emailOrId}
+                  onChange={(e) => setEmailOrId(e.target.value)}
                   disabled={isLoading}
                   className="h-12 text-base"
                 />
@@ -230,7 +220,7 @@ export default function LoginPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>비밀번호 재설정</AlertDialogTitle>
                           <AlertDialogDescription>
-                            가입하신 이메일 주소를 입력하시면, 비밀번호를 재설정할 수 있는 링크를 보내드립니다.
+                            가입하신 이메일 주소를 입력하시면, 비밀번호를 재설정할 수 있는 링크를 보내드립니다. (특수 계정은 재설정 불가)
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <div className="py-4">
@@ -258,12 +248,11 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   autoComplete="current-password"
-                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                     className="h-12 text-base"
-                    placeholder="특수 계정은 이메일만 입력"
+                    placeholder="특수 계정은 비워두셔도 됩니다."
                 />
               </div>
             </motion.div>
