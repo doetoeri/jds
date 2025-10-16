@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -69,7 +68,7 @@ export default function BoothSignupPage() {
         const studentQuery = query(collection(db, "users"), where("studentId", "==", studentId));
         const studentSnapshot = await getDocs(studentQuery);
         if (!studentSnapshot.empty) {
-            toast({ title: '오류', description: '이미 가입된 학번입니다.', variant: 'destructive' });
+            toast({ title: '확인', description: '이미 가입된 학번입니다.', variant: 'default' });
             setStudentId('');
             return;
         }
@@ -140,13 +139,13 @@ export default function BoothSignupPage() {
   const progress = (step / 4) * 100;
   
   const titles: { [key: number]: string } = {
-      1: "학번 입력",
+      1: "학번 확인",
       2: "이메일 입력",
       3: "비밀번호 설정",
       4: "비밀번호 확인"
   }
   const descriptions: { [key: number]: string } = {
-      1: "가입할 학생의 5자리 학번을 입력해주세요.",
+      1: "가입할 학생의 5자리 학번을 입력하여 등록 여부를 확인합니다.",
       2: "로그인에 사용할 학생의 이메일 주소를 입력해주세요.",
       3: "6자리 이상의 비밀번호를 설정해주세요.",
       4: "안전을 위해 비밀번호를 다시 한번 입력해주세요."
@@ -159,10 +158,7 @@ export default function BoothSignupPage() {
         animate={{ opacity: 1 }}
     >
       <div className="text-center mb-6">
-        <h1 className="text-4xl font-headline font-bold text-primary tracking-tighter">학생 빠른 회원가입</h1>
-        <p className="text-lg text-muted-foreground mt-2">
-          부스 전용 간편 회원가입 페이지입니다.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">학번을 입력하여, 등록 여부를 확인하세요.</h1>
       </div>
 
       <div className="mb-4">
@@ -229,12 +225,6 @@ export default function BoothSignupPage() {
         )}
       </div>
 
-      <div className="text-center text-sm text-muted-foreground mt-8">
-        이미 계정이 있으신가요?{' '}
-        <Link href="/login" className="font-semibold text-primary underline">
-          로그인
-        </Link>
-      </div>
     </motion.div>
   );
 }
