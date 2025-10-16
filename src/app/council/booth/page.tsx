@@ -121,7 +121,7 @@ export default function CouncilBoothPage() {
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-6 h-full">
+    <div className="grid md:grid-cols-2 gap-6 h-full bg-amber-50 p-6 rounded-lg">
         <div className="flex items-center justify-center">
              <Card className="w-full max-w-md">
                 <form onSubmit={handleGivePoints}>

@@ -12,7 +12,6 @@ import { signUp, db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
 
 const formVariants = {
   hidden: (direction: number) => ({
@@ -155,88 +154,87 @@ export default function BoothSignupPage() {
 
   return (
     <motion.div
-        className="w-full max-w-md"
+        className="w-full max-w-xl mx-auto"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
     >
-    <div className="text-center mb-6">
+      <div className="text-center mb-6">
         <h1 className="text-4xl font-headline font-bold text-primary tracking-tighter">학생 빠른 회원가입</h1>
         <p className="text-lg text-muted-foreground mt-2">
-            부스 전용 간편 회원가입 페이지입니다.
+          부스 전용 간편 회원가입 페이지입니다.
         </p>
-    </div>
-    
-    <Card>
-        <CardContent className="pt-6 relative min-h-[280px] overflow-hidden">
-             <div className="mb-4">
-                 <Progress value={progress} className="h-2"/>
-                 <div className="text-center mt-3">
-                    <p className="font-bold">{titles[step]}</p>
-                    <p className="text-sm text-muted-foreground">{descriptions[step]}</p>
-                 </div>
-             </div>
+      </div>
 
-            <AnimatePresence initial={false} custom={direction}>
-                 <motion.div
-                    key={step}
-                    custom={direction}
-                    variants={formVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="absolute w-full px-6"
-                >
-                    {step === 1 && (
-                         <div className="space-y-2">
-                            <Label htmlFor="studentId">학번 (5자리)</Label>
-                            <Input id="studentId" placeholder="예: 10203 (1학년 2반 3번)" required value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={isLoading} className="h-12 text-base text-center tracking-widest" />
-                        </div>
-                    )}
-                    {step === 2 && (
-                        <div className="space-y-2">
-                            <Label htmlFor="email">이메일</Label>
-                            <Input id="email" type="email" autoComplete="email" placeholder="hello@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} className="h-12 text-base" />
-                        </div>
-                    )}
-                    {step === 3 && (
-                        <div className="space-y-2">
-                            <Label htmlFor="password">비밀번호</Label>
-                            <Input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} className="h-12 text-base" />
-                        </div>
-                    )}
-                    {step === 4 && (
-                        <form onSubmit={handleSignup} className="space-y-2">
-                            <Label htmlFor="confirm-password">비밀번호 확인</Label>
-                            <Input id="confirm-password" type="password" autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} className="h-12 text-base"/>
-                        </form>
-                    )}
-                </motion.div>
-            </AnimatePresence>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-            <Button variant="ghost" onClick={handlePrevStep} disabled={step === 1 || isLoading}>
-                <ArrowLeft className="mr-2 h-4 w-4"/> 이전
-            </Button>
-            {step < 4 ? (
-                <Button onClick={handleNextStep} disabled={isLoading}>
-                    {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                    다음 <ArrowRight className="ml-2 h-4 w-4"/>
-                </Button>
-            ) : (
-                <Button onClick={handleSignup} disabled={isLoading}>
-                    {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <UserPlus className="mr-2 h-4 w-4"/>}
-                    회원가입
-                </Button>
+      <div className="mb-4">
+        <Progress value={progress} className="h-2" />
+        <div className="text-center mt-3">
+          <p className="font-bold">{titles[step]}</p>
+          <p className="text-sm text-muted-foreground">{descriptions[step]}</p>
+        </div>
+      </div>
+
+      <div className="relative min-h-[120px] overflow-hidden p-6">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={formVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute w-full px-6"
+          >
+            {step === 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="studentId">학번 (5자리)</Label>
+                <Input id="studentId" placeholder="예: 10203 (1학년 2반 3번)" required value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={isLoading} className="h-12 text-base text-center tracking-widest" />
+              </div>
             )}
-        </CardFooter>
-    </Card>
+            {step === 2 && (
+              <div className="space-y-2">
+                <Label htmlFor="email">이메일</Label>
+                <Input id="email" type="email" autoComplete="email" placeholder="hello@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} className="h-12 text-base" />
+              </div>
+            )}
+            {step === 3 && (
+              <div className="space-y-2">
+                <Label htmlFor="password">비밀번호</Label>
+                <Input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} className="h-12 text-base" />
+              </div>
+            )}
+            {step === 4 && (
+              <form onSubmit={handleSignup} className="space-y-2">
+                <Label htmlFor="confirm-password">비밀번호 확인</Label>
+                <Input id="confirm-password" type="password" autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} className="h-12 text-base" />
+              </form>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
-    <div className="text-center text-sm text-muted-foreground mt-4">
+      <div className="flex justify-between mt-8">
+        <Button variant="ghost" onClick={handlePrevStep} disabled={step === 1 || isLoading}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> 이전
+        </Button>
+        {step < 4 ? (
+          <Button onClick={handleNextStep} disabled={isLoading}>
+            {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+            다음 <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        ) : (
+          <Button onClick={handleSignup} disabled={isLoading}>
+            {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <UserPlus className="mr-2 h-4 w-4" />}
+            회원가입
+          </Button>
+        )}
+      </div>
+
+      <div className="text-center text-sm text-muted-foreground mt-8">
         이미 계정이 있으신가요?{' '}
         <Link href="/login" className="font-semibold text-primary underline">
-            로그인
+          로그인
         </Link>
-    </div>
+      </div>
     </motion.div>
   );
 }
