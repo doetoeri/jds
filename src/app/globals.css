@@ -55,7 +55,7 @@
   }
 
   /* Liquid Glass Theme */
-  body.liquid-glass-theme-enabled {
+  :root.liquid-glass-theme-enabled {
     --background: 18 100% 96%;
     --foreground: 24 10% 10%;
     --card: 24 20% 100% / 0.5;
@@ -97,8 +97,21 @@
   
   body.liquid-glass-theme-enabled {
     background-color: hsl(var(--background));
-    background-image: radial-gradient(circle at 1% 1%, hsl(var(--primary) / 0.1), rgba(255,255,255,0) 25%),
-                      radial-gradient(circle at 99% 99%, hsl(var(--ring) / 0.15), rgba(255,255,255,0) 35%);
+    overflow: hidden;
+  }
+
+  body.liquid-glass-theme-enabled::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200vw;
+    height: 200vh;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 1% 1%, hsl(var(--primary) / 0.1), rgba(255,255,255,0) 25%),
+                radial-gradient(circle at 99% 99%, hsl(var(--ring) / 0.15), rgba(255,255,255,0) 35%);
+    animation: gradient-move 20s ease-in-out infinite;
+    z-index: -1;
   }
   
   .liquid-glass-theme-enabled .card,
@@ -107,8 +120,10 @@
   .liquid-glass-theme-enabled [role="alert-dialog"],
   .liquid-glass-theme-enabled .sheet,
   .liquid-glass-theme-enabled [cmdk-root] {
-      @apply bg-card border border-white/50 shadow-soft-lg;
+      @apply bg-card border shadow-soft-xl;
       backdrop-filter: blur(16px);
+      box-shadow: 0 0 0 1px hsl(0 0% 100% / .1) inset,
+                  0 8px 32px 0 hsl(var(--primary) / .15);
   }
   
   .liquid-glass-theme-enabled [cmdk-item][aria-selected=true] {
@@ -139,13 +154,13 @@
   }
   
    .liquid-glass-theme-enabled .button[data-variant="default"] {
-      @apply bg-primary/80 text-primary-foreground hover:bg-primary;
-      box-shadow: 0 2px 10px hsl(var(--primary) / 0.4);
+      background-image: linear-gradient(to top right, hsl(var(--primary) / 0.8), hsl(var(--primary) / 0.9));
+      box-shadow: 0 0 0 1px hsl(var(--primary) / 0.8) inset, 0 2px 10px hsl(var(--primary) / 0.4);
    }
    
    .liquid-glass-theme-enabled .button[data-variant="destructive"] {
-      @apply bg-destructive/80 text-destructive-foreground hover:bg-destructive;
-      box-shadow: 0 2px 10px hsl(var(--destructive) / 0.4);
+      background-image: linear-gradient(to top right, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9));
+      box-shadow: 0 0 0 1px hsl(var(--destructive) / 0.8) inset, 0 2px 10px hsl(var(--destructive) / 0.4);
    }
 
   .card {
@@ -192,5 +207,3 @@
         box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
     }
 }
-
-    
