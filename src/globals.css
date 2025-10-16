@@ -1,0 +1,209 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root.theme-student {
+    --background: 18 100% 96%; /* fff2e6 */
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 18 100% 50%; /* ff5500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 10% 96%;
+    --secondary-foreground: 30 10% 10%;
+    --muted: 30 10% 96%;
+    --muted-foreground: 30 10% 45%;
+    --accent: 30 10% 92%;
+    --accent-foreground: 30 10% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 10% 90%;
+    --input: 30 10% 90%;
+    --ring: 18 100% 50%;
+    --radius: 1rem;
+  }
+ 
+  :root.theme-teacher {
+    --background: 124 23% 85%; /* aed3b1 */
+    --foreground: 130 60% 10%;
+    --card: 128 28% 98%;
+    --card-foreground: 128 77% 10%;
+    --popover: 128 28% 98%;
+    --popover-foreground: 128 77% 10%;
+    --primary: 130 70% 28%; /* 117a1d */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 128 20% 96%;
+    --secondary-foreground: 128 20% 20%;
+    --muted: 128 20% 96%;
+    --muted-foreground: 128 20% 45%;
+    --accent: 128 20% 92%;
+    --accent-foreground: 128 20% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 128 20% 90%;
+    --input: 128 20% 90%;
+    --ring: 130 70% 28%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* Define dark theme variables if needed */
+  }
+
+  /* Liquid Glass Theme */
+  :root.liquid-glass-theme-enabled {
+    --background: 18 100% 96%;
+    --foreground: 24 10% 10%;
+    --card: 24 20% 100% / 0.5;
+    --card-foreground: 24 10% 10%;
+    --popover: 24 20% 100% / 0.7;
+    --popover-foreground: 24 10% 10%;
+    --primary: 18 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 10% 96% / 0.5;
+    --secondary-foreground: 30 10% 20%;
+    --muted: 30 10% 96% / 0.5;
+    --muted-foreground: 30 10% 45%;
+    --accent: 18 100% 50% / 0.1;
+    --accent-foreground: 18 100% 40%;
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 20% 90% / 0.8;
+    --input: 30 20% 98% / 0.6;
+    --ring: 18 100% 55%;
+  }
+
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+
+  body.theme-student {
+      background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
+  }
+  body.theme-teacher {
+      background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
+  }
+  
+  body.liquid-glass-theme-enabled {
+    background-color: hsl(var(--background));
+    overflow: hidden;
+  }
+
+  body.liquid-glass-theme-enabled::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200vw;
+    height: 200vh;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 1% 1%, hsl(var(--primary) / 0.1), rgba(255,255,255,0) 25%),
+                radial-gradient(circle at 99% 99%, hsl(var(--ring) / 0.15), rgba(255,255,255,0) 35%);
+    animation: gradient-move 20s ease-in-out infinite;
+    z-index: -1;
+  }
+  
+  .liquid-glass-theme-enabled .card,
+  .liquid-glass-theme-enabled .popover,
+  .liquid-glass-theme-enabled [role="dialog"],
+  .liquid-glass-theme-enabled [role="alert-dialog"],
+  .liquid-glass-theme-enabled .sheet,
+  .liquid-glass-theme-enabled [cmdk-root] {
+      @apply bg-card border shadow-soft-xl;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 0 1px hsl(0 0% 100% / .1) inset,
+                  0 8px 32px 0 hsl(var(--primary) / .15);
+  }
+  
+  .liquid-glass-theme-enabled [cmdk-item][aria-selected=true] {
+      @apply bg-primary/10;
+  }
+
+  .liquid-glass-theme-enabled .table > :not([hidden]) ~ :not([hidden]) {
+    @apply border-white/50;
+  }
+
+  .liquid-glass-theme-enabled .card-content, 
+  .liquid-glass-theme-enabled .popover-content,
+  .liquid-glass-theme-enabled .dialog-content,
+  .liquid-glass-theme-enabled .alert-dialog-content {
+    background-color: transparent;
+  }
+
+  .liquid-glass-theme-enabled .button,
+  .liquid-glass-theme-enabled input,
+  .liquid-glass-theme-enabled textarea,
+  .liquid-glass-theme-enabled .select-trigger
+   {
+      @apply bg-input border-white/60 shadow-inner;
+  }
+  
+  .liquid-glass-theme-enabled .button {
+    @apply hover:bg-primary/10;
+  }
+  
+   .liquid-glass-theme-enabled .button[data-variant="default"] {
+      background-image: linear-gradient(to top right, hsl(var(--primary) / 0.8), hsl(var(--primary) / 0.9));
+      box-shadow: 0 0 0 1px hsl(var(--primary) / 0.8) inset, 0 2px 10px hsl(var(--primary) / 0.4);
+   }
+   
+   .liquid-glass-theme-enabled .button[data-variant="destructive"] {
+      background-image: linear-gradient(to top right, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9));
+      box-shadow: 0 0 0 1px hsl(var(--destructive) / 0.8) inset, 0 2px 10px hsl(var(--destructive) / 0.4);
+   }
+
+  .card {
+     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+}
+
+@layer components {
+  .gradient-blue {
+    background-image: linear-gradient(to bottom right, #3b82f6, #60a5fa);
+  }
+  .gradient-orange {
+    background-image: linear-gradient(to bottom right, #f97316, #fb923c);
+  }
+  .gradient-purple {
+    background-image: linear-gradient(to bottom right, #8b5cf6, #a78bfa);
+  }
+  .gradient-red {
+    background-image: linear-gradient(to bottom right, #ef4444, #f87171);
+  }
+  .gradient-amber {
+    background-image: linear-gradient(to bottom right, #f59e0b, #fbbf24);
+  }
+  .gradient-lime {
+      background-image: linear-gradient(to bottom right, #84cc16, #a3e635);
+  }
+  .gradient-emerald {
+      background-image: linear-gradient(to bottom right, #10b981, #34d399);
+  }
+  .gradient-sky {
+      background-image: linear-gradient(to bottom right, #0ea5e9, #38bdf8);
+  }
+  .gradient-violet {
+      background-image: linear-gradient(to bottom right, #7c3aed, #a78bfa);
+  }
+
+  .animate-highlight-pulse {
+    animation: highlight-pulse 2s ease-out infinite;
+  }
+}
+
+@layer utilities {
+    .shadow-soft-lg {
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+    }
+}
