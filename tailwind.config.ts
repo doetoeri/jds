@@ -1,4 +1,3 @@
-
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -12,15 +11,12 @@ export default {
     extend: {
       fontFamily: {
         body: ['"Gowun Dodum"', 'sans-serif'],
-        headline: ['"Gowun Dodum"', 'sans-serif'],
+        headline: ['"Gowun Batang"', 'serif'],
         code: ['monospace'],
         batang: ['"Gowun Batang"', 'serif'],
       },
       boxShadow: {
         'soft-lg': '0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05)',
-        'soft-xl': '0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05)',
-        'border-glow': '0 0 0 1px hsl(var(--primary) / .3)',
-        'inner-shadow': 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -54,10 +50,7 @@ export default {
           foreground: 'hsl(var(--destructive-foreground))',
         },
         border: 'hsl(var(--border))',
-        input: {
-          DEFAULT: 'hsl(var(--input))',
-          background: '#ffffff',
-        },
+        input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         chart: {
           '1': 'hsl(var(--chart-1))',
@@ -78,55 +71,28 @@ export default {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: "1rem",
+        md: "calc(1rem - 4px)",
+        sm: "calc(1rem - 8px)",
       },
       keyframes: {
-        'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-        },
-        'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-          to: {
-            height: '0',
-          },
-        },
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "collapsible-down": { from: { height: "0" }, to: { height: "var(--radix-collapsible-content-height)" } },
+        "collapsible-up": { from: { height: "var(--radix-collapsible-content-height)" }, to: { height: "0" } },
         'highlight-pulse': {
           '0%': { 'box-shadow': '0 0 0 0px hsl(var(--primary) / 0.5)' },
           '100%': { 'box-shadow': '0 0 0 10px hsl(var(--primary) / 0)' },
-        },
-        'gradient-move': {
-          '0%': { transform: 'translate(-50%, -50%) rotate(0deg)' },
-          '25%': { transform: 'translate(-45%, -55%) rotate(90deg)' },
-          '50%': { transform: 'translate(-50%, -50%) rotate(180deg)' },
-          '75%': { transform: 'translate(-55%, -45%) rotate(270deg)' },
-          '100%': { transform: 'translate(-50%, -50%) rotate(360deg)' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'collapsible-down': 'collapsible-down 0.2s ease-out',
+        'collapsible-up': 'collapsible-up 0.2s ease-out',
         'highlight-pulse': 'highlight-pulse 2s ease-out infinite',
-        'gradient-move': 'gradient-move 20s ease-in-out infinite',
       },
     },
   },
-  plugins: [
-      require('tailwindcss-animate'),
-      function ({ addComponents }: { addComponents: any }) {
-      addComponents({
-        '.input-white': {
-          '@apply bg-white': {},
-        }
-      })
-    }
-  ],
+  plugins: [require('tailwindcss-animate')],
 } satisfies Config;

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, updateUserProfile } from '@/lib/firebase';
-import { Loader2, User, Palette, Bell, BellOff, FlaskConical } from 'lucide-react';
+import { Loader2, User, Palette, Bell, BellOff } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,7 +24,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, '닉네임은 2자 이상이어야 합니다.').max(20, '닉네임은 20자 이하이어야 합니다.'),
@@ -52,7 +50,6 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedGradient, setSelectedGradient] = useState<string>('orange');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
-  const [isLiquidGlassEnabled, setIsLiquidGlassEnabled] = useState(false);
 
   const { toast } = useToast();
 
@@ -63,10 +60,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
-    }
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'liquid-glass') {
-      setIsLiquidGlassEnabled(true);
     }
   }, []);
 
@@ -134,17 +127,6 @@ export default function SettingsPage() {
          toast({ title: "알림 거부됨", description: "알림을 받으려면 브라우저 설정에서 권한을 변경해야 합니다.", variant: "destructive" });
     }
   };
-  
-  const handleThemeToggle = (enabled: boolean) => {
-    setIsLiquidGlassEnabled(enabled);
-    if (enabled) {
-      localStorage.setItem('theme', 'liquid-glass');
-      document.body.classList.add('liquid-glass-theme-enabled');
-    } else {
-      localStorage.removeItem('theme');
-      document.body.classList.remove('liquid-glass-theme-enabled');
-    }
-  }
 
   const getInitials = () => {
     return userData?.displayName?.substring(0, 1).toUpperCase() || user?.email?.substring(0, 1).toUpperCase() || 'U';
@@ -265,26 +247,6 @@ export default function SettingsPage() {
                         </Button>
                     </div>
                 )}
-            </CardContent>
-        </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><FlaskConical/> 실험실</CardTitle>
-                <CardDescription>아직 개발 중인 새로운 기능을 미리 사용해볼 수 있습니다.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                    <div className="space-y-1">
-                        <Label htmlFor="liquid-glass-theme" className="font-semibold">리퀴드 글래스 테마</Label>
-                        <p className="text-sm text-muted-foreground">앱 전체에 반투명 유리 효과를 적용합니다.</p>
-                    </div>
-                    <Switch 
-                        id="liquid-glass-theme"
-                        checked={isLiquidGlassEnabled}
-                        onCheckedChange={handleThemeToggle}
-                    />
-                </div>
             </CardContent>
         </Card>
     </div>
