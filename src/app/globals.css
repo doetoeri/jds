@@ -203,7 +203,164 @@
 }
 
 @layer utilities {
-    .shadow-soft-lg {
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
-    }
+  .shadow-soft-lg {
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  }
+}
+
+/* Liquid Toggle Button Styles */
+@layer components {
+  .liquid-toggle {
+    --unchecked: hsl(218, 8%, 81%);
+    --checked: hsl(18, 100%, 50%); /* Using primary color */
+    --control: hsl(300, 100%, 100%);
+    --border: 5px;
+    --width: 140px;
+    --height: 60px;
+    height: var(--height);
+    width: var(--width);
+    border-radius: 100px;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    position: relative;
+    overflow: visible;
+    container-type: inline-size;
+    background: transparent;
+    transition: outline 0.2s ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .liquid-toggle:focus-visible {
+    outline: 4px solid hsl(var(--ring));
+  }
+
+  .liquid-toggle .indicator {
+    border-radius: 100px;
+    pointer-events: none;
+    height: 100%;
+    width: 100%;
+    background: var(--checked);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: background 0.2s ease-out;
+  }
+
+  .liquid-toggle .knockout {
+    height: var(--height);
+    width: var(--width);
+    border-radius: 100px;
+    filter: url(#remove-black);
+    position: absolute;
+    inset: 0;
+    will-change: filter, transform;
+    transform: translate3d(0, 0, 0);
+  }
+  
+  .liquid-toggle .indicator--masked {
+    background: var(--checked);
+    z-index: 12;
+    height: 100%;
+    width: 100%;
+    transform: translate(-50%, -50%);
+    container-type: inline-size;
+    transition: background 0.2s ease-out;
+  }
+  
+  .liquid-toggle .indicator--masked .mask {
+    position: absolute;
+    height: calc(100% - (2 * var(--border)));
+    width: calc(60% - (2 * var(--border)));
+    top: 50%;
+    background: #000;
+    left: var(--border);
+    border-radius: 100px;
+    transform: translate(calc((var(--complete, 0) / 100) * (100cqi - 100% - (0 * var(--border)))), -50%);
+    transition: transform 0.4s cubic-bezier(0.5, -0.5, 0.25, 1.25);
+  }
+
+  .liquid-toggle .wrapper {
+    position: absolute;
+    inset: 0;
+    border-radius: 100px;
+    filter: blur(6px);
+    transition: filter 0.4s cubic-bezier(0.5, -0.5, 0.25, 1.25);
+  }
+
+  .liquid-toggle .liquids {
+    position: absolute;
+    inset: 0;
+    border-radius: 100px;
+    overflow: hidden;
+    filter: url(#goo);
+  }
+
+  .liquid-toggle .liquid__shadow {
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0px 0px 3px 4px var(--checked), inset calc(((var(--complete, 0) / 100) * 8px) + -4px) 0px 3px 4px var(--checked);
+    border-radius: 100px;
+    transition: box-shadow 0.2s ease-out, background 0.2s ease-out;
+  }
+  
+  .liquid-toggle .liquid__track {
+    content: '';
+    height: calc(var(--height) - (0 * var(--border)));
+    width: calc(var(--width) - (0 * var(--border)));
+    background: var(--checked);
+    border-radius: 100px;
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translate(calc((var(--complete, 0) / 100) * (100cqi - 100% - (6 * var(--border)))), -50%);
+    transition: transform 0.4s cubic-bezier(0.5, -0.5, 0.25, 1.25), background 0.2s ease-out;
+  }
+
+  .liquid-toggle .indicator__liquid {
+    position: absolute;
+    height: calc(100% - (2 * var(--border)));
+    width: calc(60% - (2 * var(--border)));
+    container-type: inline-size;
+    top: 50%;
+    background: transparent;
+    left: var(--border);
+    border-radius: 100px;
+    transform: translate(calc((var(--complete, 0) / 100) * (100cqi - 100% - (2 * var(--border)))), -50%);
+    transition: transform 0.4s cubic-bezier(0.5, -0.5, 0.25, 1.25);
+  }
+
+  .liquid-toggle .indicator__liquid .cover {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    border-radius: 100px;
+  }
+  
+  .liquid-toggle .indicator__liquid .shadow {
+    opacity: 0;
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 100px;
+    box-shadow: 1px -1px 2px hsl(0 0% 100% / 0.5) inset, 0px -1px 2px hsl(0 0% 100% / 0.5) inset, -1px -1px 2px hsl(0 0% 100% / 0.5) inset, 1px 1px 2px hsl(0 0% 30% / 0.5) inset, -8px 4px 10px -6px hsl(0 0% 30% / 0.25) inset, -1px 1px 6px hsl(0 0% 30% / 0.25) inset, -1px -1px 8px hsl(0 0% 60% / 0.15), 1px 1px 2px hsl(0 0% 30% / 0.15), 2px 2px 6px hsl(0 0% 30% / 0.15), -2px -1px 2px hsl(0 0% 100% / 0.25) inset, 3px 6px 16px -6px hsl(0 0% 30% / 0.5);
+    z-index: 20;
+    transition: opacity 0.4s cubic-bezier(0.5, -0.5, 0.25, 1.25);
+  }
+
+  /* Active/Pressed States */
+  .liquid-toggle:active .wrapper {
+    filter: blur(0px);
+  }
+  .liquid-toggle:active .indicator__liquid {
+    transform: translate(calc((var(--complete, 0) / 100) * (100cqi - 100% - (2 * var(--border)))), -50%) scale(1.1);
+  }
+  .liquid-toggle:active .indicator__liquid .shadow {
+    opacity: 1;
+  }
+  .liquid-toggle:active .indicator__liquid .cover {
+    opacity: 0;
+  }
 }

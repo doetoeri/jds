@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
+import { LiquidToggleButton } from '@/components/liquid-toggle-button';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, '닉네임은 2자 이상이어야 합니다.').max(20, '닉네임은 20자 이하이어야 합니다.'),
@@ -279,10 +280,9 @@ export default function SettingsPage() {
                         <Label htmlFor="liquid-glass-theme" className="font-semibold">리퀴드 글래스 테마</Label>
                         <p className="text-sm text-muted-foreground">앱 전체에 반투명 유리 효과를 적용합니다.</p>
                     </div>
-                    <Switch
-                        id="liquid-glass-theme"
-                        checked={isLiquidGlassEnabled}
-                        onCheckedChange={handleThemeToggle}
+                    <LiquidToggleButton
+                      isPressed={isLiquidGlassEnabled}
+                      onPressedChange={handleThemeToggle}
                     />
                 </div>
             </CardContent>
@@ -291,4 +291,7 @@ export default function SettingsPage() {
   );
 }
 
+<<<<<<< HEAD
     
+=======
+>>>>>>> ab53abacf1db56dd911a0f7753063cda2690a1f1
