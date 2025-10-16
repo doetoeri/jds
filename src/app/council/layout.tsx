@@ -31,6 +31,8 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);
+        } else {
+            setMaintenanceMode(false);
         }
     });
     return () => unsubscribe();
@@ -136,3 +138,5 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+    

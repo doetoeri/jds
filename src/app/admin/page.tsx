@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -435,3 +436,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

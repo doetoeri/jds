@@ -32,6 +32,8 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);
+        } else {
+            setMaintenanceMode(false);
         }
     });
     return () => unsubscribe();
@@ -134,3 +136,5 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+    
