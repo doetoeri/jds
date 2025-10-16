@@ -12,6 +12,7 @@ import { signUp, db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 
 const formVariants = {
   hidden: (direction: number) => ({
