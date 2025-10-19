@@ -54,15 +54,17 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    let usersLoaded = false;
-    let transactionsLoaded = false;
-    
-    const updateLoadingState = () => {
-      if (usersLoaded && transactionsLoaded) {
-        setIsLoadingStats(false);
-      }
-    };
+    setIsLoadingStats(true);
+    let loadedCount = 0;
+    const totalToLoad = 2;
 
+    const checkAllLoaded = () => {
+        loadedCount++;
+        if (loadedCount === totalToLoad) {
+            setIsLoadingStats(false);
+        }
+    };
+    
     const settingsRef = doc(db, 'system_settings', 'main');
     const unsubSettings = onSnapshot(settingsRef, (doc) => {
         if (doc.exists()) {
@@ -88,8 +90,7 @@ export default function AdminPage() {
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
         setTotalUsers(snapshot.size);
-        usersLoaded = true;
-        updateLoadingState();
+        checkAllLoaded();
     });
     
     const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
@@ -99,8 +100,7 @@ export default function AdminPage() {
         totalIssued += doc.data().amount;
       });
       setTotalLakIssued(totalIssued);
-      transactionsLoaded = true;
-      updateLoadingState();
+      checkAllLoaded();
     });
 
 
@@ -420,5 +420,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
