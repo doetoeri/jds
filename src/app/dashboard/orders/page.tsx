@@ -37,16 +37,17 @@ interface Purchase {
 }
 
 export default function OrdersPage() {
-  const [user] = useAuthState(auth);
+  const [user, authLoading] = useAuthState(auth);
   const [userData, setUserData] = useState<{ studentId?: string } | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
+    if (authLoading) return;
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
-      const unsubscribe = getDoc(userDocRef).then(docSnap => {
+      getDoc(userDocRef).then(docSnap => {
         if(docSnap.exists()) {
           setUserData(docSnap.data() as any);
         } else {
@@ -60,19 +61,17 @@ export default function OrdersPage() {
     } else {
         setIsLoading(false);
     }
-  }, [user, toast]);
+  }, [user, authLoading, toast]);
 
   useEffect(() => {
-    if (!userData) {
+    if (!userData || !userData.studentId) {
+      if (!authLoading && user) {
+        setIsLoading(false);
+      }
       return;
     }
 
     const fetchPurchases = async () => {
-      if (!user || !userData.studentId) {
-        setIsLoading(false);
-        return;
-      }
-      
       try {
         const purchasesRef = collection(db, `purchases`);
         const q = query(

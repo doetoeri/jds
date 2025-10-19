@@ -84,26 +84,18 @@ export default function AdminPage() {
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
         setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
-        setIsLoadingStats(false);
+        if (stats.totalLakIssued > 0) setIsLoadingStats(false);
     });
     
-    const fetchTotalIssuedLak = async () => {
-        const transactionsGroupRef = collectionGroup(db, 'transactions');
-        const creditQuery = query(transactionsGroupRef, where('type', '==', 'credit'));
-        const querySnapshot = await getDocs(creditQuery);
-        let totalIssued = 0;
-        querySnapshot.forEach(doc => {
-            totalIssued += doc.data().amount;
-        });
-        setStats(prev => ({ 
-            ...prev, 
-            totalLakIssued: totalIssued
-        }));
-        setIsLoadingStats(false);
-    };
-
-    fetchTotalIssuedLak();
-    const unsubTransactions = onSnapshot(collectionGroup(db, 'transactions'), fetchTotalIssuedLak);
+    const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
+    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      let totalIssued = 0;
+      snapshot.forEach(doc => {
+        totalIssued += doc.data().amount;
+      });
+      setStats(prev => ({ ...prev, totalLakIssued: totalIssued }));
+      setIsLoadingStats(false);
+    });
 
 
     return () => {
@@ -422,5 +414,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

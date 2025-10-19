@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -54,6 +55,7 @@ const adminLinks = [
   { name: '관리자 홈', href: '/admin', icon: Home },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
+  { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
   { name: '학생회 관리', href: '/admin/council', icon: ShieldQuestion },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
