@@ -83,23 +83,44 @@ export default function AdminPage() {
       setTotalUsers(0);
     });
     
-    const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
-    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      let totalIssued = 0;
-      snapshot.forEach(doc => {
-        totalIssued += doc.data().amount;
-      });
-      setTotalLakIssued(totalIssued);
+    const codesQuery = query(collection(db, 'codes'));
+    const unsubCodes = onSnapshot(codesQuery, (snapshot) => {
+        let redeemed = 0;
+        snapshot.forEach(doc => {
+            const code = doc.data();
+            switch (code.type) {
+                case '종달코드':
+                case '온라인 특수코드':
+                    if (code.used) redeemed += code.value;
+                    break;
+                case '히든코드':
+                    if (code.used && Array.isArray(code.usedBy)) { 
+                        redeemed += (code.usedBy.length * code.value);
+                    }
+                    break;
+                case '메이트코드':
+                    if(Array.isArray(code.participants)) {
+                        redeemed += (Math.max(0, code.participants.length - 1) * code.value * 2);
+                    }
+                    break;
+                case '선착순코드':
+                     if (Array.isArray(code.usedBy)) {
+                        redeemed += code.usedBy.length * code.value;
+                    }
+                    break;
+            }
+        });
+        setTotalLakIssued(redeemed);
     }, (error) => {
-        console.error("Error fetching total lak issued:", error);
-        setTotalLakIssued(0);
+      console.error("Error fetching total lak issued from codes:", error);
+      setTotalLakIssued(0);
     });
 
 
     return () => {
         unsubSettings();
         unsubUsers();
-        unsubTransactions();
+        unsubCodes();
         unsubReasons();
     };
   }, []);
@@ -228,13 +249,13 @@ export default function AdminPage() {
                 </Card>
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">총 발급된 포인트</CardTitle>
+                    <CardTitle className="text-sm font-medium">코드로 지급된 포인트</CardTitle>
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     {totalLakIssued === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
-                    지금까지 시스템에서 발급된 포인트 총합
+                    지금까지 코드를 통해 지급된 포인트 총합
                     </p>
                 </CardContent>
                 </Card>
