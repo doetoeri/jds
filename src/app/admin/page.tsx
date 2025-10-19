@@ -34,9 +34,8 @@ export default function AdminPage() {
   const [isTogglingSystem, setIsTogglingSystem] = useState(true);
   const [isResettingGame, setIsResettingGame] = useState(false);
   
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [totalLakIssued, setTotalLakIssued] = useState(0);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
+  const [totalLakIssued, setTotalLakIssued] = useState<number | null>(null);
 
   const { toast } = useToast();
   
@@ -54,17 +53,6 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    setIsLoadingStats(true);
-    let loadedCount = 0;
-    const totalToLoad = 2;
-
-    const checkAllLoaded = () => {
-        loadedCount++;
-        if (loadedCount === totalToLoad) {
-            setIsLoadingStats(false);
-        }
-    };
-    
     const settingsRef = doc(db, 'system_settings', 'main');
     const unsubSettings = onSnapshot(settingsRef, (doc) => {
         if (doc.exists()) {
@@ -90,7 +78,9 @@ export default function AdminPage() {
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
         setTotalUsers(snapshot.size);
-        checkAllLoaded();
+    }, (error) => {
+      console.error("Error fetching total users:", error);
+      setTotalUsers(0);
     });
     
     const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
@@ -100,7 +90,9 @@ export default function AdminPage() {
         totalIssued += doc.data().amount;
       });
       setTotalLakIssued(totalIssued);
-      checkAllLoaded();
+    }, (error) => {
+        console.error("Error fetching total lak issued:", error);
+        setTotalLakIssued(0);
     });
 
 
@@ -228,7 +220,7 @@ export default function AdminPage() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {isLoadingStats ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{totalUsers.toLocaleString() ?? 0} 명</div>}
+                    {totalUsers === null ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{totalUsers.toLocaleString() ?? 0} 명</div>}
                     <p className="text-xs text-muted-foreground">
                     현재 시스템에 등록된 총 학생 수
                     </p>
@@ -240,7 +232,7 @@ export default function AdminPage() {
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
+                    {totalLakIssued === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
                     지금까지 시스템에서 발급된 포인트 총합
                     </p>
@@ -420,3 +412,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
