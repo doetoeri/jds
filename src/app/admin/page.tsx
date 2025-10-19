@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -29,19 +28,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
-
-interface Stats {
-    totalUsers: number;
-    totalLakIssued: number;
-}
-
 export default function AdminPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
   const [isShopEnabled, setIsShopEnabled] = useState<boolean>(true);
   const [isTogglingSystem, setIsTogglingSystem] = useState(true);
   const [isResettingGame, setIsResettingGame] = useState(false);
-  const [stats, setStats] = useState<Stats>({ totalUsers: 0, totalLakIssued: 0 });
+  
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalLakIssued, setTotalLakIssued] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+
   const { toast } = useToast();
   
   const [isResetLeaderboardOpen, setIsResetLeaderboardOpen] = useState(false);
@@ -58,6 +54,15 @@ export default function AdminPage() {
 
 
   useEffect(() => {
+    let usersLoaded = false;
+    let transactionsLoaded = false;
+    
+    const updateLoadingState = () => {
+      if (usersLoaded && transactionsLoaded) {
+        setIsLoadingStats(false);
+      }
+    };
+
     const settingsRef = doc(db, 'system_settings', 'main');
     const unsubSettings = onSnapshot(settingsRef, (doc) => {
         if (doc.exists()) {
@@ -66,7 +71,6 @@ export default function AdminPage() {
             setIsShopEnabled(data?.isShopEnabled ?? true);
             setGlobalDiscount(data?.globalDiscount ?? 0);
         } else {
-            // Set to default values if the document doesn't exist
             setIsMaintenanceMode(false);
             setIsShopEnabled(true);
             setGlobalDiscount(0);
@@ -83,8 +87,9 @@ export default function AdminPage() {
 
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-        setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
-        if (stats.totalLakIssued > 0) setIsLoadingStats(false);
+        setTotalUsers(snapshot.size);
+        usersLoaded = true;
+        updateLoadingState();
     });
     
     const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
@@ -93,8 +98,9 @@ export default function AdminPage() {
       snapshot.forEach(doc => {
         totalIssued += doc.data().amount;
       });
-      setStats(prev => ({ ...prev, totalLakIssued: totalIssued }));
-      setIsLoadingStats(false);
+      setTotalLakIssued(totalIssued);
+      transactionsLoaded = true;
+      updateLoadingState();
     });
 
 
@@ -222,7 +228,7 @@ export default function AdminPage() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {isLoadingStats ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString() ?? 0} 명</div>}
+                    {isLoadingStats ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{totalUsers.toLocaleString() ?? 0} 명</div>}
                     <p className="text-xs text-muted-foreground">
                     현재 시스템에 등록된 총 학생 수
                     </p>
@@ -234,7 +240,7 @@ export default function AdminPage() {
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats.totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
+                    {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
                     지금까지 시스템에서 발급된 포인트 총합
                     </p>
@@ -414,3 +420,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
