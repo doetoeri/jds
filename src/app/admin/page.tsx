@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -10,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount } from "@/lib/firebase";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -85,45 +86,30 @@ export default function AdminPage() {
         setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
         setIsLoadingStats(false);
     });
-
-    const codesQuery = query(collection(db, 'codes'));
-    const unsubCodes = onSnapshot(codesQuery, (snapshot) => {
-        let redeemed = 0;
-        snapshot.forEach(doc => {
-            const code = doc.data();
-            switch (code.type) {
-                case '종달코드':
-                case '온라인 특수코드':
-                    if (code.used) redeemed += code.value;
-                    break;
-                case '히든코드':
-                     if (code.used && Array.isArray(code.usedBy) && code.usedBy.length > 0) { 
-                        redeemed += (code.usedBy.length * code.value);
-                    }
-                    break;
-                case '메이트코드':
-                    if (Array.isArray(code.usedBy) && code.usedBy.length > 0) {
-                        redeemed += (code.usedBy.length * code.value);
-                    }
-                    break;
-                case '선착순코드':
-                     if (Array.isArray(code.usedBy)) {
-                        redeemed += code.usedBy.length * code.value;
-                    }
-                    break;
-            }
+    
+    const fetchTotalIssuedLak = async () => {
+        const transactionsGroupRef = collectionGroup(db, 'transactions');
+        const creditQuery = query(transactionsGroupRef, where('type', '==', 'credit'));
+        const querySnapshot = await getDocs(creditQuery);
+        let totalIssued = 0;
+        querySnapshot.forEach(doc => {
+            totalIssued += doc.data().amount;
         });
         setStats(prev => ({ 
             ...prev, 
-            totalLakIssued: redeemed
+            totalLakIssued: totalIssued
         }));
-         setIsLoadingStats(false);
-    });
+        setIsLoadingStats(false);
+    };
+
+    fetchTotalIssuedLak();
+    const unsubTransactions = onSnapshot(collectionGroup(db, 'transactions'), fetchTotalIssuedLak);
+
 
     return () => {
         unsubSettings();
         unsubUsers();
-        unsubCodes();
+        unsubTransactions();
         unsubReasons();
     };
   }, []);
@@ -252,13 +238,13 @@ export default function AdminPage() {
                 </Card>
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">코드로 지급된 포인트</CardTitle>
+                    <CardTitle className="text-sm font-medium">총 발급된 포인트</CardTitle>
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     {isLoadingStats ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats.totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
-                    지금까지 코드를 통해 지급된 포인트 총합
+                    지금까지 시스템에서 발급된 포인트 총합
                     </p>
                 </CardContent>
                 </Card>
