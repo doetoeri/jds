@@ -84,7 +84,6 @@ export default function AdminPage() {
         snapshot.forEach(doc => {
             const data = doc.data();
             total += (data.lak || 0);
-            total += (data.piggyBank || 0);
         });
         setTotalLakIssued(total);
 
@@ -410,3 +409,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
