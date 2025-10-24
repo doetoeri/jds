@@ -35,7 +35,7 @@ export default function AdminPage() {
   const [isResettingGame, setIsResettingGame] = useState(false);
   
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
-  const [totalLakIssued, setTotalLakIssued] = useState<number | null>(null);
+  const [totalAvailableLak, setTotalAvailableLak] = useState<number | null>(null);
 
   const { toast } = useToast();
   
@@ -83,36 +83,25 @@ export default function AdminPage() {
       setTotalUsers(0);
     });
     
-    // Fetch all users, then iterate through their transactions subcollection
-    const fetchTotalIssuedLak = async () => {
-      try {
+    // Fetch all users and sum up their 'lak' balance for total available points
+    const usersLakQuery = query(collection(db, 'users'));
+    const unsubLAK = onSnapshot(usersLakQuery, (usersSnapshot) => {
         let total = 0;
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        
-        for (const userDoc of usersSnapshot.docs) {
-            const transactionsQuery = query(
-                collection(db, `users/${userDoc.id}/transactions`), 
-                where('type', '==', 'credit')
-            );
-            const transactionsSnapshot = await getDocs(transactionsQuery);
-            transactionsSnapshot.forEach(doc => {
-                total += doc.data().amount || 0;
-            });
-        }
-        setTotalLakIssued(total);
-      } catch (error) {
-        console.error("Error fetching total issued LAK:", error);
-        setTotalLakIssued(0);
-      }
-    };
-    
-    fetchTotalIssuedLak();
+        usersSnapshot.forEach(userDoc => {
+            total += userDoc.data().lak || 0;
+        });
+        setTotalAvailableLak(total);
+    }, (error) => {
+        console.error("Error fetching total available LAK:", error);
+        setTotalAvailableLak(0);
+    });
 
 
     return () => {
         unsubSettings();
         unsubUsers();
         unsubReasons();
+        unsubLAK();
     };
   }, []);
 
@@ -240,13 +229,13 @@ export default function AdminPage() {
                 </Card>
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">총 발급된 포인트</CardTitle>
+                    <CardTitle className="text-sm font-medium">총 사용 가능 포인트</CardTitle>
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {totalLakIssued === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
+                    {totalAvailableLak === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalAvailableLak.toLocaleString() ?? 0} 포인트</div>}
                     <p className="text-xs text-muted-foreground">
-                    지금까지 시스템에서 발급된 포인트 총합
+                    현재 유통중인 포인트 총합
                     </p>
                 </CardContent>
                 </Card>
@@ -424,3 +413,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
