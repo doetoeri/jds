@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -23,6 +22,7 @@ const containerVariants = {
 export default function KioskSecretLetterPage() {
   const [stage, setStage] = useState<Stage>('enterId');
   const [studentId, setStudentId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [receiverId, setReceiverId] = useState('');
   const [content, setContent] = useState('');
@@ -48,13 +48,16 @@ export default function KioskSecretLetterPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !email.includes('@')) {
+      toast({ title: '오류', description: '올바른 이메일 주소를 입력해주세요.', variant: 'destructive' });
+      return;
+    }
     if (password.length < 6) {
       toast({ title: '오류', description: '비밀번호는 6자리 이상이어야 합니다.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
     try {
-      const email = `${studentId}@student.jongdalsam.com`;
       await signUp('student', { studentId }, password, email);
       toast({ title: '가입 완료!', description: '회원가입이 완료되었습니다. 이제 비밀 편지를 작성해주세요.' });
       setStage('writeLetter');
@@ -79,6 +82,7 @@ export default function KioskSecretLetterPage() {
       setReceiverId('');
       setContent('');
       setPassword('');
+      setEmail('');
       setStage('enterId');
     } catch (error: any) {
       toast({ title: '전송 실패', description: error.message, variant: 'destructive' });
@@ -119,14 +123,21 @@ export default function KioskSecretLetterPage() {
             <p className="text-muted-foreground mb-6 text-center">{studentId} 학생, 간단한 가입 후 참여해주세요.</p>
             <form onSubmit={handleSignUp} className="space-y-4">
               <Input
+                type="email"
+                placeholder="이메일 주소"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 text-lg"
+                autoFocus
+              />
+              <Input
                 type="password"
                 placeholder="사용할 비밀번호 (6자리 이상)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12 text-lg"
-                autoFocus
               />
-              <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading || password.length < 6}>
+              <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading || password.length < 6 || !email.trim()}>
                 {isLoading ? <Loader2 className="animate-spin" /> : '가입하고 계속하기'}
               </Button>
             </form>

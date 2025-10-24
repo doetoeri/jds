@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -110,12 +109,12 @@ export default function CouncilOrdersPage() {
                   </TableRow>
               ) : (
                 purchases.map((purchase) => (
-                  <TableRow key={purchase.id} className={purchase.status === 'completed' ? 'bg-muted/50' : ''}>
+                  <TableRow key={purchase.id} className={purchase.status === 'completed' ? 'bg-muted/50 text-muted-foreground' : ''}>
                     <TableCell className="font-medium">{purchase.studentId}</TableCell>
                     <TableCell>{purchase.createdAt?.toDate ? purchase.createdAt.toDate().toLocaleString() : '날짜 없음'}</TableCell>
                     <TableCell className="max-w-[250px] truncate">{formatItems(purchase.items)}</TableCell>
                     <TableCell>
-                      <Badge variant="destructive">
+                      <Badge variant={purchase.status === 'completed' ? 'secondary' : 'destructive'}>
                         {purchase.totalCost} 포인트
                       </Badge>
                     </TableCell>
