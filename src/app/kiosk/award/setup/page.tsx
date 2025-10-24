@@ -31,7 +31,7 @@ interface BoothReason {
   reason: string;
 }
 
-export default function KioskSetupPage() {
+export default function KioskAwardSetupPage() {
   const [value, setValue] = useState('');
   const [reason, setReason] = useState('');
   const [boothReasons, setBoothReasons] = useState<BoothReason[]>([]);
@@ -40,12 +40,10 @@ export default function KioskSetupPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If a session is already active, redirect to the award page
-    if (localStorage.getItem('kiosk_point_value') && localStorage.getItem('kiosk_point_reason')) {
-      router.push('/kiosk/award');
-      return;
-    }
-
+    // Clear previous session settings when entering setup
+    localStorage.removeItem('kiosk_point_value');
+    localStorage.removeItem('kiosk_point_reason');
+    
     const reasonsRef = doc(db, 'system_settings', 'booth_reasons');
     const unsubscribe = onSnapshot(reasonsRef, (doc) => {
       if (doc.exists()) {
@@ -78,8 +76,8 @@ export default function KioskSetupPage() {
       <Card className="w-full">
         <form onSubmit={handleStartSession}>
           <CardHeader>
-            <CardTitle>키오스크 세션 설정</CardTitle>
-            <CardDescription>이번 세션 동안 학생들에게 지급할 포인트와 사유를 설정합니다. 세션이 시작되면 로그아웃 전까지 변경할 수 없습니다.</CardDescription>
+            <CardTitle>포인트 지급 세션 설정</CardTitle>
+            <CardDescription>이번 세션 동안 학생들에게 지급할 포인트와 사유를 설정합니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { auth, givePointsToMultipleStudentsAtBooth } from '@/lib/firebase';
-import { Loader2, Award, User, LogOut } from 'lucide-react';
+import { Loader2, Award, User } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 
 export default function KioskAwardPage() {
@@ -27,7 +26,7 @@ export default function KioskAwardPage() {
     if (savedValue && savedReason) {
       setSessionSettings({ value: savedValue, reason: savedReason });
     } else {
-      router.push('/kiosk/setup');
+      router.push('/kiosk/award/setup');
     }
   }, [router]);
 
