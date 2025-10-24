@@ -74,7 +74,7 @@ export default function KioskSecretLetterPage() {
     setIsLoading(true);
     try {
       await sendSecretLetter(studentId, receiverId, content);
-      toast({ title: '전송 완료!', description: '비밀 편지가 성공적으로 전송되었으며, 2포인트가 지급되었습니다.' });
+      toast({ title: '전송 완료!', description: '비밀 편지가 성공적으로 전송되었으며, 5포인트가 지급되었습니다.' });
       setStudentId('');
       setReceiverId('');
       setContent('');
@@ -146,7 +146,7 @@ export default function KioskSecretLetterPage() {
                 <Textarea id="content" value={content} onChange={e => setContent(e.target.value)} placeholder="전하고 싶은 마음을 적어보세요." rows={6} />
               </div>
               <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" />전송하고 2포인트 받기</>}
+                {isLoading ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" />전송하고 5포인트 받기</>}
               </Button>
             </form>
           </motion.div>

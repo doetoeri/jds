@@ -74,7 +74,7 @@ export default function KioskPoemPage() {
     try {
       const fullPoem = `종: ${poem.jong}\n달: ${poem.dal}\n샘: ${poem.sam}`;
       await submitPoem(studentId, fullPoem);
-      toast({ title: '제출 완료!', description: '삼행시가 제출되었으며, 1포인트가 지급되었습니다.' });
+      toast({ title: '제출 완료!', description: '삼행시가 제출되었으며, 5포인트가 지급되었습니다.' });
       setStudentId('');
       setPoem({ jong: '', dal: '', sam: '' });
       setPassword('');
@@ -149,7 +149,7 @@ export default function KioskPoemPage() {
                     <Input value={poem.sam} onChange={e => setPoem({...poem, sam: e.target.value})} className="h-12 text-lg" />
                 </div>
                 <Button type="submit" className="w-full h-12 text-lg mt-6" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" />제출하고 1포인트 받기</>}
+                    {isLoading ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" />제출하고 5포인트 받기</>}
                 </Button>
             </form>
           </motion.div>
