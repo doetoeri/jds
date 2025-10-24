@@ -75,31 +75,24 @@ export default function AdminPage() {
         }
     });
 
-    const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+    const usersQuery = query(collection(db, 'users'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-        setTotalUsers(snapshot.size);
-    }, (error) => {
-      console.error("Error fetching total users:", error);
-      setTotalUsers(0);
-    });
-    
-    const fetchTotalIssued = async () => {
-        try {
-            const transactionsGroupRef = collectionGroup(db, 'transactions');
-            const q = query(transactionsGroupRef, where('type', '==', 'credit'));
-            const querySnapshot = await getDocs(q);
-            let total = 0;
-            querySnapshot.forEach(doc => {
-                total += doc.data().amount;
-            });
-            setTotalLakIssued(total);
-        } catch (error) {
-            console.error("Error fetching total lak issued:", error);
-            setTotalLakIssued(0); // Set to 0 on error
-        }
-    };
+        const studentUsers = snapshot.docs.filter(doc => doc.data().role === 'student');
+        setTotalUsers(studentUsers.length);
+        
+        let total = 0;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            total += (data.lak || 0);
+            total += (data.piggyBank || 0);
+        });
+        setTotalLakIssued(total);
 
-    fetchTotalIssued();
+    }, (error) => {
+      console.error("Error fetching user data for stats:", error);
+      setTotalUsers(0);
+      setTotalLakIssued(0);
+    });
 
 
     return () => {
@@ -417,5 +410,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
