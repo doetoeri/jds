@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount } from "@/lib/firebase";
-import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs, getCountFromServer } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -75,22 +75,24 @@ export default function AdminPage() {
         }
     });
 
-    const usersQuery = query(collection(db, 'users'));
+    const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-        const studentUsers = snapshot.docs.filter(doc => doc.data().role === 'student');
-        setTotalUsers(studentUsers.length);
-        
-        let total = 0;
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            total += (data.lak || 0);
-        });
-        setTotalLakIssued(total);
-
+        setTotalUsers(snapshot.size);
     }, (error) => {
       console.error("Error fetching user data for stats:", error);
       setTotalUsers(0);
-      setTotalLakIssued(0);
+    });
+    
+    const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
+    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      let total = 0;
+      snapshot.forEach(doc => {
+        total += doc.data().amount || 0;
+      });
+      setTotalLakIssued(total);
+    }, (error) => {
+        console.error("Error fetching total issued LAK:", error);
+        setTotalLakIssued(0);
     });
 
 
@@ -98,6 +100,7 @@ export default function AdminPage() {
         unsubSettings();
         unsubUsers();
         unsubReasons();
+        unsubTransactions();
     };
   }, []);
 
@@ -409,5 +412,7 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
 
     
