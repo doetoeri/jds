@@ -83,24 +83,29 @@ export default function AdminPage() {
       setTotalUsers(0);
     });
     
-    const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
-    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      let total = 0;
-      snapshot.forEach(doc => {
-        total += doc.data().amount || 0;
-      });
-      setTotalLakIssued(total);
-    }, (error) => {
-        console.error("Error fetching total issued LAK:", error);
-        setTotalLakIssued(0);
-    });
+    // Use getDocs for a one-time fetch to avoid complex indexing issues with collectionGroup
+    const fetchTotalIssuedLak = async () => {
+        try {
+            const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
+            const snapshot = await getDocs(transactionsQuery);
+            let total = 0;
+            snapshot.forEach(doc => {
+                total += doc.data().amount || 0;
+            });
+            setTotalLakIssued(total);
+        } catch (error) {
+            console.error("Error fetching total issued LAK:", error);
+            setTotalLakIssued(0); // Set to 0 on error
+        }
+    };
+    
+    fetchTotalIssuedLak();
 
 
     return () => {
         unsubSettings();
         unsubUsers();
         unsubReasons();
-        unsubTransactions();
     };
   }, []);
 
@@ -412,7 +417,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
-
-    
