@@ -83,20 +83,27 @@ export default function AdminPage() {
       setTotalUsers(0);
     });
     
-    // Use getDocs for a one-time fetch to avoid complex indexing issues with collectionGroup
+    // Fetch all users, then iterate through their transactions subcollection
     const fetchTotalIssuedLak = async () => {
-        try {
-            const transactionsQuery = query(collectionGroup(db, 'transactions'), where('type', '==', 'credit'));
-            const snapshot = await getDocs(transactionsQuery);
-            let total = 0;
-            snapshot.forEach(doc => {
+      try {
+        let total = 0;
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        
+        for (const userDoc of usersSnapshot.docs) {
+            const transactionsQuery = query(
+                collection(db, `users/${userDoc.id}/transactions`), 
+                where('type', '==', 'credit')
+            );
+            const transactionsSnapshot = await getDocs(transactionsQuery);
+            transactionsSnapshot.forEach(doc => {
                 total += doc.data().amount || 0;
             });
-            setTotalLakIssued(total);
-        } catch (error) {
-            console.error("Error fetching total issued LAK:", error);
-            setTotalLakIssued(0); // Set to 0 on error
         }
+        setTotalLakIssued(total);
+      } catch (error) {
+        console.error("Error fetching total issued LAK:", error);
+        setTotalLakIssued(0);
+      }
     };
     
     fetchTotalIssuedLak();
