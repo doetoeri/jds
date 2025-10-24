@@ -85,7 +85,7 @@ export default function HomeClient() {
             variant="outline"
             className="w-full bg-white/80 text-black hover:bg-white"
           >
-            <Link href="/shop">
+            <Link href="/dashboard/shop">
               <ShoppingCart className="mr-2" /> 매점 둘러보기
             </Link>
           </Button>
