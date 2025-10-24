@@ -38,6 +38,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Allow access to shop page without login
+    if (pathname === '/dashboard/shop') {
+      setIsAuthorized(true);
+      setCheckingAuth(false);
+      return;
+    }
+
     setCheckingAuth(true);
     if (loading) return; 
     if (!user) {
@@ -108,7 +115,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     checkRoleAndSetupNotifications();
 
-  }, [user, loading, router, toast]);
+  }, [user, loading, router, toast, pathname]);
 
   if (loading || checkingAuth) {
     return (
@@ -118,7 +125,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (isMaintenanceMode) {
+  if (isMaintenanceMode && user) { // Only apply maintenance mode to logged-in users in this layout
       return <MaintenancePage />;
   }
 
@@ -129,6 +136,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
         );
   }
+  
+  // Render layout without nav for public shop page
+  if (pathname === '/dashboard/shop' && !user) {
+    return (
+      <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent">
+        {children}
+      </main>
+    );
+  }
+
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
