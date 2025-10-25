@@ -7,10 +7,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent, Landmark } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent, Landmark, Minus, Plus, Equal } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount } from "@/lib/firebase";
-import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs, getCountFromServer } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs, getCountFromServer, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -36,6 +36,9 @@ export default function AdminPage() {
   
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
   const [totalAvailableLak, setTotalAvailableLak] = useState<number | null>(null);
+  const [totalCredits, setTotalCredits] = useState<number | null>(null);
+  const [totalDebits, setTotalDebits] = useState<number | null>(null);
+
 
   const { toast } = useToast();
   
@@ -83,24 +86,32 @@ export default function AdminPage() {
       setTotalUsers(0);
     });
     
-    const usersLakQuery = query(collection(db, 'users'));
-    const unsubLAK = onSnapshot(usersLakQuery, (usersSnapshot) => {
-        let total = 0;
-        usersSnapshot.forEach(userDoc => {
-            total += userDoc.data().lak || 0;
-        });
-        setTotalAvailableLak(total);
-    }, (error) => {
-        console.error("Error fetching total available LAK:", error);
-        setTotalAvailableLak(0);
-    });
+    const fetchPointStats = async () => {
+        let credits = 0;
+        let debits = 0;
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        for (const userDoc of usersSnapshot.docs) {
+            const transactionsSnapshot = await getDocs(collection(userDoc.ref, 'transactions'));
+            transactionsSnapshot.forEach(transDoc => {
+                const transaction = transDoc.data();
+                if (transaction.type === 'credit' && !transaction.isPiggyBank) {
+                    credits += transaction.amount;
+                } else if (transaction.type === 'debit') {
+                    debits += Math.abs(transaction.amount);
+                }
+            });
+        }
+        setTotalCredits(credits);
+        setTotalDebits(debits);
+        setTotalAvailableLak(credits - debits);
+    };
 
+    fetchPointStats();
 
     return () => {
         unsubSettings();
         unsubUsers();
         unsubReasons();
-        unsubLAK();
     };
   }, []);
 
@@ -232,10 +243,19 @@ export default function AdminPage() {
                     <Coins className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    {totalAvailableLak === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalAvailableLak.toLocaleString() ?? 0} 포인트</div>}
-                    <p className="text-xs text-muted-foreground">
-                    현재 유통중인 포인트 총합
-                    </p>
+                    {totalAvailableLak === null ? <Skeleton className="h-8 w-28" /> : (
+                        <div>
+                             <div className="text-2xl font-bold">{totalAvailableLak.toLocaleString() ?? 0} 포인트</div>
+                             <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+                                <Plus className="h-3 w-3"/>
+                                <span>{totalCredits?.toLocaleString() ?? '...'}</span>
+                                <Minus className="h-3 w-3"/>
+                                <span>{totalDebits?.toLocaleString() ?? '...'}</span>
+                                <Equal className="h-3 w-3"/>
+                                <span>{totalAvailableLak?.toLocaleString() ?? '...'}</span>
+                             </div>
+                        </div>
+                    )}
                 </CardContent>
                 </Card>
             </div>
