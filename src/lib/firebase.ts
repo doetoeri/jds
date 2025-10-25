@@ -113,8 +113,8 @@ const addSignupBonusToExistingUsers = async () => {
 
 // Sign up function
 export const signUp = async (
-    userType: 'student' | 'teacher' | 'pending_teacher' | 'council_booth' | 'kiosk',
-    userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string },
+    userType: 'student' | 'teacher' | 'pending_teacher' | 'council' | 'council_booth' | 'kiosk',
+    userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string, memo?: string },
     password: string,
     email: string
 ) => {
@@ -135,7 +135,7 @@ export const signUp = async (
     }
     
     // For special accounts, the 'email' is a constructed one. Check for ID uniqueness instead.
-    if (userType === 'council_booth' || userType === 'kiosk') {
+    if (userType === 'council' || userType === 'council_booth' || userType === 'kiosk') {
         const existingIdQuery = query(collection(db, "users"), where("studentId", "==", userData.studentId));
         const existingIdSnapshot = await getDocs(existingIdQuery);
         if (!existingIdSnapshot.empty) {
@@ -213,6 +213,17 @@ export const signUp = async (
                 officeFloor: userData.officeFloor,
                 role: 'pending_teacher',
                 avatarGradient: 'blue',
+            };
+            await setDoc(userDocRef, docData);
+            break;
+        case 'council':
+             docData = {
+                ...docData,
+                studentId: userData.studentId, // Custom ID
+                name: userData.name,
+                displayName: userData.name,
+                role: 'council',
+                memo: userData.memo || null,
             };
             await setDoc(userDocRef, docData);
             break;
@@ -1160,6 +1171,49 @@ export const sendNotification = async (roleCode: string, message: string) => {
         message,
         createdAt: Timestamp.now()
     });
+};
+
+export const submitPoem = async (studentId: string, poemContent: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const userQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
+    const userSnapshot = await getDocs(userQuery);
+    if (userSnapshot.empty) {
+      throw new Error('학생 정보를 찾을 수 없습니다.');
+    }
+    const userRef = userSnapshot.docs[0].ref;
+
+    const poemRef = doc(collection(db, 'poems'));
+    transaction.set(poemRef, {
+      studentId,
+      content: poemContent,
+      createdAt: Timestamp.now(),
+    });
+
+    await distributePoints(transaction, userRef, 5, '삼행시 참여 보상');
+  });
+};
+
+export const sendSecretLetter = async (senderStudentId: string, receiverIdentifier: string, content: string) => {
+  return await runTransaction(db, async (transaction) => {
+    const senderQuery = query(collection(db, 'users'), where('studentId', '==', senderStudentId));
+    const senderSnapshot = await getDocs(senderQuery);
+    if (senderSnapshot.empty) throw new Error('보내는 학생 정보를 찾을 수 없습니다.');
+    const senderRef = senderSnapshot.docs[0].ref;
+
+    // We don't check receiver for this special kiosk function to allow sending to anyone.
+    
+    const letterRef = doc(collection(db, 'letters'));
+    transaction.set(letterRef, {
+      senderStudentId: '익명', // Anonymous sender
+      receiverStudentId: receiverIdentifier,
+      content,
+      isOffline: true, // Secret letters are always offline for review.
+      status: 'pending',
+      createdAt: Timestamp.now(),
+    });
+
+    await distributePoints(transaction, senderRef, 5, '비밀 편지 작성 보상');
+  });
 };
 
 

@@ -24,12 +24,13 @@ const FADE_IN_VARIANTS = {
   show: { opacity: 1, y: 0, transition: { type: 'spring' } },
 };
 
-type SpecialAccountType = 'council_booth' | 'kiosk';
+type SpecialAccountType = 'council' | 'council_booth' | 'kiosk';
 
 export default function AdminSignupPage() {
   const [accountType, setAccountType] = useState<SpecialAccountType | ''>('');
   const [id, setId] = useState('');
   const [name, setName] = useState('');
+  const [memo, setMemo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const router = useRouter();
@@ -39,22 +40,26 @@ export default function AdminSignupPage() {
     e.preventDefault();
     
     if (!accountType || !id || !name) {
-        toast({ title: '입력 오류', description: '모든 필드를 입력해주세요.', variant: 'destructive' });
+        toast({ title: '입력 오류', description: 'ID, 이름(부스명)은 필수입니다.', variant: 'destructive' });
         return;
     }
 
     setIsLoading(true);
     
-    // For special accounts, we'll use the ID as the main identifier and generate a dummy email.
-    // The password will be fixed.
-    const signupData = {
-      studentId: id, // This field will now hold the custom ID.
+    const signupData: {
+        studentId: string; // Using studentId field to hold the custom ID for all special accounts
+        name: string;
+        memo?: string;
+    } = {
+      studentId: id,
       name: name,
     };
+
+    if (accountType === 'council' && memo) {
+        signupData.memo = memo;
+    }
     
-    // The fixed password for all special accounts
     const fixedPassword = '123456';
-    // The generated email for Firebase Auth, not visible to the user.
     const emailForAuth = `${id.toLowerCase().replace(/\s/g, '_')}@special.account`;
 
     try {
@@ -87,7 +92,7 @@ export default function AdminSignupPage() {
         </motion.div>
         <motion.div variants={FADE_IN_VARIANTS}>
             <p className="text-lg text-muted-foreground mt-2">
-                학생회 부스 운영, 키오스크 등 특수 목적 계정을 생성합니다.
+                학생회, 부스 운영, 키오스크 등 특수 목적 계정을 생성합니다.
             </p>
         </motion.div>
       </div>
@@ -100,6 +105,7 @@ export default function AdminSignupPage() {
                     <SelectValue placeholder="계정 유형 선택" />
                 </SelectTrigger>
                 <SelectContent>
+                    <SelectItem value="council">학생회 (일반)</SelectItem>
                     <SelectItem value="council_booth">특수 계정 (부스)</SelectItem>
                     <SelectItem value="kiosk">키오스크</SelectItem>
                 </SelectContent>
@@ -108,13 +114,21 @@ export default function AdminSignupPage() {
         
         <motion.div variants={FADE_IN_VARIANTS}>
             <Label htmlFor="id">ID (로그인 시 사용)</Label>
-            <Input id="id" placeholder="예: A-1 부스, 이벤트 부스" value={id} onChange={(e) => setId(e.target.value)} disabled={isLoading} required />
+            <Input id="id" placeholder="예: council_A, A-1부스, event_kiosk" value={id} onChange={(e) => setId(e.target.value)} disabled={isLoading} required />
         </motion.div>
 
         <motion.div variants={FADE_IN_VARIANTS}>
             <Label htmlFor="name">이름 / 부스명</Label>
-            <Input id="name" placeholder="예: 학생회 이벤트 부스" value={name} onChange={(e) => setName(e.target.value)} disabled={isLoading} required />
+            <Input id="name" placeholder="예: 홍길동, 학생회 이벤트 부스" value={name} onChange={(e) => setName(e.target.value)} disabled={isLoading} required />
         </motion.div>
+        
+        {accountType === 'council' && (
+            <motion.div variants={FADE_IN_VARIANTS}>
+                <Label htmlFor="memo">직책 코드 (학생회 알림용)</Label>
+                <Input id="memo" placeholder="예: A계1, 홍보부장" value={memo} onChange={(e) => setMemo(e.target.value)} disabled={isLoading} />
+            </motion.div>
+        )}
+
 
         <div className="flex flex-col gap-4 mt-8">
             <motion.div variants={FADE_IN_VARIANTS}>
