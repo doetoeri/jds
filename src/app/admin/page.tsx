@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent, Landmark } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs, getCountFromServer } from "firebase/firestore";
@@ -36,6 +36,7 @@ export default function AdminPage() {
   
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
   const [totalAvailableLak, setTotalAvailableLak] = useState<number | null>(null);
+  const [totalLakIssued, setTotalLakIssued] = useState<number | null>(null);
 
   const { toast } = useToast();
   
@@ -95,6 +96,23 @@ export default function AdminPage() {
         console.error("Error fetching total available LAK:", error);
         setTotalAvailableLak(0);
     });
+
+    const fetchTotalIssued = async () => {
+       try {
+            const transactionsGroupRef = collectionGroup(db, 'transactions');
+            const q = query(transactionsGroupRef, where('type', '==', 'credit'));
+            const querySnapshot = await getDocs(q);
+            let total = 0;
+            querySnapshot.forEach((doc) => {
+                total += doc.data().amount || 0;
+            });
+            setTotalLakIssued(total);
+        } catch (error) {
+            console.error("Error fetching total issued LAK:", error);
+            setTotalLakIssued(0);
+        }
+    };
+    fetchTotalIssued();
 
 
     return () => {
@@ -214,7 +232,7 @@ export default function AdminPage() {
   return (
     <div className="grid lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">총 사용자</CardTitle>
@@ -223,7 +241,19 @@ export default function AdminPage() {
                 <CardContent>
                     {totalUsers === null ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{totalUsers.toLocaleString() ?? 0} 명</div>}
                     <p className="text-xs text-muted-foreground">
-                    현재 시스템에 등록된 총 학생 수
+                    시스템에 등록된 학생 수
+                    </p>
+                </CardContent>
+                </Card>
+                 <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 발급된 포인트</CardTitle>
+                    <Landmark className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {totalLakIssued === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalLakIssued.toLocaleString() ?? 0} 포인트</div>}
+                    <p className="text-xs text-muted-foreground">
+                    지금까지 발급된 포인트 총합
                     </p>
                 </CardContent>
                 </Card>
