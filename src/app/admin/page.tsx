@@ -99,14 +99,18 @@ export default function AdminPage() {
 
     const fetchTotalIssued = async () => {
        try {
-            const transactionsGroupRef = collectionGroup(db, 'transactions');
-            const q = query(transactionsGroupRef, where('type', '==', 'credit'));
-            const querySnapshot = await getDocs(q);
-            let total = 0;
-            querySnapshot.forEach((doc) => {
-                total += doc.data().amount || 0;
-            });
-            setTotalLakIssued(total);
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            let totalIssued = 0;
+
+            for (const userDoc of usersSnapshot.docs) {
+                const transactionsRef = collection(db, 'users', userDoc.id, 'transactions');
+                const q = query(transactionsRef, where('type', '==', 'credit'));
+                const transactionsSnapshot = await getDocs(q);
+                transactionsSnapshot.forEach((transDoc) => {
+                    totalIssued += transDoc.data().amount || 0;
+                });
+            }
+            setTotalLakIssued(totalIssued);
         } catch (error) {
             console.error("Error fetching total issued LAK:", error);
             setTotalLakIssued(0);
@@ -443,5 +447,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
