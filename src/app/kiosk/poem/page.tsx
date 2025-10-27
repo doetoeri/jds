@@ -128,6 +128,7 @@ export default function KioskPoemPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12 text-lg"
                 autoFocus
+                required
               />
               <Input
                 type="password"
@@ -135,6 +136,7 @@ export default function KioskPoemPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12 text-lg"
+                required
               />
               <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading || password.length < 6 || !email.trim()}>
                 {isLoading ? <Loader2 className="animate-spin" /> : '가입하고 계속하기'}
@@ -176,3 +178,5 @@ export default function KioskPoemPage() {
     </div>
   );
 }
+
+    

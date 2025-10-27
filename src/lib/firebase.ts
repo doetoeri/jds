@@ -81,35 +81,51 @@ const distributePoints = async (
   }
 };
 
-
-// One-time function to add signup bonus to existing users
-const addSignupBonusToExistingUsers = async () => {
-    const flagDocRef = doc(db, 'system_flags', 'signup_bonus_added_v2');
+const adjustInitialPoints = async () => {
+    const flagDocRef = doc(db, 'system_flags', 'initial_points_adjusted_to_7');
     
     try {
-        await runTransaction(db, async (transaction) => {
-            const flagDoc = await transaction.get(flagDocRef);
-            if (flagDoc.exists()) {
-                console.log("Signup bonus already distributed.");
-                return;
+        const flagDoc = await getDoc(flagDocRef);
+        if (flagDoc.exists()) {
+            // console.log("Initial points already adjusted to 7.");
+            return;
+        }
+
+        console.log("Adjusting initial points for existing users to 7...");
+        const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+        const usersSnapshot = await getDocs(usersQuery);
+
+        for (const userDoc of usersSnapshot.docs) {
+            const userRef = userDoc.ref;
+            const userData = userDoc.data();
+            const currentLak = userData.lak || 0;
+
+            if (currentLak < 7) {
+                 await runTransaction(db, async (transaction) => {
+                    const amountToSet = 7;
+                    const difference = amountToSet - currentLak;
+
+                    transaction.update(userRef, { lak: amountToSet });
+
+                    const historyRef = doc(collection(userRef, 'transactions'));
+                    transaction.set(historyRef, {
+                        date: Timestamp.now(),
+                        description: `초기 포인트 7점 보정 (+${difference})`,
+                        amount: difference,
+                        type: 'credit',
+                    });
+                });
             }
+        }
 
-            console.log("Distributing signup bonus to existing users...");
-            const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
-            const usersSnapshot = await getDocs(usersQuery);
+        await setDoc(flagDocRef, { completed: true, timestamp: Timestamp.now() });
+        console.log(`Initial point adjustment completed for ${usersSnapshot.size} users.`);
 
-            for (const userDoc of usersSnapshot.docs) {
-                const userRef = userDoc.ref;
-                await distributePoints(transaction, userRef, 3, '가입 축하 포인트');
-            }
-
-            transaction.set(flagDocRef, { completed: true, timestamp: Timestamp.now() });
-            console.log(`Signup bonus distributed to ${usersSnapshot.size} users.`);
-        });
     } catch (error) {
-        console.error("Failed to add signup bonus to existing users:", error);
+        console.error("Failed to adjust initial points:", error);
     }
 };
+
 
 // Sign up function
 export const signUp = async (
@@ -128,7 +144,7 @@ export const signUp = async (
   }
 
   try {
-    await addSignupBonusToExistingUsers();
+    await adjustInitialPoints();
 
     if (email === 'admin@jongdalsem.com') {
         throw new Error("해당 이메일은 사용할 수 없습니다.");
@@ -187,7 +203,7 @@ export const signUp = async (
             docData = {
                 ...docData,
                 studentId: studentId,
-                lak: 3,
+                lak: 7,
                 mateCode: mateCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
@@ -197,7 +213,7 @@ export const signUp = async (
                 transaction.set(userDocRef, docData);
                 const historyRef = doc(collection(userDocRef, 'transactions'));
                 transaction.set(historyRef, {
-                    amount: 3,
+                    amount: 7,
                     date: Timestamp.now(),
                     description: '가입 축하 포인트',
                     type: 'credit',
@@ -354,8 +370,6 @@ export const resetUserPassword = async (userId: string) => {
     // Let's create a function that sends a password reset email instead.
     // The request was to reset to '123456' which is not possible from client.
     // We will just send the reset email as a compromise.
-    // The prompt seems to imply we have more power than we do from client.
-
     // The user's request is to reset to '123456'. This is impossible from client.
     // I will throw an error explaining this limitation.
     // throw new Error("클라이언트에서는 비밀번호를 직접 변경할 수 없습니다. 대신 비밀번호 재설정 이메일을 보냈습니다. 이 기능을 구현하려면 백엔드(Cloud Function) 도움이 필요합니다.");
@@ -1218,3 +1232,5 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
 
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
