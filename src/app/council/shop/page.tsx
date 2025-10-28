@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Loader2, Edit, Image as ImageIcon, ShoppingCart } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Edit, Image as ImageIcon, ShoppingCart, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,11 +24,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase';
+import { db, storage, bulkUpdateProductPrices } from '@/lib/firebase';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +49,7 @@ export default function CouncilShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkUpdateDialogOpen, setIsBulkUpdateDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
@@ -56,6 +59,7 @@ export default function CouncilShopPage() {
   const [productStock, setProductStock] = useState('');
   const [productImage, setProductImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [priceMultiplier, setPriceMultiplier] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
@@ -188,6 +192,27 @@ export default function CouncilShopPage() {
       setIsDeleting(null);
     }
   }
+  
+  const handleBulkUpdatePrices = async () => {
+    const multiplier = parseFloat(priceMultiplier);
+    if (isNaN(multiplier) || multiplier <= 0) {
+      toast({ title: "입력 오류", description: "유효한 배율(0보다 큰 숫자)을 입력해주세요.", variant: "destructive"});
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await bulkUpdateProductPrices(multiplier);
+      toast({ title: "가격 업데이트 완료", description: `모든 상품 가격이 ${multiplier}배로 조정되었습니다.`});
+      setIsBulkUpdateDialogOpen(false);
+      setPriceMultiplier('');
+      fetchProducts();
+    } catch (error) {
+      toast({ title: "오류", description: "가격 조정 중 오류가 발생했습니다.", variant: "destructive"});
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
 
   return (
@@ -197,12 +222,52 @@ export default function CouncilShopPage() {
             <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2"><ShoppingCart />상점 관리</h1>
             <p className="text-muted-foreground">상품을 추가, 수정, 삭제하고 재고를 관리합니다.</p>
         </div>
-        <Button size="sm" className="gap-1" onClick={() => handleOpenDialog()}>
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                상품 추가
-            </span>
-        </Button>
+        <div className="flex items-center gap-2">
+            <Dialog open={isBulkUpdateDialogOpen} onOpenChange={setIsBulkUpdateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      일괄 조정
+                  </span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>일괄 가격 조정</DialogTitle>
+                  <DialogDescription>모든 상품의 가격을 한 번에 배율로 조정합니다. 예를 들어 50% 할인하려면 0.5를, 2배로 올리려면 2를 입력하세요.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <Label htmlFor="price-multiplier">가격 배율</Label>
+                  <Input 
+                    id="price-multiplier"
+                    type="number"
+                    step="0.1"
+                    placeholder="예: 1.2 (20% 인상)"
+                    value={priceMultiplier}
+                    onChange={(e) => setPriceMultiplier(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline" disabled={isProcessing}>취소</Button>
+                  </DialogClose>
+                  <Button onClick={handleBulkUpdatePrices} disabled={isProcessing || !priceMultiplier}>
+                    {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    적용하기
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button size="sm" className="gap-1" onClick={() => handleOpenDialog()}>
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    상품 추가
+                </span>
+            </Button>
+        </div>
       </div>
 
       <Card>

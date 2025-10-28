@@ -1225,7 +1225,23 @@ export const setGlobalDiscount = async (discount: number) => {
     await setDoc(settingsRef, { globalDiscount: discount }, { merge: true });
 };
 
+export const bulkUpdateProductPrices = async (multiplier: number) => {
+  if (isNaN(multiplier) || multiplier <= 0) {
+    throw new Error("유효한 배율(0보다 큰 숫자)을 입력해야 합니다.");
+  }
+  const productsRef = collection(db, "products");
+  const snapshot = await getDocs(productsRef);
+  const batch = writeBatch(db);
+
+  snapshot.forEach(doc => {
+    const product = doc.data();
+    const currentPrice = product.price || 0;
+    const newPrice = Math.round(currentPrice * multiplier);
+    batch.update(doc.ref, { price: newPrice });
+  });
+
+  await batch.commit();
+};
+
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    
