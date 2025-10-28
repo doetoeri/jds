@@ -243,6 +243,16 @@ export const signUp = async (
             await setDoc(userDocRef, docData);
             break;
     }
+    
+    // Re-login with the kiosk account if this signup was initiated from a kiosk
+    const currentAuthUser = getAuth().currentUser;
+    if (currentAuthUser && currentAuthUser.email?.endsWith('@special.account')) {
+        // This is a kiosk signup. We need to sign back in as the kiosk.
+        const kioskEmail = currentAuthUser.email;
+        // This assumes a fixed password for all kiosk/special accounts, which is the current implementation
+        await signInWithEmailAndPassword(auth, kioskEmail, '123456');
+    }
+
 
     return user;
   } catch (error: any) {
