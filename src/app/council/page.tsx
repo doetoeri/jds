@@ -6,14 +6,18 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription
 } from '@/components/ui/card';
-import { Users, Coins, ShoppingCart, ListOrdered } from 'lucide-react';
+import { Users, Coins, ShoppingCart, ListOrdered, Search, Loader2 } from 'lucide-react';
 import { CommunicationChannel } from '@/components/communication-channel';
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 interface Stats {
     totalUsers: number;
@@ -22,9 +26,20 @@ interface Stats {
     productsInStock: number;
 }
 
+interface SearchedUser {
+    displayName: string;
+    lak: number;
+}
+
 export default function CouncilDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [studentId, setStudentId] = useState('');
+  const [searchedUser, setSearchedUser] = useState<SearchedUser | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchMessage, setSearchMessage] = useState('');
+
+  const { toast } = useToast();
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
@@ -85,6 +100,31 @@ export default function CouncilDashboardPage() {
     };
   }, []);
 
+  const handleSearchStudent = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!studentId || !/^\d{5}$/.test(studentId)) {
+          toast({ title: '입력 오류', description: '올바른 5자리 학번을 입력해주세요.', variant: 'destructive'});
+          return;
+      }
+      setIsSearching(true);
+      setSearchedUser(null);
+      setSearchMessage('');
+      try {
+          const q = query(collection(db, 'users'), where('studentId', '==', studentId));
+          const snapshot = await getDocs(q);
+          if (snapshot.empty) {
+              setSearchMessage('학생을 찾을 수 없습니다.');
+          } else {
+              const userData = snapshot.docs[0].data();
+              setSearchedUser({ displayName: userData.displayName, lak: userData.lak });
+          }
+      } catch (err) {
+          setSearchMessage('조회 중 오류가 발생했습니다.');
+      } finally {
+          setIsSearching(false);
+      }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
@@ -140,6 +180,34 @@ export default function CouncilDashboardPage() {
                 </CardContent>
                 </Card>
             </div>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5"/>학생 포인트 조회</CardTitle>
+                    <CardDescription>학번으로 학생의 현재 보유 포인트를 조회합니다.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleSearchStudent} className="flex items-center gap-2">
+                        <Label htmlFor="student-id-search" className="sr-only">학번</Label>
+                        <Input
+                            id="student-id-search"
+                            value={studentId}
+                            onChange={(e) => setStudentId(e.target.value)}
+                            placeholder="학생의 5자리 학번 입력"
+                            disabled={isSearching}
+                        />
+                        <Button type="submit" disabled={isSearching || !studentId}>
+                            {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : '조회'}
+                        </Button>
+                    </form>
+                    {searchedUser && (
+                        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                            <p className="font-bold">{searchedUser.displayName}</p>
+                            <p className="text-primary text-xl font-bold">{searchedUser.lak.toLocaleString()} 포인트</p>
+                        </div>
+                    )}
+                    {searchMessage && <p className="mt-4 text-sm text-destructive">{searchMessage}</p>}
+                </CardContent>
+            </Card>
         </div>
         <div className="lg:col-span-1">
             <CommunicationChannel />
