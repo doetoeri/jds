@@ -31,7 +31,7 @@ interface UserData {
   name?: string; 
   displayName?: string; 
   email?: string;
-  role?: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth';
+  role?: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council';
   photoURL?: string; 
   avatarGradient?: string;
 }
@@ -70,8 +70,8 @@ export function UserNav() {
 
   useEffect(() => {
     if (userData?.role === 'council') {
-        const savedMode = localStorage.getItem('councilMode') as 'council' | 'student' | null;
-        setCouncilMode(savedMode || 'council');
+        const savedMode = localStorage.getItem('councilMode');
+        setCouncilMode(savedMode === 'student' ? 'student' : 'council');
     }
   }, [userData?.role]);
 
@@ -95,13 +95,12 @@ export function UserNav() {
      if (userData?.displayName) return userData.displayName;
      if (userData?.role === 'teacher') return `${userData.name} 선생님`;
      if (userData?.role === 'student' || userData?.role === 'council') return `학생 (${userData.studentId})`;
-     if (userData?.role === 'council_booth') return userData.name;
+     if (userData?.role === 'council') return userData.name;
      return '사용자';
   }
   
   const getDashboardLink = () => {
       if (userData?.role === 'admin') return '/admin';
-      if (userData?.role === 'council_booth') return '/council/booth';
       if (userData?.role === 'council') {
         return councilMode === 'council' ? '/council' : '/dashboard';
       }

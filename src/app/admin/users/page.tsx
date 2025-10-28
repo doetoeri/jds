@@ -55,7 +55,7 @@ interface User {
   name?: string;
   email: string;
   lak: number;
-  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'council_booth' | 'kiosk';
+  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'kiosk';
   memo?: string;
 }
 
@@ -367,7 +367,7 @@ export default function AdminUsersPage() {
 
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
-    if (user.role === 'council' || user.role === 'council_booth' || user.role === 'kiosk') return user.name || user.email;
+    if (user.role === 'council' || user.role === 'kiosk') return user.name || user.email;
     if (user.role === 'student') return user.studentId;
     if (user.role === 'teacher') return user.name;
     return 'N/A';
@@ -375,8 +375,7 @@ export default function AdminUsersPage() {
 
   const roleDisplayNames: Record<User['role'], string> = {
     admin: '관리자',
-    council: '학생회(일반)',
-    council_booth: '특수 계정(부스)',
+    council: '학생회',
     teacher: '교직원',
     student: '학생',
     pending_teacher: '승인 대기',
@@ -731,8 +730,7 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="student">학생</SelectItem>
-                  <SelectItem value="council">학생회(일반)</SelectItem>
-                  <SelectItem value="council_booth">특수 계정(부스)</SelectItem>
+                  <SelectItem value="council">학생회</SelectItem>
                   <SelectItem value="kiosk">키오스크</SelectItem>
                 </SelectContent>
               </Select>

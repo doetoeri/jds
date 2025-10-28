@@ -82,11 +82,8 @@ const councilLinks = [
   { name: '학생 사용자 관리', href: '/council/users', icon: Users },
   { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
   { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
-];
-
-const councilBoothLinks = [
-    { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
-    { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
+  { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
+  { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
 ];
 
 const teacherLinks = [
@@ -99,11 +96,10 @@ const navConfig = {
   student: studentLinks,
   admin: adminLinks,
   council: councilLinks,
-  council_booth: councilBoothLinks,
   teacher: teacherLinks,
 };
 
-type Role = 'student' | 'admin' | 'council' | 'teacher' | 'council_booth';
+type Role = 'student' | 'admin' | 'council' | 'teacher';
 
 export function SideNav({ role }: { role: Role }) {
   const pathname = usePathname();

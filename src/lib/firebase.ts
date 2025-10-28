@@ -129,7 +129,7 @@ const adjustInitialPoints = async () => {
 
 // Sign up function
 export const signUp = async (
-    userType: 'student' | 'teacher' | 'pending_teacher' | 'council' | 'council_booth' | 'kiosk',
+    userType: 'student' | 'teacher' | 'pending_teacher' | 'council' | 'kiosk',
     userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string, memo?: string },
     password: string,
     email: string
@@ -151,7 +151,7 @@ export const signUp = async (
     }
     
     // For special accounts, the 'email' is a constructed one. Check for ID uniqueness instead.
-    if (userType === 'council' || userType === 'council_booth' || userType === 'kiosk') {
+    if (userType === 'council' || userType === 'kiosk') {
         const existingIdQuery = query(collection(db, "users"), where("studentId", "==", userData.studentId));
         const existingIdSnapshot = await getDocs(existingIdQuery);
         if (!existingIdSnapshot.empty) {
@@ -240,16 +240,6 @@ export const signUp = async (
                 displayName: userData.name,
                 role: 'council',
                 memo: userData.memo || null,
-            };
-            await setDoc(userDocRef, docData);
-            break;
-        case 'council_booth':
-             docData = {
-                ...docData,
-                studentId: userData.studentId, // This is the custom ID
-                name: userData.name,
-                displayName: userData.name,
-                role: 'council_booth',
             };
             await setDoc(userDocRef, docData);
             break;
@@ -697,7 +687,7 @@ export const bulkSetUserLak = async (userIds: string[], amount: number, reason: 
 };
 
 
-export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'council_booth' | 'kiosk') => {
+export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'kiosk') => {
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) {
@@ -1230,7 +1220,10 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
   });
 };
 
+export const setGlobalDiscount = async (discount: number) => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    await setDoc(settingsRef, { globalDiscount: discount }, { merge: true });
+};
+
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    

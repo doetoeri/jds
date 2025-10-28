@@ -32,14 +32,13 @@ interface CouncilUser {
   name?: string;
   displayName?: string;
   email: string;
-  role: 'council' | 'council_booth';
+  role: 'council';
   memo?: string; // 직책 코드 (e.g., 'A계1')
   lastLogin?: Timestamp;
 }
 
 const roleDisplayNames = {
-  council: '학생회(일반)',
-  council_booth: '특수 계정(부스)',
+  council: '학생회',
 };
 
 export default function AdminCouncilPage() {
@@ -51,7 +50,7 @@ export default function AdminCouncilPage() {
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
-    const q = query(usersCollection, where('role', 'in', ['council', 'council_booth']));
+    const q = query(usersCollection, where('role', '==', 'council'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs
@@ -108,7 +107,7 @@ export default function AdminCouncilPage() {
             학생회 관리
         </h1>
         <p className="text-muted-foreground">
-          학생회 및 특수 계정 목록과 활동 상태를 확인합니다.
+          학생회 계정 목록과 활동 상태를 확인합니다.
         </p>
       </div>
 

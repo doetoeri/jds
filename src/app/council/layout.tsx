@@ -59,7 +59,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
           const userData = userDocSnap.data();
           const role = userData.role;
           setUserRole(role);
-          if (role === 'admin' || role === 'council' || role === 'council_booth') {
+          if (role === 'admin' || role === 'council') {
               setIsAuthorized(true);
           } else {
             setIsAuthorized(false);
@@ -68,7 +68,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
             
             toast({
               title: '접근 권한 없음',
-              description: '학생회 또는 관련 계정만 접근할 수 있는 페이지입니다.',
+              description: '학생회 계정만 접근할 수 있는 페이지입니다.',
               variant: 'destructive',
             });
             setTimeout(() => router.push(redirectPath), 50);
@@ -77,7 +77,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
         setIsAuthorized(false);
         toast({
           title: '접근 권한 없음',
-          description: '학생회 또는 관련 계정만 접근할 수 있는 페이지입니다.',
+          description: '학생회 계정만 접근할 수 있는 페이지입니다.',
           variant: 'destructive',
         });
         setTimeout(() => router.push('/dashboard'), 50);
@@ -138,5 +138,3 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-    

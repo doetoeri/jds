@@ -24,7 +24,7 @@ const FADE_IN_VARIANTS = {
   show: { opacity: 1, y: 0, transition: { type: 'spring' } },
 };
 
-type SpecialAccountType = 'council' | 'council_booth' | 'kiosk';
+type SpecialAccountType = 'council' | 'kiosk';
 
 export default function AdminSignupPage() {
   const [accountType, setAccountType] = useState<SpecialAccountType | ''>('');
@@ -105,8 +105,7 @@ export default function AdminSignupPage() {
                     <SelectValue placeholder="계정 유형 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="council">학생회 (일반)</SelectItem>
-                    <SelectItem value="council_booth">특수 계정 (부스)</SelectItem>
+                    <SelectItem value="council">학생회</SelectItem>
                     <SelectItem value="kiosk">키오스크</SelectItem>
                 </SelectContent>
             </Select>
