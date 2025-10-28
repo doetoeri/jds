@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -129,7 +130,7 @@ const adjustInitialPoints = async () => {
 
 // Sign up function
 export const signUp = async (
-    userType: 'student' | 'teacher' | 'pending_teacher' | 'council' | 'kiosk',
+    userType: 'student' | 'teacher' | 'pending_teacher' | 'council',
     userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string, memo?: string },
     password: string,
     email: string
@@ -151,7 +152,7 @@ export const signUp = async (
     }
     
     // For special accounts, the 'email' is a constructed one. Check for ID uniqueness instead.
-    if (userType === 'council' || userType === 'kiosk') {
+    if (userType === 'council') {
         const existingIdQuery = query(collection(db, "users"), where("studentId", "==", userData.studentId));
         const existingIdSnapshot = await getDocs(existingIdQuery);
         if (!existingIdSnapshot.empty) {
@@ -240,16 +241,6 @@ export const signUp = async (
                 displayName: userData.name,
                 role: 'council',
                 memo: userData.memo || null,
-            };
-            await setDoc(userDocRef, docData);
-            break;
-        case 'kiosk':
-             docData = {
-                ...docData,
-                studentId: userData.studentId, // This is the custom ID
-                name: userData.name,
-                displayName: userData.name,
-                role: 'kiosk',
             };
             await setDoc(userDocRef, docData);
             break;
@@ -359,8 +350,6 @@ export const resetUserPassword = async (userId: string) => {
     // A better approach for this project might be a specific Cloud Function.
     // Let's create a function that sends a password reset email instead.
     // The request was to reset to '123456' which is not possible from client.
-    // We will just send the reset email as a compromise.
-    // The user's request is to reset to '123456'. This is impossible from client.
     // I will throw an error explaining this limitation.
     // throw new Error("클라이언트에서는 비밀번호를 직접 변경할 수 없습니다. 대신 비밀번호 재설정 이메일을 보냈습니다. 이 기능을 구현하려면 백엔드(Cloud Function) 도움이 필요합니다.");
 
@@ -687,7 +676,7 @@ export const bulkSetUserLak = async (userIds: string[], amount: number, reason: 
 };
 
 
-export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'kiosk') => {
+export const updateUserRole = async (userId: string, newRole: 'student' | 'council') => {
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) {
@@ -1034,17 +1023,19 @@ export const givePointsToMultipleStudentsAtBooth = async (
   
   for (const studentId of studentIds) {
     try {
+      const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
+      const studentSnapshot = await getDocs(studentQuery);
+
+      if (studentSnapshot.empty) {
+        throw new Error(`학번 ${studentId} 학생 없음`);
+      }
+      
+      const studentDoc = studentSnapshot.docs[0];
+
       await runTransaction(db, async (transaction) => {
-        const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
-        const studentSnapshot = await getDocs(studentQuery);
-
-        if (studentSnapshot.empty) {
-          throw new Error(`학번 ${studentId} 학생 없음`);
-        }
-        
-        const studentRef = studentSnapshot.docs[0].ref;
+        const studentRef = doc(db, 'users', studentDoc.id);
+        // We don't need to get inside the transaction if `distributePoints` does it.
         await distributePoints(transaction, studentRef, value, `부스 참여: ${reason}`);
-
       });
       result.successCount++;
     } catch (error: any) {
