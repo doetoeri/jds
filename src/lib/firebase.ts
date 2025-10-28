@@ -1011,7 +1011,7 @@ export const processPosPayment = async (
         items: items,
         totalCost: totalCost,
         createdAt: Timestamp.now(),
-        status: 'completed', // POS transactions are completed instantly
+        status: 'completed',
         operatorId: operatorId,
         paymentCode: paymentCode,
     });
@@ -1227,3 +1227,5 @@ export const setGlobalDiscount = async (discount: number) => {
 
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
