@@ -10,10 +10,18 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
 
   useEffect(() => {
     let theme = 'theme-student'; // Default theme
+    
     if (pathname.startsWith('/teacher') || pathname.startsWith('/guide/teachers')) {
       theme = 'theme-teacher';
     }
-    document.documentElement.className = theme;
+
+    if (pathname === '/') {
+        document.body.classList.add('liquid-glass-theme-enabled');
+        document.documentElement.className = theme;
+    } else {
+        document.body.classList.remove('liquid-glass-theme-enabled');
+        document.documentElement.className = theme;
+    }
     
   }, [pathname]);
 
@@ -24,5 +32,3 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
     </>
   );
 }
-
-    
