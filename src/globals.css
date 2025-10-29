@@ -97,7 +97,6 @@
   
   body.liquid-glass-theme-enabled {
     background-color: hsl(var(--background));
-    overflow: hidden;
   }
 
   body.liquid-glass-theme-enabled::before {
