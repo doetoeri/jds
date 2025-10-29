@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo } from '@/lib/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -53,13 +53,15 @@ interface User {
   id: string;
   studentId?: string;
   name?: string;
+  displayName?: string;
   email: string;
   lak: number;
   role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'kiosk';
   memo?: string;
+  createdAt?: Timestamp;
 }
 
-type SortKey = 'lak';
+type SortKey = 'lak' | 'createdAt' | 'studentId';
 type SortDirection = 'asc' | 'desc';
 
 export default function AdminUsersPage() {
@@ -83,7 +85,7 @@ export default function AdminUsersPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [filter, setFilter] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('lak');
+  const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   const [isRewardDialogOpen, setIsRewardDialogOpen] = useState(false);
@@ -121,23 +123,32 @@ export default function AdminUsersPage() {
         return true;
       }
       const lowercasedFilter = filter.toLowerCase();
-      const identifier = renderIdentifier(user).toLowerCase();
-      const memo = user.memo?.toLowerCase() || '';
-      
-      return identifier.includes(lowercasedFilter) || memo.includes(lowercasedFilter);
+      // Search through all relevant fields
+      return (
+        user.studentId?.includes(lowercasedFilter) ||
+        user.name?.toLowerCase().includes(lowercasedFilter) ||
+        user.displayName?.toLowerCase().includes(lowercasedFilter) ||
+        user.email.toLowerCase().includes(lowercasedFilter) ||
+        user.role.toLowerCase().includes(lowercasedFilter) ||
+        user.memo?.toLowerCase().includes(lowercasedFilter)
+      );
     });
 
     return filtered.sort((a, b) => {
-        const aValue = a[sortKey] || 0;
-        const bValue = b[sortKey] || 0;
+        const aValue = a[sortKey] ?? (sortKey === 'createdAt' ? new Timestamp(0, 0) : 0);
+        const bValue = b[sortKey] ?? (sortKey === 'createdAt' ? new Timestamp(0, 0) : 0);
 
-        if (aValue < bValue) {
-            return sortDirection === 'asc' ? -1 : 1;
+        let comparison = 0;
+
+        if(aValue instanceof Timestamp && bValue instanceof Timestamp) {
+            comparison = aValue.toMillis() - bValue.toMillis();
+        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+            comparison = aValue.localeCompare(bValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+            comparison = aValue - bValue;
         }
-        if (aValue > bValue) {
-            return sortDirection === 'asc' ? 1 : -1;
-        }
-        return 0;
+
+        return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [users, filter, sortKey, sortDirection]);
 
@@ -287,7 +298,7 @@ export default function AdminUsersPage() {
       toast({ title: "성공", description: `${selectedUsers.length}명의 사용자 포인트를 ${amount}으로 설정했습니다.` });
       setIsBulkAdjustDialogOpen(false);
       setSelectedUsers([]);
-    } catch (error: any) {
+    } catch (error: any) => {
       toast({ title: "오류", description: error.message || '일괄 포인트 설정 중 오류가 발생했습니다.', variant: "destructive" });
     } finally {
       setIsProcessing(false);
@@ -368,7 +379,7 @@ export default function AdminUsersPage() {
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
     if (user.role === 'council' || user.role === 'kiosk') return user.name || user.email;
-    if (user.role === 'student') return user.studentId;
+    if (user.role === 'student') return user.studentId || user.displayName;
     if (user.role === 'teacher') return user.name;
     return 'N/A';
   }
@@ -425,7 +436,7 @@ export default function AdminUsersPage() {
                 <Label htmlFor="grade-filter" className="shrink-0">검색</Label>
                 <Input 
                     id="grade-filter"
-                    placeholder="학번, 이름, 비고 등으로 검색..." 
+                    placeholder="학번, 이름, 이메일, 비고 등으로 검색..." 
                     className="w-full"
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
@@ -447,10 +458,21 @@ export default function AdminUsersPage() {
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead>학번/성함</TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('studentId')}>
+                        학번/성함
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
                 <TableHead>비고</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('createdAt')}>
+                        가입일
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
                 <TableHead className="text-right">
                     <Button variant="ghost" onClick={() => handleSort('lak')}>
                         보유 포인트
@@ -469,6 +491,7 @@ export default function AdminUsersPage() {
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                   </TableRow>
@@ -487,6 +510,7 @@ export default function AdminUsersPage() {
                     <TableCell className="text-muted-foreground">{user.memo || '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
+                    <TableCell>{user.createdAt ? user.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} 포인트</TableCell>
                     <TableCell className="text-right space-x-1">
                        <Button variant="outline" size="sm" onClick={() => openAdjustDialog(user)} disabled={user.role === 'admin'}>
@@ -854,3 +878,4 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
