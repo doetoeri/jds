@@ -7,8 +7,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardFooter,
+  CardDescription,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Users, Percent, Sparkles } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -19,13 +21,6 @@ import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 interface Product {
   id: string;
@@ -43,7 +38,6 @@ export default function CouncilPosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [studentId, setStudentId] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [totalCost, setTotalCost] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [globalDiscount, setGlobalDiscount] = useState(0);
@@ -78,11 +72,6 @@ export default function CouncilPosPage() {
     const globallyDiscounted = Math.round(originalTotal * (1 - globalDiscount / 100));
     return Math.max(0, globallyDiscounted - manualDiscount);
   }, [cart, globalDiscount, manualDiscount]);
-
-
-  useEffect(() => {
-    setTotalCost(finalTotalCost);
-  }, [finalTotalCost]);
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -136,7 +125,7 @@ export default function CouncilPosPage() {
         quantity: item.quantity,
     }));
     
-    const result = await processPosPayment(user.uid, studentId, itemsForPurchase, totalCost);
+    const result = await processPosPayment(user.uid, studentId, itemsForPurchase, finalTotalCost);
     
     if (result.success) {
       toast({ title: '결제 완료!', description: result.message });
@@ -150,138 +139,148 @@ export default function CouncilPosPage() {
   };
 
   return (
-    <div className="pb-48">
-      <div className="space-y-1 mb-6">
-        <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6"/>
-            종달매점 계산원
-        </h1>
-        <p className="text-muted-foreground">
-            판매할 상품을 선택한 뒤 학생의 학번을 입력하여 결제를 진행하세요.
-        </p>
-      </div>
-      
-       <Card className="mb-6">
-            <CardHeader>
-                <CardTitle>결제 대상</CardTitle>
-            </CardHeader>
-            <CardContent>
-                 <div className="space-y-2">
-                    <Label htmlFor="studentId">학생 학번 (5자리)</Label>
-                    <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="studentId"
-                          value={studentId}
-                          onChange={(e) => setStudentId(e.target.value)}
-                          placeholder="결제할 학생의 학번 입력"
-                          disabled={isPurchasing}
-                          required
-                          className="pl-9"
-                        />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {isLoading ? (
-            Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
-        ) : products.length === 0 ? (
-            <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
-        ) : (
-            products.map((product) => (
-              <Card key={product.id} className="flex flex-col overflow-hidden">
-                <div className="relative w-full h-32 bg-muted">
-                    {product.imageUrl ? (
-                        <Image src={product.imageUrl} alt={product.name} layout="fill" objectFit="cover" />
-                    ): (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                            <ImageIcon className="h-10 w-10"/>
-                        </div>
-                    )}
-                </div>
-                <CardContent className="p-4 flex flex-col flex-grow">
-                  <div className="flex-grow">
-                    <h3 className="font-bold text-lg">{product.name}</h3>
-                     {globalDiscount > 0 ? (
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-sm text-muted-foreground line-through">{product.price} P</p>
-                            <p className="text-base text-primary font-semibold">
-                                {Math.round(product.price * (1 - globalDiscount / 100))} 포인트
-                            </p>
-                        </div>
-                    ) : (
-                        <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">남은 수량: {product.stock}개</p>
-                  </div>
-                  <div className="mt-4 flex items-center justify-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => removeFromCart(product.id)} disabled={!cart.some(item => item.id === product.id) || isPurchasing}>
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="font-bold w-10 text-center text-lg">{cart.find(item => item.id === product.id)?.quantity || 0}</span>
-                    <Button variant="outline" size="icon" onClick={() => addToCart(product)} disabled={isPurchasing}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-        )}
-      </div>
-
-       {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] lg:left-[280px] bg-background/80 backdrop-blur-sm border-t p-4 shadow-lg">
-          <div className="container mx-auto max-w-6xl">
-            <h3 className="text-lg font-semibold mb-2">결제 내역</h3>
-            <div className="max-h-32 overflow-y-auto pr-2">
-                {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center text-sm mb-1">
-                        <span>{item.name} x{item.quantity}</span>
-                        <span>{Math.round(item.price * (1 - globalDiscount / 100)) * item.quantity} 포인트</span>
-                    </div>
-                ))}
-            </div>
-            <Separator className="my-2"/>
-            <div className="flex justify-between items-center text-lg">
-                <span className="font-bold">상품 합계</span>
-                 <div className="flex items-baseline gap-2">
-                  {globalDiscount > 0 && (
-                    <span className="text-sm text-muted-foreground font-normal line-through">
-                      {cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} P
-                    </span>
-                  )}
-                  <span>{Math.round(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * (1 - globalDiscount / 100))} 포인트</span>
-                </div>
-            </div>
-            <div className="flex justify-between items-center text-lg mt-1">
-                <Label htmlFor="manual-discount" className="font-bold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary"/>에누리</Label>
-                <div className="flex items-center gap-2">
-                 <Input 
-                    id="manual-discount"
-                    type="number"
-                    value={manualDiscount || ''}
-                    onChange={(e) => setManualDiscount(Number(e.target.value))}
-                    className="w-24 h-8 text-right font-bold"
-                    placeholder="할인액"
-                    disabled={isPurchasing}
-                 />
-                 <span className="font-bold">포인트</span>
-                </div>
-            </div>
-            <Separator className="my-2"/>
-            <div className="flex justify-between items-center font-bold text-xl">
-              <span>최종 금액:</span>
-              <span className="text-primary">{totalCost} 포인트</span>
-            </div>
-            <Button className="w-full mt-3 font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId}>
-              {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {studentId ? `${studentId} 학생 / ${totalCost} 포인트 결제하기` : '학생 학번을 입력하세요'}
-            </Button>
-          </div>
+    <div>
+        <div className="space-y-1 mb-6">
+            <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center gap-2">
+                <ShoppingCart className="h-6 w-6"/>
+                종달매점 계산원
+            </h1>
+            <p className="text-muted-foreground">
+                판매할 상품을 선택한 뒤 학생의 학번을 입력하여 결제를 진행하세요.
+            </p>
         </div>
-       )}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {isLoading ? (
+                Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
+            ) : products.length === 0 ? (
+                <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
+            ) : (
+                products.map((product) => (
+                  <Card key={product.id} className="flex flex-col overflow-hidden">
+                    <div className="relative w-full h-32 bg-muted">
+                        {product.imageUrl ? (
+                            <Image src={product.imageUrl} alt={product.name} layout="fill" objectFit="cover" />
+                        ): (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                <ImageIcon className="h-10 w-10"/>
+                            </div>
+                        )}
+                    </div>
+                    <CardContent className="p-4 flex flex-col flex-grow">
+                      <div className="flex-grow">
+                        <h3 className="font-bold text-lg">{product.name}</h3>
+                         {globalDiscount > 0 ? (
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-sm text-muted-foreground line-through">{product.price} P</p>
+                                <p className="text-base text-primary font-semibold">
+                                    {Math.round(product.price * (1 - globalDiscount / 100))} 포인트
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">남은 수량: {product.stock}개</p>
+                      </div>
+                      <div className="mt-4 flex items-center justify-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => removeFromCart(product.id)} disabled={!cart.some(item => item.id === product.id) || isPurchasing}>
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="font-bold w-10 text-center text-lg">{cart.find(item => item.id === product.id)?.quantity || 0}</span>
+                        <Button variant="outline" size="icon" onClick={() => addToCart(product)} disabled={isPurchasing}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+            )}
+        </div>
+
+        <div className="lg:col-span-1 lg:sticky lg:top-24 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>결제 대상</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     <div className="space-y-2">
+                        <Label htmlFor="studentId">학생 학번 (5자리)</Label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="studentId"
+                              value={studentId}
+                              onChange={(e) => setStudentId(e.target.value)}
+                              placeholder="결제할 학생의 학번 입력"
+                              disabled={isPurchasing}
+                              required
+                              className="pl-9"
+                            />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {cart.length > 0 && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>결제 내역</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
+                            {cart.map(item => (
+                                <div key={item.id} className="flex justify-between items-center text-sm">
+                                    <span>{item.name} x{item.quantity}</span>
+                                    <span>{Math.round(item.price * (1 - globalDiscount / 100)) * item.quantity} P</span>
+                                </div>
+                            ))}
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center text-base">
+                                <span className="font-semibold">상품 합계</span>
+                                 <div className="flex items-baseline gap-2">
+                                  {globalDiscount > 0 && (
+                                    <span className="text-sm text-muted-foreground font-normal line-through">
+                                      {cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} P
+                                    </span>
+                                  )}
+                                  <span>{Math.round(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * (1 - globalDiscount / 100))} P</span>
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center text-base">
+                                <Label htmlFor="manual-discount" className="font-semibold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary"/>에누리</Label>
+                                <div className="flex items-center gap-2">
+                                 <Input 
+                                    id="manual-discount"
+                                    type="number"
+                                    value={manualDiscount || ''}
+                                    onChange={(e) => setManualDiscount(Number(e.target.value))}
+                                    className="w-24 h-8 text-right font-bold"
+                                    placeholder="할인액"
+                                    disabled={isPurchasing}
+                                 />
+                                 <span className="font-bold text-sm">P</span>
+                                </div>
+                            </div>
+                        </div>
+                         <Separator />
+                        <div className="flex justify-between items-center font-bold text-xl">
+                            <span>최종 금액:</span>
+                            <span className="text-primary">{finalTotalCost} P</span>
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                         <Button className="w-full font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId}>
+                          {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {studentId ? `${studentId} / ${finalTotalCost} P 결제` : '학생 학번을 입력하세요'}
+                        </Button>
+                    </CardFooter>
+                 </Card>
+            )}
+        </div>
+      </div>
     </div>
   );
 }
