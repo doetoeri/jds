@@ -247,9 +247,7 @@ export const signUp = async (
     // Re-login with the kiosk account if this signup was initiated from a kiosk
     const currentAuthUser = getAuth().currentUser;
     if (currentAuthUser && currentAuthUser.email?.endsWith('@special.account')) {
-        // This is a kiosk signup. We need to sign back in as the kiosk.
-        const kioskEmail = currentAuthUser.email;
-        // This assumes a fixed password for all kiosk/special accounts, which is the current implementation
+        const kioskEmail = 'kiosk@special.account'
         await signInWithEmailAndPassword(auth, kioskEmail, '123456');
     }
 
@@ -1056,12 +1054,12 @@ export const givePointsToMultipleStudentsAtBooth = async (
 
         const studentDoc = studentSnapshot.docs[0];
         const studentRef = studentDoc.ref;
-        const studentData = await transaction.get(studentRef);
-        if(!studentData.exists()) {
+        const freshStudentData = await transaction.get(studentRef);
+        if(!freshStudentData.exists()) {
             throw new Error(`학생 데이터를 찾을 수 없습니다: ${studentId}`);
         }
         
-        distributePoints(transaction, studentRef, studentData.data(), value, `부스 참여: ${reason}`);
+        distributePoints(transaction, studentRef, freshStudentData.data(), value, `부스 참여: ${reason}`);
       });
       result.successCount++;
     } catch (error: any) {
