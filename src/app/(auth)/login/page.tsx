@@ -38,7 +38,7 @@ import type { Metadata } from 'next';
 
 const FADE_IN_VARIANTS = {
   hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring' } },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } },
 };
 
 export default function LoginPage() {
@@ -56,8 +56,6 @@ export default function LoginPage() {
         router.push('/admin');
       } else if (role === 'council') {
         router.push('/council');
-      } else if (role === 'council_booth') {
-        router.push('/council/booth');
       }
       else if (role === 'teacher') {
         router.push('/teacher/rewards');

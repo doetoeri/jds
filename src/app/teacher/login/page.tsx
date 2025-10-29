@@ -28,7 +28,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 
 const FADE_IN_VARIANTS = {
   hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring' } },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } },
 };
 
 export default function TeacherLoginPage() {

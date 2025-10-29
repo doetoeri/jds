@@ -64,8 +64,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             const userData = userDoc.data();
             const role = userData.role;
             
-            if (role === 'council_booth') {
-                router.push('/council/booth');
+            if (role === 'council') {
+                router.push('/council');
                 return;
             }
 
@@ -85,7 +85,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             }
             
             // Setup notifications for council members
-            if ((role === 'council' || role === 'council_booth') && userData.memo && 'Notification' in window) {
+            if ((role === 'council') && userData.memo && 'Notification' in window) {
                 if (Notification.permission === 'granted') {
                     const notificationsQuery = query(
                         collection(db, 'notifications'),
@@ -168,7 +168,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 30 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 25 }}
                 >
                   {children}
                 </motion.div>
