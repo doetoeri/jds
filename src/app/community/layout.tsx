@@ -88,10 +88,10 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
              <AnimatePresence mode="wait">
                 <motion.div
                   key={pathname}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 30 }}
+                  initial={{ opacity: 0, filter: 'blur(16px)', y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+                  exit={{ opacity: 0, filter: 'blur(16px)', y: -30, scale: 1.05 }}
+                  transition={{ duration: 0.9, ease: [0.25, 1, 0.5, 1] }}
                 >
                   {children}
                 </motion.div>

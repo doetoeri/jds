@@ -121,7 +121,8 @@
   .liquid-glass-theme-enabled .sheet,
   .liquid-glass-theme-enabled [cmdk-root] {
       @apply bg-card border shadow-soft-xl;
-      backdrop-filter: blur(12px);
+      backdrop-filter: url(#frosted);
+      -webkit-backdrop-filter: url(#frosted);
       box-shadow: 0 0 0 1px hsl(0 0% 100% / .15) inset,
                   0 8px 32px 0 hsl(var(--primary) / .1);
   }
@@ -141,7 +142,7 @@
     background-color: transparent;
   }
 
-  .liquid-glass-theme-enabled .button,
+  .liquid-glass-theme-enabled .button[data-variant="outline"],
   .liquid-glass-theme-enabled input,
   .liquid-glass-theme-enabled textarea,
   .liquid-glass-theme-enabled .select-trigger

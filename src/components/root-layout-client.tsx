@@ -15,13 +15,8 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
       theme = 'theme-teacher';
     }
 
-    if (pathname === '/') {
-        document.body.classList.add('liquid-glass-theme-enabled');
-        document.documentElement.className = theme;
-    } else {
-        document.body.classList.remove('liquid-glass-theme-enabled');
-        document.documentElement.className = theme;
-    }
+    document.body.classList.add('liquid-glass-theme-enabled');
+    document.documentElement.className = theme;
     
   }, [pathname]);
 
