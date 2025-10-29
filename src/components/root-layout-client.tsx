@@ -15,7 +15,13 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
       theme = 'theme-teacher';
     }
 
-    document.body.classList.add('liquid-glass-theme-enabled');
+    // Always enable liquid glass for the root page, toggle for others
+    if (pathname === '/' || pathname.startsWith('/teacher/login') || pathname === '/teacher' || pathname.startsWith('/(auth)')) {
+        document.body.classList.add('liquid-glass-theme-enabled');
+    } else {
+        document.body.classList.remove('liquid-glass-theme-enabled');
+    }
+    
     document.documentElement.className = theme;
     
   }, [pathname]);

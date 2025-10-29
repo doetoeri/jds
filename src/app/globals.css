@@ -97,7 +97,6 @@
   
   body.liquid-glass-theme-enabled {
     background-color: hsl(var(--background));
-    overflow: hidden;
   }
 
   body.liquid-glass-theme-enabled::before {
@@ -119,8 +118,7 @@
   .liquid-glass-theme-enabled [role="dialog"],
   .liquid-glass-theme-enabled [role="alert-dialog"],
   .liquid-glass-theme-enabled .sheet,
-  .liquid-glass-theme-enabled [cmdk-root],
-  .liquid-glass-theme-enabled .button[data-variant="outline"] {
+  .liquid-glass-theme-enabled [cmdk-root] {
       @apply bg-card border shadow-soft-xl;
       backdrop-filter: url(#frosted);
       -webkit-backdrop-filter: url(#frosted);
@@ -143,11 +141,16 @@
     background-color: transparent;
   }
 
+  .liquid-glass-theme-enabled .button[data-variant="outline"],
   .liquid-glass-theme-enabled input,
   .liquid-glass-theme-enabled textarea,
   .liquid-glass-theme-enabled .select-trigger
    {
       @apply bg-input border-white/60 shadow-inner;
+  }
+  
+  .liquid-glass-theme-enabled .button {
+    @apply hover:bg-primary/10;
   }
   
    .liquid-glass-theme-enabled .button[data-variant="default"] {
