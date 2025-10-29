@@ -298,7 +298,7 @@ export default function AdminUsersPage() {
       toast({ title: "성공", description: `${selectedUsers.length}명의 사용자 포인트를 ${amount}으로 설정했습니다.` });
       setIsBulkAdjustDialogOpen(false);
       setSelectedUsers([]);
-    } catch (error: any) => {
+    } catch (error: any) {
       toast({ title: "오류", description: error.message || '일괄 포인트 설정 중 오류가 발생했습니다.', variant: "destructive" });
     } finally {
       setIsProcessing(false);
@@ -878,4 +878,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
