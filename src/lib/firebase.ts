@@ -246,7 +246,7 @@ export const signUp = async (
     
     // Re-login with the kiosk account if this signup was initiated from a kiosk
     const currentAuthUser = getAuth().currentUser;
-    if (currentAuthUser && currentAuthUser.email?.endsWith('@special.account')) {
+    if (currentAuthUser && currentAuthUser.email !== 'kiosk@special.account') {
         const kioskEmail = 'kiosk@special.account'
         await signInWithEmailAndPassword(auth, kioskEmail, '123456');
     }
@@ -1017,7 +1017,7 @@ export const processPosPayment = async (
         items: items,
         totalCost: totalCost,
         createdAt: Timestamp.now(),
-        status: 'completed',
+        status: 'pending',
         operatorId: operatorId,
         paymentCode: paymentCode,
     });

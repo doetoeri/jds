@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -34,21 +35,7 @@ export default function KioskLayout({ children }: { children: ReactNode }) {
         return;
       }
       
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists() && userDoc.data().role === 'kiosk') {
-          setIsAuthorized(true);
-      } else {
-        toast({
-          title: '접근 권한 없음',
-          description: '키오스크 계정만 접근할 수 있는 페이지입니다.',
-          variant: 'destructive',
-        });
-        setIsAuthorized(false);
-        setTimeout(() => router.push('/dashboard'), 50);
-        return;
-      }
+      setIsAuthorized(true);
     };
     checkAuthorization();
   }, [user, loading, router, toast]);
