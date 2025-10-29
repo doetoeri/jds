@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ChevronRight, MessageCircleQuestion, User, Briefcase, ShoppingCart } from 'lucide-react';
@@ -10,20 +11,22 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.35,
+      staggerChildren: 0.2,
       delayChildren: 0.3,
     },
   },
 };
 
-
 const itemVariants = {
-    hidden: { opacity: 0, y: 30, scale: 0.95 },
+    hidden: { opacity: 0, filter: 'blur(16px)', scale: 1.1 },
     visible: { 
         opacity: 1, 
-        y: 0, 
+        filter: 'blur(0px)',
         scale: 1,
-        transition: { type: 'spring', stiffness: 200, damping: 25 }
+        transition: { 
+            duration: 0.9,
+            ease: [0.25, 1, 0.5, 1] 
+        }
     }
 };
 
