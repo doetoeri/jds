@@ -44,6 +44,12 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="font-body antialiased">
+        <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+          <filter id="frosted" primitiveUnits="objectBoundingBox">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="0.02" result="blur"/>
+            <feDisplacementMap in="blur" in2="SourceGraphic" scale="0.02" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        </svg>
         <Script async src="https://www.googletagmanager.com/gtag/js?id=G-0B6DFH42ML"></Script>
         <Script id="google-analytics">
           {`

@@ -53,6 +53,30 @@
   .dark {
     /* Define dark theme variables if needed */
   }
+
+  /* Liquid Glass Theme for landing page */
+  :root.liquid-glass-theme-enabled {
+    --background: 18 100% 97%;
+    --foreground: 24 10% 10%;
+    --card: 24 20% 100% / 0.5;
+    --card-foreground: 24 10% 10%;
+    --popover: 24 20% 100% / 0.7;
+    --popover-foreground: 24 10% 10%;
+    --primary: 18 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 10% 96% / 0.5;
+    --secondary-foreground: 30 10% 20%;
+    --muted: 30 10% 96% / 0.5;
+    --muted-foreground: 30 10% 45%;
+    --accent: 18 100% 50% / 0.1;
+    --accent-foreground: 18 100% 40%;
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 20% 90% / 0.8;
+    --input: 30 20% 98% / 0.6;
+    --ring: 18 100% 55%;
+  }
+
 }
 
 @layer base {
@@ -64,12 +88,78 @@
     transition: background-color 0.5s ease, color 0.5s ease;
   }
 
-  body.theme-student {
+  body.theme-student:not(.liquid-glass-theme-enabled) {
       background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
   }
   body.theme-teacher {
       background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
   }
+  
+  body.liquid-glass-theme-enabled {
+    background-color: hsl(var(--background));
+    overflow: hidden;
+  }
+
+  body.liquid-glass-theme-enabled::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 150vw;
+    height: 150vh;
+    transform: translate(-25%, -25%);
+    background: radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.15), transparent 30%),
+                radial-gradient(circle at 80% 70%, hsl(var(--ring) / 0.1), transparent 40%);
+    animation: gradient-move 25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    z-index: -1;
+  }
+  
+  .liquid-glass-theme-enabled .card,
+  .liquid-glass-theme-enabled .popover,
+  .liquid-glass-theme-enabled [role="dialog"],
+  .liquid-glass-theme-enabled [role="alert-dialog"],
+  .liquid-glass-theme-enabled .sheet,
+  .liquid-glass-theme-enabled [cmdk-root],
+  .liquid-glass-theme-enabled .button[data-variant="outline"] {
+      @apply bg-card border shadow-soft-xl;
+      backdrop-filter: url(#frosted);
+      -webkit-backdrop-filter: url(#frosted);
+      box-shadow: 0 0 0 1px hsl(0 0% 100% / .15) inset,
+                  0 8px 32px 0 hsl(var(--primary) / .1);
+  }
+  
+  .liquid-glass-theme-enabled [cmdk-item][aria-selected=true] {
+      @apply bg-primary/10;
+  }
+
+  .liquid-glass-theme-enabled .table > :not([hidden]) ~ :not([hidden]) {
+    @apply border-white/50;
+  }
+
+  .liquid-glass-theme-enabled .card-content, 
+  .liquid-glass-theme-enabled .popover-content,
+  .liquid-glass-theme-enabled .dialog-content,
+  .liquid-glass-theme-enabled .alert-dialog-content {
+    background-color: transparent;
+  }
+
+  .liquid-glass-theme-enabled input,
+  .liquid-glass-theme-enabled textarea,
+  .liquid-glass-theme-enabled .select-trigger
+   {
+      @apply bg-input border-white/60 shadow-inner;
+  }
+  
+   .liquid-glass-theme-enabled .button[data-variant="default"] {
+      background-image: linear-gradient(to top right, hsl(var(--primary) / 0.9), hsl(var(--primary) / 1));
+      box-shadow: 0 0 0 1px hsl(var(--primary) / 0.8) inset, 0 4px 15px hsl(var(--primary) / 0.3);
+      text-shadow: 0 1px 2px hsl(var(--primary) / 0.3);
+   }
+   
+   .liquid-glass-theme-enabled .button[data-variant="destructive"] {
+      background-image: linear-gradient(to top right, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9));
+      box-shadow: 0 0 0 1px hsl(var(--destructive) / 0.8) inset, 0 2px 10px hsl(var(--destructive) / 0.4);
+   }
 
   .card {
      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -108,4 +198,13 @@
   .animate-highlight-pulse {
     animation: highlight-pulse 2s ease-out infinite;
   }
+}
+
+@layer utilities {
+    .shadow-soft-lg {
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+    }
+     .shadow-soft-xl {
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+    }
 }
