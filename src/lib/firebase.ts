@@ -183,6 +183,9 @@ export const signUp = async (
         }
     }
 
+    const currentAuthUser = auth.currentUser;
+    const isKioskSession = currentAuthUser?.email?.startsWith('kiosk@');
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     const userDocRef = doc(db, "users", user.uid);
@@ -245,12 +248,11 @@ export const signUp = async (
     }
     
     // Re-login with the kiosk account if this signup was initiated from a kiosk
-    const currentAuthUser = getAuth().currentUser;
-    if (currentAuthUser && currentAuthUser.email !== 'kiosk@special.account') {
-        const kioskEmail = 'kiosk@special.account'
-        await signInWithEmailAndPassword(auth, kioskEmail, '123456');
+    if (isKioskSession) {
+      // Add a small delay to prevent race conditions in auth state
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await signInWithEmailAndPassword(auth, 'kiosk@special.account', '123456');
     }
-
 
     return user;
   } catch (error: any) {
@@ -1043,8 +1045,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
        await runTransaction(db, async (transaction) => {
         const studentQuery = query(
           collection(db, 'users'),
-          where('studentId', '==', studentId),
-          where('role', '==', 'student')
+          where('studentId', '==', studentId)
         );
         const studentSnapshot = await getDocs(studentQuery);
 
@@ -1269,3 +1270,5 @@ export const bulkUpdateProductPrices = async (multiplier: number) => {
 
 
 export { auth, db, storage, sendPasswordResetEmail };
+
+    
