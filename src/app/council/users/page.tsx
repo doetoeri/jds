@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { db, resetUserPassword } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -56,10 +56,11 @@ export default function CouncilUsersPage() {
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
-    const q = query(usersCollection, where('role', '==', 'student'), orderBy('studentId'));
+    const q = query(usersCollection, where('role', '==', 'student'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      userList.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
       setUsers(userList);
       setIsLoading(false);
     }, (error) => {
@@ -102,7 +103,11 @@ export default function CouncilUsersPage() {
 
 
   return (
-    <div>
+    <motion.div
+        initial={{ opacity: 0, filter: 'blur(16px)', y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+        transition={{ duration: 0.9, ease: [0.25, 1, 0.5, 1] }}
+    >
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">학생 사용자 관리</h1>
         <p className="text-muted-foreground">시스템에 등록된 모든 학생 목록입니다.</p>
@@ -187,6 +192,6 @@ export default function CouncilUsersPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   );
 }
