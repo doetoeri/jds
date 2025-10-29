@@ -310,7 +310,7 @@ export default function CouncilPosPage() {
               <CardFooter>
                 <Button className="w-full font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId}>
                   {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {studentId ? `${studentId} / ${finalTotalCost} P 결제` : '학생 학번을 입력하세요'}
+                  {studentId ? `${studentId} 학생 / ${finalTotalCost} P 결제` : '학생 학번을 입력하세요'}
                 </Button>
               </CardFooter>
             )}
