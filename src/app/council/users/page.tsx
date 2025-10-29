@@ -15,12 +15,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { db, resetUserPassword } from '@/lib/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, Timestamp } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { KeyRound, Loader2, Filter } from 'lucide-react';
+import { KeyRound, Loader2, Filter, ArrowUpDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +43,11 @@ interface User {
   email: string;
   lak: number;
   role: 'student';
+  createdAt: Timestamp;
 }
+
+type SortKey = 'studentId' | 'createdAt';
+type SortDirection = 'asc' | 'desc';
 
 export default function CouncilUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -54,13 +58,15 @@ export default function CouncilUsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [sortKey, setSortKey] = useState<SortKey>('createdAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
   useEffect(() => {
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, where('role', '==', 'student'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-      userList.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
       setUsers(userList);
       setIsLoading(false);
     }, (error) => {
@@ -76,13 +82,41 @@ export default function CouncilUsersPage() {
     return () => unsubscribe();
   }, [toast]);
   
-  const filteredUsers = useMemo(() => {
-    if (!filter) return users;
-    return users.filter(user => 
-      user.studentId?.includes(filter) || 
-      user.displayName?.toLowerCase().includes(filter.toLowerCase())
-    );
-  }, [users, filter]);
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('desc');
+    }
+  };
+  
+  const sortedAndFilteredUsers = useMemo(() => {
+    let filtered = users.filter(user => {
+        if (!filter) return true;
+        const lowercasedFilter = filter.toLowerCase();
+        return (
+            user.studentId?.includes(lowercasedFilter) || 
+            user.displayName?.toLowerCase().includes(lowercasedFilter) ||
+            user.name?.toLowerCase().includes(lowercasedFilter) ||
+            user.email?.toLowerCase().includes(lowercasedFilter)
+        );
+    });
+
+    return filtered.sort((a, b) => {
+        const aValue = a[sortKey] || (sortKey === 'createdAt' ? new Timestamp(0, 0) : '');
+        const bValue = b[sortKey] || (sortKey === 'createdAt' ? new Timestamp(0, 0) : '');
+
+        let comparison = 0;
+        if (aValue < bValue) {
+            comparison = -1;
+        } else if (aValue > bValue) {
+            comparison = 1;
+        }
+        
+        return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [users, filter, sortKey, sortDirection]);
 
   const handlePasswordReset = async () => {
     if (!selectedUser) return;
@@ -103,11 +137,7 @@ export default function CouncilUsersPage() {
 
 
   return (
-    <motion.div
-        initial={{ opacity: 0, filter: 'blur(16px)', y: 30, scale: 0.95 }}
-        animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
-        transition={{ duration: 0.9, ease: [0.25, 1, 0.5, 1] }}
-    >
+    <>
       <div className="space-y-1 mb-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">학생 사용자 관리</h1>
         <p className="text-muted-foreground">시스템에 등록된 모든 학생 목록입니다.</p>
@@ -120,7 +150,7 @@ export default function CouncilUsersPage() {
                 <Label htmlFor="filter-input" className="shrink-0">검색</Label>
                 <Input 
                     id="filter-input"
-                    placeholder="학번 또는 닉네임으로 검색..." 
+                    placeholder="학번, 닉네임, 이름, 이메일로 검색..." 
                     className="w-full"
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
@@ -135,9 +165,18 @@ export default function CouncilUsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>학번</TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('studentId')}>
+                    학번 <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
                 <TableHead>닉네임</TableHead>
                 <TableHead>이메일</TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('createdAt')}>
+                        가입일 <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
                 <TableHead className="text-right">보유 포인트</TableHead>
                 <TableHead className="text-right">작업</TableHead>
               </TableRow>
@@ -149,16 +188,20 @@ export default function CouncilUsersPage() {
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                      <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : (
-                filteredUsers.map((user) => (
+                sortedAndFilteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.studentId}</TableCell>
                     <TableCell>{user.displayName}</TableCell>
                     <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      {user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </TableCell>
                     <TableCell className="text-right">{user.lak?.toLocaleString() ?? 0} 포인트</TableCell>
                     <TableCell className="text-right">
                        <AlertDialog open={selectedUser?.id === user.id} onOpenChange={(isOpen) => !isOpen && setSelectedUser(null)}>
@@ -188,10 +231,19 @@ export default function CouncilUsersPage() {
                   </TableRow>
                 ))
               )}
+               {sortedAndFilteredUsers.length === 0 && !isLoading && (
+                 <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                        {filter ? "검색 결과가 없습니다." : "등록된 학생이 없습니다."}
+                    </TableCell>
+                 </TableRow>
+               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-    </motion.div>
+    </>
   );
 }
+
+    
