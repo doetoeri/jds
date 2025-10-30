@@ -38,7 +38,6 @@ export default function CodesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [user] = useAuthState(auth);
-  const [myMateCode, setMyMateCode] = useState<string | null>(null);
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -50,18 +49,6 @@ export default function CodesPage() {
   const [isPartnerDialogVisible, setIsPartnerDialogVisible] = useState(false);
   const [partnerStudentId, setPartnerStudentId] = useState('');
   const [isConfirmingPartner, setIsConfirmingPartner] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      const userDocRef = doc(db, 'users', user.uid);
-      const unsubscribe = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          setMyMateCode(doc.data().mateCode);
-        }
-      });
-      return () => unsubscribe();
-    }
-  }, [user]);
 
   const closeScanner = useCallback(() => {
     setIsScannerOpen(false);
@@ -127,27 +114,22 @@ export default function CodesPage() {
       toast({ title: "오류", description: "로그인이 필요합니다.", variant: "destructive" });
       return;
     }
+
+    // New: If the code is a 5-digit number, treat it as a friend invite and directly use it.
+    if (/^\d{5}$/.test(codeToUse)) {
+        await confirmAndUseCode(codeToUse);
+        return;
+    }
     
     setIsLoading(true);
-    // This is a simplified check. For full validation, we call the backend.
     const { getDocs, query, collection, where } = await import('firebase/firestore');
     const codeQuery = query(collection(db, 'codes'), where('code', '==', codeToUse));
     const codeSnapshot = await getDocs(codeQuery);
 
     
     if (codeSnapshot.empty) {
-        // If not a regular code, check if it's a mate code before erroring
-        const mateCodeQuery = query(collection(db, 'users'), where('mateCode', '==', codeToUse));
-        const mateCodeSnapshot = await getDocs(mateCodeQuery);
-        if (mateCodeSnapshot.empty) {
-            setIsLoading(false);
-            toast({ title: "오류", description: "유효하지 않은 코드입니다.", variant: "destructive" });
-            return;
-        }
-        // It's a mate code, so it's a partner code now
-        setCode(codeToUse);
-        setIsPartnerDialogVisible(true);
         setIsLoading(false);
+        toast({ title: "오류", description: "유효하지 않은 코드입니다.", variant: "destructive" });
         return;
     }
     
@@ -241,7 +223,7 @@ export default function CodesPage() {
       <div className="max-w-md mx-auto grid gap-6">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>일반 코드 입력</CardTitle>
+            <CardTitle>코드 또는 친구 학번 입력</CardTitle>
             <CardDescription>
                 {isScannerOpen ? "QR 코드를 중앙에 맞춰주세요." : "코드를 입력하거나 스캔하세요."}
             </CardDescription>
@@ -273,10 +255,10 @@ export default function CodesPage() {
                 <CardContent>
                   <div className="grid w-full items-center gap-4">
                     <div className="flex flex-col space-y-1.5">
-                      <Label htmlFor="code">코드</Label>
+                      <Label htmlFor="code">코드 또는 학번</Label>
                       <Input 
                         id="code" 
-                        placeholder="코드를 입력하세요" 
+                        placeholder="이벤트 코드 또는 친구의 학번 입력" 
                         value={code}
                         onChange={(e) => setCode(e.target.value.toUpperCase())}
                         disabled={isLoading || isConfirmingPartner}
@@ -305,9 +287,7 @@ export default function CodesPage() {
                  <div className="flex items-start gap-2">
                    <UserPlus className="h-4 w-4 mt-0.5 text-primary flex-shrink-0"/>
                    <p>
-                     <strong className="text-primary">메이트코드:</strong> 친구의 메이트코드를 입력하고 나의 학번을 입력하면, 나와 친구 모두 포인트를 받습니다!
-                     <br/>
-                     <span className="font-mono text-sm font-bold bg-muted px-2 py-1 rounded-md mt-1 inline-block">나의 메이트코드: {myMateCode || "로딩중..."}</span>
+                     <strong className="text-primary">친구 초대:</strong> 친구의 5자리 학번을 입력하면, 나와 친구 모두 포인트를 받습니다!
                    </p>
                  </div>
                  <div className="flex items-start gap-2">

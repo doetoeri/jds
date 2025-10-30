@@ -151,15 +151,15 @@ export const signUp = async (
     switch(userType) {
         case 'student':
             const studentId = userData.studentId!;
-            const mateCode = user.uid.substring(0, 4).toUpperCase();
             docData = {
                 ...docData,
                 studentId: studentId,
                 lak: 7,
-                mateCode: mateCode,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange',
+                usedMyId: [],
+                usedFriendId: [],
             };
              await runTransaction(db, async (transaction) => {
                 transaction.set(userDocRef, docData);
@@ -281,16 +281,19 @@ export const handleSignOut = async () => {
 };
 
 export const resetUserPassword = async (userId: string) => {
-    // This function is intended to be called by an admin/council member.
-    // It resets the password to a default value, not via email.
-    // For security, this should ideally be a backend function.
-    // In a real app, you would call a cloud function here to reset the password.
-    // This function will remain symbolic as we cannot implement this from the client.
-    console.warn("Password reset called from client-side. This is a placeholder and requires a secure backend implementation to function.");
-    // In a real implementation with a backend, you'd call it here.
-    // Since we can't, we will just return success and the admin can do it manually or we assume a Cloud Function exists.
-    // For this project, we'll assume it "works" by simply showing a success message to the user.
-    return { success: true };
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+        throw new Error('User does not exist.');
+    }
+
+    const userEmail = userDoc.data().email;
+    if (!userEmail) {
+        throw new Error('User email not found.');
+    }
+    
+    await sendPasswordResetEmail(auth, userEmail);
 };
 
 
@@ -305,89 +308,105 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     
     const userData = userDoc.data();
     const userStudentId = userData.studentId;
+    
+    // New: Check if the code is a 5-digit student ID (Friend Invite)
+    if (/^\d{5}$/.test(upperCaseCode)) {
+        const friendId = upperCaseCode;
+        if (friendId === userStudentId) {
+            throw "자신의 학번은 친구로 초대할 수 없습니다.";
+        }
+        
+        const friendQuery = query(collection(db, 'users'), where('studentId', '==', friendId));
+        const friendSnapshot = await getDocs(friendQuery); // Use getDocs for querying
+        if (friendSnapshot.empty) {
+            throw `학번 ${friendId}에 해당하는 학생을 찾을 수 없습니다.`;
+        }
 
-    // Check for regular codes first
+        const friendDoc = friendSnapshot.docs[0];
+        const friendRef = friendDoc.ref;
+        const friendData = await transaction.get(friendRef);
+        if (!friendData.exists()) throw "친구 정보를 찾을 수 없습니다.";
+        
+        // Check if they already used each other's ID
+        const myUsedFriends = userData.usedFriendId || [];
+        if (myUsedFriends.includes(friendId)) {
+            throw "이미 이 친구의 학번을 사용했습니다.";
+        }
+        
+        const friendUsedMyId = (friendData.data().usedFriendId || []).includes(userStudentId);
+        if (friendUsedMyId) {
+            throw "이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.";
+        }
+
+        const invitePoints = 2;
+        
+        // Give points to the user
+        distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendId})`);
+        
+        // Give points to the friend
+        distributePoints(transaction, friendRef, friendData.data(), invitePoints, `친구 초대 보상 (초대받은 친구: ${userStudentId})`);
+        
+        // Update records
+        transaction.update(userRef, { usedFriendId: arrayUnion(friendId) });
+        transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
+
+        return { success: true, message: `친구 초대에 성공하여 나와 친구 모두 ${invitePoints}포인트를 받았습니다!` };
+    }
+
+    // Check for regular codes
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     const codeSnapshot = await getDocs(codeQuery);
     
-    if (!codeSnapshot.empty) {
-        const codeDoc = codeSnapshot.docs[0];
-        const codeRef = codeDoc.ref;
-        const freshCodeData = (await transaction.get(codeRef)).data();
-        if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
-
-        switch (freshCodeData.type) {
-          case '히든코드':
-            if (freshCodeData.used) throw "이미 사용된 코드입니다.";
-            if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
-            if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
-            if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
-            
-            const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId), where('role', '==', 'student'));
-            const partnerSnapshot = await getDocs(partnerQuery);
-            if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
-            
-            const partnerRef = partnerSnapshot.docs[0].ref;
-            const partnerDoc = await transaction.get(partnerRef);
-            if (!partnerDoc.exists()) throw `학번 ${partnerStudentId}에 해당하는 학생 데이터를 찾을 수 없습니다.`;
-            const partnerData = partnerDoc.data();
-
-            distributePoints(transaction, userRef, userData, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`);
-            distributePoints(transaction, partnerRef, partnerData, freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`);
-            
-            transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
-
-            return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
-          
-          case '선착순코드':
-            const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
-            if (usedBy.includes(userStudentId)) throw "이미 이 코드를 사용했습니다.";
-            if (usedBy.length >= freshCodeData.limit) throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
-
-            distributePoints(transaction, userRef, userData, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`);
-            transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
-            
-            return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
-
-          default:
-            if (freshCodeData.used) throw "이미 사용된 코드입니다.";
-
-            distributePoints(transaction, userRef, userData, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`);
-            transaction.update(codeRef, { used: true, usedBy: userStudentId });
-
-            return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
-        }
+    if (codeSnapshot.empty) {
+        throw "유효하지 않은 코드 또는 학번입니다.";
     }
 
-    // If no regular code, check for mate code
-    const mateCodeOwnerQuery = query(collection(db, 'users'), where('mateCode', '==', upperCaseCode));
-    const ownerSnapshot = await getDocs(mateCodeOwnerQuery);
+    const codeDoc = codeSnapshot.docs[0];
+    const codeRef = codeDoc.ref;
+    const freshCodeData = (await transaction.get(codeRef)).data();
+    if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
 
-    if (ownerSnapshot.empty) {
-        throw "유효하지 않은 코드입니다.";
+    switch (freshCodeData.type) {
+        case '히든코드':
+        if (freshCodeData.used) throw "이미 사용된 코드입니다.";
+        if (!partnerStudentId) throw "파트너의 학번이 필요합니다.";
+        if (partnerStudentId === userStudentId) throw "자기 자신을 파트너로 지정할 수 없습니다.";
+        if (!/^\d{5}$/.test(partnerStudentId)) throw "파트너의 학번은 5자리 숫자여야 합니다.";
+        
+        const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId), where('role', '==', 'student'));
+        const partnerSnapshot = await getDocs(partnerQuery);
+        if (partnerSnapshot.empty) throw `학번 ${partnerStudentId}에 해당하는 학생을 찾을 수 없습니다.`;
+        
+        const partnerRef = partnerSnapshot.docs[0].ref;
+        const partnerDoc = await transaction.get(partnerRef);
+        if (!partnerDoc.exists()) throw `학번 ${partnerStudentId}에 해당하는 학생 데이터를 찾을 수 없습니다.`;
+        const partnerData = partnerDoc.data();
+
+        distributePoints(transaction, userRef, userData, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`);
+        distributePoints(transaction, partnerRef, partnerData, freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`);
+        
+        transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
+
+        return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
+        
+        case '선착순코드':
+        const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
+        if (usedBy.includes(userStudentId)) throw "이미 이 코드를 사용했습니다.";
+        if (usedBy.length >= freshCodeData.limit) throw "코드가 모두 소진되었습니다. 다음 기회를 노려보세요!";
+
+        distributePoints(transaction, userRef, userData, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`);
+        transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
+        
+        return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
+
+        default:
+        if (freshCodeData.used) throw "이미 사용된 코드입니다.";
+
+        distributePoints(transaction, userRef, userData, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`);
+        transaction.update(codeRef, { used: true, usedBy: userStudentId });
+
+        return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
     }
-    
-    const ownerDoc = ownerSnapshot.docs[0];
-    const ownerData = ownerDoc.data();
-
-    if (ownerData.studentId === userStudentId) throw "자신의 메이트코드는 사용할 수 없습니다.";
-    
-    const usedMatePartners = userData.usedMatePartners || [];
-    if (usedMatePartners.includes(ownerData.studentId)) throw "이미 이 친구와 메이트코드를 교환했습니다.";
-
-    const matePointValue = 2;
-    
-    distributePoints(transaction, userRef, userData, matePointValue, `메이트코드 사용 (파트너: ${ownerData.studentId})`);
-
-    const ownerRef = ownerDoc.ref;
-    const ownerFullDoc = await transaction.get(ownerRef);
-    if(!ownerFullDoc.exists()) throw "파트너 정보를 찾을 수 없습니다.";
-    distributePoints(transaction, ownerRef, ownerFullDoc.data(), matePointValue, `메이트코드 파트너 보상 (사용자: ${userStudentId})`);
-    
-    transaction.update(userRef, { usedMatePartners: arrayUnion(ownerData.studentId) });
-    transaction.update(ownerRef, { usedMatePartners: arrayUnion(userStudentId) });
-    
-    return { success: true, message: `코드를 사용해 나와 파트너 모두 ${matePointValue} 포인트를 받았습니다!` };
 
   }).catch((error) => {
       console.error("Code redemption error: ", error);

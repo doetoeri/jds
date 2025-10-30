@@ -28,6 +28,7 @@ import {
   BarChart3,
   ShieldQuestion,
   LayoutDashboard,
+  UserPlus
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -39,6 +40,7 @@ const studentLinks = [
   { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
   { name: '설문/투표', href: '/dashboard/polls', icon: CheckSquare },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
+  { name: '친구', href: '/dashboard/mates', icon: UserPlus },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
   { name: '사용 내역', href: '/dashboard/history', icon: History },

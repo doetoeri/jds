@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2, Award, Trophy, Info, Instagram, AlertCircle } from 'lucide-react';
+import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2, Award, Trophy, Info, Instagram, AlertCircle, User, UserPlus } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -29,8 +29,7 @@ const POINT_THRESHOLDS = [
 
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
-  const [userData, setUserData] = useState<{ lak?: number; mateCode?: string; displayName?: string; avatarGradient?: string; piggyBank?: number } | null>(null);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [userData, setUserData] = useState<{ lak?: number; studentId?: string; displayName?: string; avatarGradient?: string; piggyBank?: number } | null>(null);
   const [newUpdate, setNewUpdate] = useState<NewUpdate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
@@ -51,23 +50,13 @@ export default function DashboardPage() {
         const data = userDocSnap.data();
         setUserData({
             lak: data.lak ?? 0,
-            mateCode: data.mateCode,
+            studentId: data.studentId,
             displayName: data.displayName,
             avatarGradient: data.avatarGradient,
             piggyBank: data.piggyBank ?? 0,
         });
-        
-        if (data.mateCode && data.mateCode !== userData?.mateCode) {
-          try {
-            const url = await QRCode.toDataURL(data.mateCode, { width: 200, margin: 2 });
-            setQrCodeUrl(url);
-          } catch (err) {
-            console.error("QR Code generation failed:", err);
-            setQrCodeUrl(null);
-          }
-        }
       } else {
-        setUserData({ lak: 0, mateCode: null });
+        setUserData({ lak: 0, studentId: undefined });
       }
       setIsLoading(false);
     }, (error) => {
@@ -138,11 +127,11 @@ export default function DashboardPage() {
     }, []);
 
     const handleShare = async () => {
-        if (!userData?.mateCode) return;
+        if (!userData?.studentId) return;
     
         const shareData = {
-          title: '종달샘 허브 메이트코드',
-          text: `종달샘 허브에서 함께 포인트 받자! 🙌\n내 코드: ${userData.mateCode}\n`,
+          title: '종달샘 허브 친구 초대',
+          text: `종달샘 허브에서 함께 포인트 받자! 🙌\n'코드 사용' 페이지에 내 학번 '${userData.studentId}'을(를) 입력해줘!\n`,
           url: 'https://jongdalsam.shop',
         };
     
@@ -153,7 +142,7 @@ export default function DashboardPage() {
             await navigator.clipboard.writeText(`${shareData.text}${shareData.url}`);
             toast({
               title: '클립보드에 복사 완료!',
-              description: '메이트코드와 초대 메시지가 클립보드에 복사되었어요.',
+              description: '초대 메시지가 클립보드에 복사되었어요.',
             });
           }
         } catch (error: any) {
@@ -163,7 +152,7 @@ export default function DashboardPage() {
             console.error('Error sharing:', error);
             toast({
               title: '공유 실패',
-              description: '코드를 공유하는 중 오류가 발생했습니다.',
+              description: '초대 메시지를 공유하는 중 오류가 발생했습니다.',
               variant: 'destructive',
             });
         }
@@ -248,21 +237,20 @@ export default function DashboardPage() {
 
         <Card className="md:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">나의 메이트 코드</CardTitle>
-            <QrCode className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">친구 초대</CardTitle>
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pt-4 gap-4">
              {isLoading ? (
               <>
-                <Skeleton className="h-[120px] w-[120px]" />
                 <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-4 w-48" />
               </>
-            ) : userData?.mateCode && qrCodeUrl ? (
+            ) : userData?.studentId ? (
               <>
-                <Image src={qrCodeUrl} alt="Mate Code QR" width={120} height={120} />
                 <div className="text-center">
-                   <p className="font-mono text-2xl font-bold">{userData.mateCode}</p>
-                   <p className="text-xs text-muted-foreground">친구에게 코드를 공유하고 함께 포인트를 받으세요!</p>
+                   <p className="font-mono text-2xl font-bold">{userData.studentId}</p>
+                   <p className="text-xs text-muted-foreground">내 학번을 친구에게 알려주고 함께 포인트를 받으세요!</p>
                 </div>
                  <div className="flex gap-2">
                     <Button onClick={handleShare} size="sm" variant="outline" disabled={isSharing}>
@@ -272,7 +260,7 @@ export default function DashboardPage() {
                  </div>
               </>
             ) : (
-               <p className="text-sm text-muted-foreground py-10 text-center">메이트 코드를 불러올 수 없습니다.</p>
+               <p className="text-sm text-muted-foreground py-10 text-center">학번 정보를 불러올 수 없습니다.</p>
             )}
           </CardContent>
         </Card>
