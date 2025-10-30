@@ -48,7 +48,6 @@ interface Purchase {
 
 export default function OrdersPage() {
   const [user, authLoading] = useAuthState(auth);
-  const [userData, setUserData] = useState<{ studentId?: string } | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -59,46 +58,25 @@ export default function OrdersPage() {
 
 
   useEffect(() => {
-    if (authLoading) return;
-    if (user) {
-      const userDocRef = doc(db, 'users', user.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if(docSnap.exists()) {
-          setUserData(docSnap.data() as { studentId?: string });
-        } else {
-          // If user doc doesn't exist, we can't fetch orders by studentId.
-          setIsLoading(false);
-        }
-      }, err => {
-          console.error("Failed to fetch user data", err);
-          toast({title: "오류", description: "사용자 정보를 불러오는데 실패했습니다.", variant: "destructive"});
-          setIsLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
-        // Not logged in, no orders to fetch.
-        setIsLoading(false);
+    if (authLoading) {
+      // Still checking for the user, so we are in a loading state.
+      setIsLoading(true);
+      return;
     }
-  }, [user, authLoading, toast]);
-
-  useEffect(() => {
-    // This effect runs only when userData (and thus studentId) is available.
-    if (!userData || !userData.studentId) {
-      // If there's no studentId, we can't query.
-      // This might be the case for non-student roles or incomplete profiles.
-      if (!authLoading && user) { // Only stop loading if we're done with auth checks.
-        setIsLoading(false);
-      }
+    if (!user) {
+      // No user logged in, no orders to show, and not loading.
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    const purchasesRef = collection(db, `purchases`);
+    // User is logged in, set up the query.
+    const purchasesRef = collection(db, 'purchases');
     const q = query(
         purchasesRef, 
-        where('studentId', '==', userData.studentId), 
+        where('userId', '==', user.uid), 
         orderBy('createdAt', 'desc')
     );
+
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const userPurchases = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -114,7 +92,7 @@ export default function OrdersPage() {
     
     return () => unsubscribe();
 
-  }, [userData, toast]); // Dependency on userData ensures this runs after studentId is fetched.
+  }, [user, authLoading, toast]);
 
   const formatItems = (items: Purchase['items']) => {
     if (!Array.isArray(items)) return 'N/A';
