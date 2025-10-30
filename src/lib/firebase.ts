@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -479,9 +480,9 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
     }
     const userData = userDoc.data();
 
-    // if ((userData.lak || 0) < totalCost) {
-    //   throw new Error(`포인트가 부족합니다. 현재 보유 포인트: ${userData.lak || 0}, 필요 포인트: ${totalCost}`);
-    // }
+    if ((userData.lak || 0) < totalCost) {
+      throw new Error(`포인트가 부족합니다. 현재 보유 포인트: ${userData.lak || 0}, 필요 포인트: ${totalCost}`);
+    }
 
     for (const item of cart) {
         const productRef = doc(db, 'products', item.id);
@@ -987,6 +988,11 @@ export const processPosPayment = async (
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
     // 2. Validate all data after reading.
+    const studentData = studentDoc.data();
+    if ((studentData.lak || 0) < totalCost) {
+        throw new Error(`포인트가 부족합니다. (보유: ${studentData.lak || 0}, 필요: ${totalCost})`);
+    }
+
     for (let i = 0; i < items.length; i++) {
       const productDoc = productDocs[i];
       const item = items[i];
