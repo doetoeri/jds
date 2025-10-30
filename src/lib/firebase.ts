@@ -128,7 +128,7 @@ const adjustInitialPoints = async () => {
 
 // Sign up function
 export const signUp = async (
-    userType: 'student' | 'teacher' | 'pending_teacher' | 'council',
+    userType: 'student' | 'teacher' | 'pending_teacher' | 'council' | 'kiosk',
     userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string, memo?: string },
     password: string,
     email: string
@@ -150,7 +150,7 @@ export const signUp = async (
     }
     
     // For special accounts, the 'email' is a constructed one. Check for ID uniqueness instead.
-    if (userType === 'council') {
+    if (userType === 'council' || userType === 'kiosk') {
         const existingIdQuery = query(collection(db, "users"), where("studentId", "==", userData.studentId));
         const existingIdSnapshot = await getDocs(existingIdQuery);
         if (!existingIdSnapshot.empty) {
@@ -235,12 +235,13 @@ export const signUp = async (
             await setDoc(userDocRef, docData);
             break;
         case 'council':
+        case 'kiosk':
              docData = {
                 ...docData,
                 studentId: userData.studentId, // Custom ID
                 name: userData.name,
                 displayName: userData.name,
-                role: 'council',
+                role: userType,
                 memo: userData.memo || null,
             };
             await setDoc(userDocRef, docData);
@@ -693,7 +694,7 @@ export const bulkSetUserLak = async (userIds: string[], amount: number, reason: 
 };
 
 
-export const updateUserRole = async (userId: string, newRole: 'student' | 'council') => {
+export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'kiosk') => {
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) {
@@ -969,6 +970,7 @@ export const processPosPayment = async (
     totalCost: number
 ) => {
   return await runTransaction(db, async (transaction) => {
+    // 1. All reads must come first.
     const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
     const studentSnapshot = await getDocs(studentQuery);
 
@@ -982,25 +984,34 @@ export const processPosPayment = async (
     if (!studentDoc.exists()) {
       throw new Error("결제 중 학생 정보를 다시 확인하는 데 실패했습니다.");
     }
+    
+    const productRefs = items.map(item => doc(db, 'products', item.id));
+    const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
+    // 2. Validate all data after reading.
     const currentPoints = studentDoc.data()?.lak || 0;
     if (currentPoints < totalCost) {
       throw new Error(`포인트가 부족합니다. 현재 보유: ${currentPoints}, 필요: ${totalCost}`);
     }
 
-    for (const item of items) {
-        const productRef = doc(db, 'products', item.id);
-        const productDoc = await transaction.get(productRef);
-        if (!productDoc.exists() || productDoc.data().stock < item.quantity) {
-            throw new Error(`'${item.name}' 상품의 재고가 부족합니다.`);
-        }
-        transaction.update(productRef, { stock: increment(-item.quantity) });
+    for (let i = 0; i < items.length; i++) {
+      const productDoc = productDocs[i];
+      const item = items[i];
+      if (!productDoc.exists() || productDoc.data().stock < item.quantity) {
+        throw new Error(`'${item.name}' 상품의 재고가 부족합니다.`);
+      }
     }
 
+    // 3. All writes come after all reads and validation.
     const paymentCode = generatePaymentCode('POS');
     transaction.update(studentRef, { lak: increment(-totalCost) });
 
-    // Add transaction history
+    for (let i = 0; i < items.length; i++) {
+      const productRef = productRefs[i];
+      const item = items[i];
+      transaction.update(productRef, { stock: increment(-item.quantity) });
+    }
+
     const itemsDescription = items.map(item => `${item.name}x${item.quantity}`).join(', ');
     const historyRef = doc(collection(studentRef, 'transactions'));
     transaction.set(historyRef, {
@@ -1011,7 +1022,6 @@ export const processPosPayment = async (
       operator: operatorId,
     });
     
-     // Log the purchase in a separate collection
     const purchaseRef = doc(collection(db, 'purchases'));
     transaction.set(purchaseRef, {
         userId: studentDoc.id,
@@ -1023,7 +1033,6 @@ export const processPosPayment = async (
         operatorId: operatorId,
         paymentCode: paymentCode,
     });
-
 
     return { success: true, message: `${studentId} 학생에게서 ${totalCost} 포인트를 성공적으로 차감했습니다.` };
   }).catch((error: any) => {
@@ -1270,5 +1279,3 @@ export const bulkUpdateProductPrices = async (multiplier: number) => {
 
 
 export { auth, db, storage, sendPasswordResetEmail };
-
-    
