@@ -46,7 +46,7 @@ export default function CouncilPosPage() {
   const [isSearchingStudent, setIsSearchingStudent] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPurchasing, setIsPurchasing] = useState(isPurchasing(false));
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [manualDiscount, setManualDiscount] = useState(0);
 
@@ -368,4 +368,3 @@ export default function CouncilPosPage() {
     </div>
   );
 }
-
