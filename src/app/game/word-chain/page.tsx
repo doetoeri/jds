@@ -114,7 +114,7 @@ export default function WordChainPage() {
                     ) : (
                         <div className="flex flex-wrap items-center justify-center gap-2 p-4">
                             {history.map((h, index) => (
-                                <React.Fragment key={index}>
+                                <div key={index} className="flex items-center gap-2">
                                     <div className={cn(
                                         "flex items-center gap-2 p-3 rounded-lg animate-in fade-in zoom-in-95",
                                         index === history.length - 1 ? 'bg-primary/20 ring-2 ring-primary' : 'bg-muted'
@@ -127,7 +127,7 @@ export default function WordChainPage() {
                                         <span className="font-bold text-lg">{h.text}</span>
                                     </div>
                                     {index < history.length - 1 && <ArrowRight className="h-5 w-5 text-muted-foreground" />}
-                                </React.Fragment>
+                                </div>
                             ))}
                         </div>
                     )}
