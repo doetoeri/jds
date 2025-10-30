@@ -72,6 +72,7 @@ const adminLinks = [
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
+  { name: '구매 문의 관리', href: '/admin/disputes', icon: ShieldQuestion },
   { name: '전체 내역', href: '/admin/history', icon: History },
   { name: '전체 주문 내역', href: '/admin/purchases', icon: ListOrdered },
   { name: '시스템 설정', href: '/admin/settings', icon: Cog },
