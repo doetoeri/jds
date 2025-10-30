@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -7,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, KeyRound, User, Briefcase } from 'lucide-react';
+import { Loader2, KeyRound, User, Briefcase, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { signIn, db, auth } from '@/lib/firebase';
 import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
@@ -42,7 +41,7 @@ const FADE_IN_VARIANTS = {
 
 
 export default function LoginPage() {
-  const [emailOrId, setEmailOrId] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -78,18 +77,8 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    let finalPassword = password;
-    let finalEmail = emailOrId;
-    let isSpecialAccount = false;
-
-    // This is a simplified check for special account based on ID format
-    // A more robust check is now inside the signIn function
-    if (!emailOrId.includes('@')) {
-        isSpecialAccount = true;
-    }
-
     try {
-      const user = await signIn(finalEmail, isSpecialAccount ? '123456' : finalPassword);
+      const user = await signIn(studentId, password);
       
       if (!user) {
           throw new Error("사용자를 찾을 수 없습니다.");
@@ -112,9 +101,6 @@ export default function LoginPage() {
             router.push('/teacher/login');
             return;
         }
-      } else if (finalEmail === 'admin@jongdalsem.com') {
-        await setDoc(userDocRef, { email: finalEmail, role: 'admin', name: '관리자', displayName: '관리자' });
-        userRole = 'admin';
       }
 
       handleRedirect(userRole);
@@ -192,15 +178,14 @@ export default function LoginPage() {
         <div className="space-y-4">
             <motion.div variants={FADE_IN_VARIANTS}>
               <div className="space-y-2">
-                <Label htmlFor="email">이메일 또는 ID</Label>
+                <Label htmlFor="studentId">학번</Label>
                 <Input
-                  id="email"
+                  id="studentId"
                   type="text"
-                  autoComplete="email"
-                  placeholder="hello@example.com 또는 특수 계정 ID"
+                  placeholder="5자리 학번"
                   required
-                  value={emailOrId}
-                  onChange={(e) => setEmailOrId(e.target.value)}
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
                   disabled={isLoading}
                   className="h-12 text-base"
                 />
@@ -218,7 +203,7 @@ export default function LoginPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>비밀번호 재설정</AlertDialogTitle>
                           <AlertDialogDescription>
-                            가입하신 이메일 주소를 입력하시면, 비밀번호를 재설정할 수 있는 링크를 보내드립니다. (특수 계정은 재설정 불가)
+                            가입하신 이메일 주소를 입력하시면, 비밀번호를 재설정할 수 있는 링크를 보내드립니다.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <div className="py-4">
@@ -249,8 +234,9 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                    className="h-12 text-base"
-                    placeholder="특수 계정은 비워두셔도 됩니다."
+                  className="h-12 text-base"
+                  placeholder="비밀번호 입력"
+                  required
                 />
               </div>
             </motion.div>

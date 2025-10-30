@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -159,7 +158,7 @@ export default function BoothSignupPage() {
         animate={{ opacity: 1 }}
     >
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">학번을 입력하여, 등록 여부를 확인하세요.</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">부스/현장용 일괄 등록</h1>
       </div>
 
       <div className="mb-4">

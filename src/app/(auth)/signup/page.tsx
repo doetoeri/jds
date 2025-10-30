@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, User, Briefcase, KeyRound, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, User, Briefcase, KeyRound, ArrowRight, ArrowLeft, Users } from 'lucide-react';
 import { signUp } from '@/lib/firebase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -155,13 +154,17 @@ export default function SignupPage() {
         >
             {step === 1 && (
             <div className="space-y-4">
-                <Button variant="outline" className="w-full h-28 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => handleUserTypeSelect('student')}>
-                    <User className="h-10 w-10 text-primary"/>
+                <Button variant="outline" className="w-full h-24 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => handleUserTypeSelect('student')}>
+                    <User className="h-8 w-8 text-primary"/>
                     학생
                 </Button>
-                <Button variant="outline" className="w-full h-28 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => handleUserTypeSelect('teacher')}>
-                    <Briefcase className="h-10 w-10 text-primary"/>
+                <Button variant="outline" className="w-full h-24 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => handleUserTypeSelect('teacher')}>
+                    <Briefcase className="h-8 w-8 text-primary"/>
                     교직원
+                </Button>
+                 <Button variant="outline" className="w-full h-24 text-lg flex flex-col gap-2 bg-background/50 hover:bg-background" onClick={() => router.push('/signup/booth')}>
+                    <Users className="h-8 w-8 text-primary"/>
+                    부스/현장 일괄 등록
                 </Button>
             </div>
             )}

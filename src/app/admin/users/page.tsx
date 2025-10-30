@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import {
@@ -301,7 +299,7 @@ export default function AdminUsersPage() {
     } catch (error: any) {
       toast({ title: "오류", description: error.message || '일괄 포인트 설정 중 오류가 발생했습니다.', variant: "destructive" });
     } finally {
-      setIsProcessing(false);
+        setIsProcessing(false);
     }
   };
 

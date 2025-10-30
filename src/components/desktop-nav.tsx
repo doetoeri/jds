@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import Link from 'next/link';
@@ -29,6 +27,7 @@ import {
   CheckSquare,
   BarChart3,
   ShieldQuestion,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -52,7 +51,7 @@ const studentSettingsLinks = [
 ];
 
 const adminLinks = [
-  { name: '관리자 홈', href: '/admin', icon: Home },
+  { name: '대시보드', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
   { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
@@ -65,6 +64,7 @@ const adminLinks = [
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
   { name: '전체 내역', href: '/admin/history', icon: History },
   { name: '전체 주문 내역', href: '/admin/purchases', icon: ListOrdered },
+  { name: '시스템 설정', href: '/admin/settings', icon: Cog },
 ];
 
 const councilLinks = [
