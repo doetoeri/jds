@@ -64,9 +64,10 @@ export default function OrdersPage() {
       const userDocRef = doc(db, 'users', user.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if(docSnap.exists()) {
-          setUserData(docSnap.data() as any);
+          setUserData(docSnap.data() as { studentId?: string });
         } else {
-            setIsLoading(false);
+          // If user doc doesn't exist, we can't fetch orders by studentId.
+          setIsLoading(false);
         }
       }, err => {
           console.error("Failed to fetch user data", err);
@@ -75,18 +76,23 @@ export default function OrdersPage() {
       });
       return () => unsubscribe();
     } else {
+        // Not logged in, no orders to fetch.
         setIsLoading(false);
     }
   }, [user, authLoading, toast]);
 
   useEffect(() => {
+    // This effect runs only when userData (and thus studentId) is available.
     if (!userData || !userData.studentId) {
-      if (!authLoading && user) {
+      // If there's no studentId, we can't query.
+      // This might be the case for non-student roles or incomplete profiles.
+      if (!authLoading && user) { // Only stop loading if we're done with auth checks.
         setIsLoading(false);
       }
       return;
     }
 
+    setIsLoading(true);
     const purchasesRef = collection(db, `purchases`);
     const q = query(
         purchasesRef, 
@@ -108,7 +114,7 @@ export default function OrdersPage() {
     
     return () => unsubscribe();
 
-  }, [user, userData, toast]);
+  }, [userData, toast]); // Dependency on userData ensures this runs after studentId is fetched.
 
   const formatItems = (items: Purchase['items']) => {
     if (!Array.isArray(items)) return 'N/A';
