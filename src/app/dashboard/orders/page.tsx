@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -16,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { auth, db, submitPurchaseDispute } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, where, orderBy, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ListOrdered, MessageSquareQuestion, Loader2 } from 'lucide-react';
@@ -43,7 +44,7 @@ interface Purchase {
   status: 'pending' | 'completed';
   disputeStatus?: 'open' | 'resolved';
   paymentCode?: string;
-  studentId: string;
+  userId: string;
 }
 
 export default function OrdersPage() {
@@ -59,22 +60,18 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (authLoading) {
-      // Still checking for the user, so we are in a loading state.
       setIsLoading(true);
       return;
     }
     if (!user) {
-      // No user logged in, no orders to show, and not loading.
       setIsLoading(false);
       return;
     }
 
-    // User is logged in, set up the query.
     const purchasesRef = collection(db, 'purchases');
     const q = query(
         purchasesRef, 
-        where('userId', '==', user.uid), 
-        orderBy('createdAt', 'desc')
+        where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -82,11 +79,15 @@ export default function OrdersPage() {
           id: doc.id,
           ...doc.data()
         } as Purchase));
+        
+        // Sort by date on the client-side
+        userPurchases.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
         setPurchases(userPurchases);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching purchases: ", error);
-        toast({ title: "오류", description: "주문 내역을 불러오는 데 실패했습니다.", variant: "destructive" });
+        toast({ title: "오류", description: "주문 내역을 불러오는 데 실패했습니다. 색인 문제일 수 있습니다. 관리자에게 문의하세요.", variant: "destructive" });
         setIsLoading(false);
     });
     
