@@ -53,11 +53,6 @@ export default function AdminSettingsPage() {
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [isSavingDiscount, setIsSavingDiscount] = useState(false);
   
-  const [isEmergencyStopEnabled, setIsEmergencyStopEnabled] = useState(false);
-  const [isEmergencyStopping, setIsEmergencyStopping] = useState(false);
-
-
-
   useEffect(() => {
     const settingsRef = doc(db, 'system_settings', 'main');
     const unsubSettings = onSnapshot(settingsRef, (doc) => {
@@ -222,89 +217,9 @@ export default function AdminSettingsPage() {
         setIsUpdatingReasons(false);
     }
   };
-  
-  const handleEmergencyStop = async () => {
-    setIsEmergencyStopping(true);
-    toast({ title: "긴급 중지 시작", description: "모든 서비스를 중지합니다..." });
-    try {
-        await setMaintenanceMode(true);
-        await setShopStatus(false);
-        await bulkUpdateProductPrices(0);
-        await Promise.all([
-            resetLeaderboard('word-chain'),
-            resetLeaderboard('minesweeper-easy'),
-            resetLeaderboard('breakout'),
-            resetLeaderboard('tetris'),
-        ]);
-        await resetWordChainGame();
-        
-        toast({ title: "긴급 중지 완료", description: "모든 서비스가 안전하게 중지되었습니다.", variant: "default" });
-        
-    } catch (error: any) {
-        toast({ title: "긴급 중지 오류", description: `일부 작업이 실패했을 수 있습니다: ${error.message}`, variant: "destructive" });
-    } finally {
-        setIsEmergencyStopping(false);
-        setIsEmergencyStopEnabled(false);
-    }
-  }
 
-
-  
   return (
     <div className="space-y-6">
-        <Card className="border-destructive">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-destructive">
-                    <AlertTriangle />
-                    위험 구역
-                </CardTitle>
-                <CardDescription>
-                    이 구역의 작업은 되돌릴 수 없으므로 신중하게 사용해야 합니다.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm border-destructive/20 bg-destructive/5">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="emergency-stop-enable" className="text-base font-semibold">긴급 중지 활성화</Label>
-                        <p className="text-sm text-destructive/80">모든 서비스를 중지하려면 이 스위치를 켜세요.</p>
-                    </div>
-                    <Switch
-                        id="emergency-stop-enable"
-                        checked={isEmergencyStopEnabled}
-                        onCheckedChange={setIsEmergencyStopEnabled}
-                        disabled={isEmergencyStopping}
-                    />
-                </div>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="w-full" disabled={!isEmergencyStopEnabled || isEmergencyStopping}>
-                            {isEmergencyStopping ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Power className="mr-2 h-4 w-4"/>}
-                            모든 서비스 긴급 중지
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>정말로 모든 서비스를 중지하시겠습니까?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            이 작업은 Quota 초과 등 긴급 상황을 위한 최후의 수단입니다. 시스템 점검 모드가 활성화되고, 상점 구매가 중지되며, 모든 상품 가격이 0으로 변경됩니다. 또한 모든 리더보드와 게임 기록이 초기화됩니다.
-                            <br/><br/>
-                            <strong className="text-destructive">이 작업은 되돌릴 수 없습니다.</strong>
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel>취소</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleEmergencyStop}
-                            className="bg-destructive hover:bg-destructive/90"
-                        >
-                            네, 모든 서비스를 중지합니다
-                        </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </CardContent>
-        </Card>
-
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><HardHat />시스템 관리</CardTitle>
