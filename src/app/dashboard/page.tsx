@@ -1,10 +1,8 @@
-
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2, Award, Trophy, Info, Instagram } from 'lucide-react';
+import { Coins, Mail, QrCode, Gift, Users, Megaphone, Share2, Award, Trophy, Info, Instagram, AlertCircle } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -177,6 +175,17 @@ export default function DashboardPage() {
     <>
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight font-headline">대시보드</h1>
+      
+      {userData && userData.lak !== undefined && userData.lak < 0 && (
+          <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle className="font-bold">포인트 빚이 있습니다!</AlertTitle>
+              <AlertDescription>
+                  현재 보유 포인트가 <strong className="font-mono">{userData.lak.toLocaleString()}</strong> 입니다. 코드를 사용하거나 활동에 참여하여 빚을 갚아주세요.
+              </AlertDescription>
+          </Alert>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -272,6 +281,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-
-    

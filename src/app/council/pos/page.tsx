@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,7 +9,7 @@ import {
   CardFooter,
   CardDescription,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Sparkles, X, Coins } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Sparkles, X, Coins, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -49,6 +48,7 @@ export default function CouncilPosPage() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [manualDiscount, setManualDiscount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
@@ -189,6 +189,13 @@ export default function CouncilPosPage() {
     setIsPurchasing(false);
   };
 
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return products;
+    return products.filter(product => 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [products, searchTerm]);
+
   return (
     <div>
       <div className="space-y-1 mb-6">
@@ -203,7 +210,16 @@ export default function CouncilPosPage() {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Products Grid */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="상품 이름으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {isLoading ? (
               Array.from({ length: 9 }).map((_, i) => (
@@ -215,10 +231,12 @@ export default function CouncilPosPage() {
                   </CardContent>
                 </Card>
               ))
-            ) : products.length === 0 ? (
-              <p className="col-span-full text-center text-muted-foreground py-16">판매중인 상품이 없습니다.</p>
+            ) : filteredProducts.length === 0 ? (
+              <p className="col-span-full text-center text-muted-foreground py-16">
+                {searchTerm ? '검색 결과가 없습니다.' : '판매중인 상품이 없습니다.'}
+              </p>
             ) : (
-              products.map((product) => (
+              filteredProducts.map((product) => (
                 <Card 
                   key={product.id} 
                   className="flex flex-col overflow-hidden cursor-pointer hover:border-primary transition-all"
