@@ -185,15 +185,45 @@ export default function OrdersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {purchase.disputeStatus === 'open' ? (
-                          <Badge variant="outline">문의 접수됨</Badge>
-                      ) : purchase.disputeStatus === 'resolved' ? (
-                           <Badge variant="secondary">문의 해결됨</Badge>
-                      ) : (
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedPurchase(purchase)}>
-                          <MessageSquareQuestion className="h-4 w-4 mr-1" /> 문의하기
-                        </Button>
-                      )}
+                       <AlertDialog open={selectedPurchase?.id === purchase.id} onOpenChange={(isOpen) => !isOpen && setSelectedPurchase(null)}>
+                          <AlertDialogTrigger asChild>
+                             {purchase.disputeStatus === 'open' ? (
+                                <Badge variant="outline">문의 접수됨</Badge>
+                            ) : purchase.disputeStatus === 'resolved' ? (
+                                <Badge variant="secondary">문의 해결됨</Badge>
+                            ) : (
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedPurchase(purchase)}>
+                                <MessageSquareQuestion className="h-4 w-4 mr-1" /> 문의하기
+                                </Button>
+                            )}
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>구매 내역 문의</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                '{purchase?.paymentCode}' 주문에 대한 문의 내용을 자세히 작성해주세요. 관리자가 확인 후 조치할 것입니다.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="space-y-2">
+                                <Label htmlFor="dispute-reason">문의 내용</Label>
+                                <Textarea 
+                                    id="dispute-reason"
+                                    value={disputeReason}
+                                    onChange={(e) => setDisputeReason(e.target.value)}
+                                    placeholder="예: 상품을 받지 못했어요, 포인트가 잘못 차감된 것 같아요."
+                                    rows={4}
+                                    disabled={isSubmitting}
+                                />
+                            </div>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isSubmitting}>취소</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDisputeSubmit} disabled={isSubmitting || !disputeReason.trim()}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                제출하기
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                       </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))
@@ -203,35 +233,6 @@ export default function OrdersPage() {
         </CardContent>
       </Card>
     </div>
-
-    <AlertDialog open={!!selectedPurchase} onOpenChange={(isOpen) => !isOpen && setSelectedPurchase(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>구매 내역 문의</AlertDialogTitle>
-            <AlertDialogDescription>
-                '{selectedPurchase?.paymentCode}' 주문에 대한 문의 내용을 자세히 작성해주세요. 관리자가 확인 후 조치할 것입니다.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="space-y-2">
-                <Label htmlFor="dispute-reason">문의 내용</Label>
-                <Textarea 
-                    id="dispute-reason"
-                    value={disputeReason}
-                    onChange={(e) => setDisputeReason(e.target.value)}
-                    placeholder="예: 상품을 받지 못했어요, 포인트가 잘못 차감된 것 같아요."
-                    rows={4}
-                    disabled={isSubmitting}
-                />
-            </div>
-            <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDisputeSubmit} disabled={isSubmitting || !disputeReason.trim()}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                제출하기
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
     </>
   );
 }
