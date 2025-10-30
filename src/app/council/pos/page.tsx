@@ -10,12 +10,12 @@ import {
   CardFooter,
   CardDescription,
 } from '@/components/ui/card';
-import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Sparkles, X } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Loader2, User, ImageIcon, Sparkles, X, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, processPosPayment } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDocs } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,12 +34,19 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+interface SearchedStudent {
+    displayName: string;
+    lak: number;
+}
+
 export default function CouncilPosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [studentId, setStudentId] = useState('');
+  const [searchedStudent, setSearchedStudent] = useState<SearchedStudent | null>(null);
+  const [isSearchingStudent, setIsSearchingStudent] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(isPurchasing(false));
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [manualDiscount, setManualDiscount] = useState(0);
 
@@ -66,6 +73,34 @@ export default function CouncilPosPage() {
         unsubProducts();
     };
   }, []);
+
+  useEffect(() => {
+    if (studentId.length === 5 && /^\d{5}$/.test(studentId)) {
+        setIsSearchingStudent(true);
+        const fetchStudent = async () => {
+            try {
+                const q = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) {
+                    setSearchedStudent(null);
+                    toast({ title: '조회 실패', description: '해당 학번의 학생을 찾을 수 없습니다.', variant: 'destructive' });
+                } else {
+                    const userData = snapshot.docs[0].data();
+                    setSearchedStudent({ displayName: userData.displayName, lak: userData.lak });
+                }
+            } catch (error) {
+                setSearchedStudent(null);
+                toast({ title: '오류', description: '학생 정보 조회 중 오류가 발생했습니다.', variant: 'destructive' });
+            } finally {
+                setIsSearchingStudent(false);
+            }
+        };
+        fetchStudent();
+    } else {
+        setSearchedStudent(null);
+    }
+  }, [studentId, toast]);
+
 
   const originalTotalCost = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -239,8 +274,21 @@ export default function CouncilPosPage() {
                     disabled={isPurchasing}
                     required
                     className="pl-9"
+                    maxLength={5}
                   />
                 </div>
+                 {isSearchingStudent && <div className="flex items-center text-sm text-muted-foreground pt-2"><Loader2 className="mr-2 h-4 w-4 animate-spin" />조회중...</div>}
+                {searchedStudent && (
+                    <div className="pt-2">
+                        <div className="p-3 bg-muted rounded-lg flex justify-between items-center">
+                            <span className="font-bold text-sm">{searchedStudent.displayName}</span>
+                             <div className="flex items-center gap-1 font-bold text-primary">
+                                <Coins className="h-4 w-4" />
+                                <span>{searchedStudent.lak.toLocaleString()} P</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -308,9 +356,9 @@ export default function CouncilPosPage() {
             </CardContent>
             {cart.length > 0 && (
               <CardFooter>
-                <Button className="w-full font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId}>
+                <Button className="w-full font-bold text-base h-12" onClick={handlePurchase} disabled={isPurchasing || !studentId || !searchedStudent}>
                   {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {studentId ? `${studentId} 학생 / ${finalTotalCost} P 결제` : '학생 학번을 입력하세요'}
+                  {studentId ? `${finalTotalCost} 포인트 결제하기` : '학생 학번을 입력하세요'}
                 </Button>
               </CardFooter>
             )}
@@ -320,3 +368,4 @@ export default function CouncilPosPage() {
     </div>
   );
 }
+
