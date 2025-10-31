@@ -84,6 +84,10 @@ export default {
           '0%': { 'box-shadow': '0 0 0 0px hsl(var(--primary) / 0.5)' },
           '100%': { 'box-shadow': '0 0 0 10px hsl(var(--primary) / 0)' },
         },
+        'gradient-move': {
+            '0%, 100%': { 'background-position': '0% 50%' },
+            '50%': { 'background-position': '100% 50%' },
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -91,6 +95,7 @@ export default {
         'collapsible-down': 'collapsible-down 0.2s ease-out',
         'collapsible-up': 'collapsible-up 0.2s ease-out',
         'highlight-pulse': 'highlight-pulse 2s ease-out infinite',
+        'gradient-move': 'gradient-move 15s ease infinite',
       },
     },
   },
