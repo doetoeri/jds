@@ -25,7 +25,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const maintenanceRef = doc(db, 'system_settings', 'main');
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);

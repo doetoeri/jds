@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,6 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { auth, givePointsToMultipleStudentsAtBooth } from '@/lib/firebase';
 import { Loader2, Award, User } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
+
+const MAX_ATTEMPTS = 3;
+const LOCKOUT_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 export default function KioskAwardPage() {
   const [studentId, setStudentId] = useState('');
@@ -29,6 +31,59 @@ export default function KioskAwardPage() {
       router.push('/kiosk/award/setup');
     }
   }, [router]);
+  
+  const checkLockout = (id: string): boolean => {
+    const attemptsStr = localStorage.getItem(`kiosk_attempts_${id}`);
+    if (!attemptsStr) return false;
+
+    const attempts = JSON.parse(attemptsStr);
+    const now = Date.now();
+
+    if (attempts.count >= MAX_ATTEMPTS) {
+      if (now - attempts.timestamp < LOCKOUT_DURATION) {
+        const remainingTime = Math.ceil((LOCKOUT_DURATION - (now - attempts.timestamp)) / 1000 / 60);
+        toast({
+          title: '입력 제한',
+          description: `이 학번은 너무 많이 입력되었습니다. ${remainingTime}분 후에 다시 시도해주세요.`,
+          variant: 'destructive',
+        });
+        return true;
+      } else {
+        localStorage.removeItem(`kiosk_attempts_${id}`);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  const recordAttempt = (id: string) => {
+    const attemptsStr = localStorage.getItem(`kiosk_attempts_${id}`);
+    const now = Date.now();
+    let attempts = { count: 0, timestamp: now };
+
+    if (attemptsStr) {
+      const parsed = JSON.parse(attemptsStr);
+      // Reset count if the last attempt was more than the lockout duration ago
+      if (now - parsed.timestamp > LOCKOUT_DURATION) {
+        attempts = { count: 1, timestamp: now };
+      } else {
+        attempts = { count: parsed.count + 1, timestamp: now };
+      }
+    } else {
+      attempts = { count: 1, timestamp: now };
+    }
+    
+    localStorage.setItem(`kiosk_attempts_${id}`, JSON.stringify(attempts));
+    
+    if (attempts.count >= MAX_ATTEMPTS) {
+       toast({
+          title: '입력 제한됨',
+          description: `이 학번은 24시간 동안 잠겼습니다.`,
+          variant: 'destructive',
+        });
+    }
+  };
+
 
   const handleGivePoints = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +93,11 @@ export default function KioskAwardPage() {
     }
     if (!/^\d{5}$/.test(studentId)) {
         toast({ title: "입력 오류", description: `유효하지 않은 학번입니다.`, variant: "destructive" });
+        return;
+    }
+    
+    if (checkLockout(studentId)) {
+        setStudentId('');
         return;
     }
 
@@ -57,8 +117,11 @@ export default function KioskAwardPage() {
           title: '적립 완료!',
           description: `${studentId} 학생에게 ${sessionSettings.value}포인트가 지급되었습니다.`,
         });
+        // Reset attempts on successful grant
+        localStorage.removeItem(`kiosk_attempts_${studentId}`);
         setStudentId('');
       } else {
+        recordAttempt(studentId);
         toast({
           title: '적립 실패',
           description: result.errors.join(', ') || '알 수 없는 오류 발생',
@@ -66,6 +129,7 @@ export default function KioskAwardPage() {
         });
       }
     } catch (error: any) {
+      recordAttempt(studentId);
       toast({ title: '오류 발생', description: error.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);

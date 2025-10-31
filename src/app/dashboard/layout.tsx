@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.className = 'theme-student';
-    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const maintenanceRef = doc(db, 'system_settings', 'main');
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);

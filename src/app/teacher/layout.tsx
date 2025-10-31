@@ -28,7 +28,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.className = 'theme-teacher';
-    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const maintenanceRef = doc(db, 'system_settings', 'main');
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);

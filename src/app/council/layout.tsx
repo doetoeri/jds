@@ -27,7 +27,7 @@ export default function CouncilLayout({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const maintenanceRef = doc(db, 'system_settings', 'maintenance');
+    const maintenanceRef = doc(db, 'system_settings', 'main');
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);
