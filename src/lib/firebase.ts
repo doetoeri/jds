@@ -410,7 +410,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             throw "이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.";
         }
 
-        const invitePoints = 2;
+        const invitePoints = 1;
         const oldLak = userData.lak;
         
         // Give points to the user
