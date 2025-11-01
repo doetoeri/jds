@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -387,7 +388,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         const friendQuery = query(collection(db, 'users'), where('studentId', '==', friendId));
         const friendSnapshot = await getDocs(friendQuery); // Use getDocs for querying
         if (friendSnapshot.empty) {
-            await createReport(userId, "친구 초대 실패 (존재하지 않는 학번)", {
+             await createReport(userId, "친구 초대 실패 (존재하지 않는 학번)", {
                 attemptedFriendId: friendId,
                 timestamp: Timestamp.now(),
             });
@@ -396,6 +397,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
         const friendDoc = friendSnapshot.docs[0];
         const friendRef = friendDoc.ref;
+        // This read must be inside the transaction
         const friendData = await transaction.get(friendRef);
         if (!friendData.exists()) throw "친구 정보를 찾을 수 없습니다.";
         
@@ -886,7 +888,6 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
             senderStudentId: senderData.displayName || senderStudentId,
             receiverStudentId: receiverIdentifierDisplay,
             content,
-            isOffline: false,
             status: 'pending' as const,
             createdAt: Timestamp.now(),
         };
