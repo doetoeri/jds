@@ -780,7 +780,7 @@ export const postAnnouncement = async (
   await addDoc(collection(db, 'announcements'), announcementData);
 };
 
-export const sendLetter = async (senderUid: string, receiverIdentifier: string, content: string, isOffline: boolean) => {
+export const sendLetter = async (senderUid: string, receiverIdentifier: string, content: string) => {
     return await runTransaction(db, async (transaction) => {
         const senderRef = doc(db, 'users', senderUid);
         const senderDoc = await transaction.get(senderRef);
@@ -810,7 +810,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
             senderStudentId: senderData.displayName || senderStudentId,
             receiverStudentId: receiverIdentifierDisplay,
             content,
-            isOffline,
+            isOffline: false,
             status: 'pending' as const,
             createdAt: Timestamp.now(),
         };

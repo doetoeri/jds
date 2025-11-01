@@ -47,7 +47,6 @@ interface ReceivedLetter {
 export default function LettersView() {
   const [receiverIdentifier, setReceiverIdentifier] = useState('');
   const [content, setContent] = useState('');
-  const [isOffline, setIsOffline] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInboxLoading, setIsInboxLoading] = useState(true);
   const [receivedLetters, setReceivedLetters] = useState<ReceivedLetter[]>([]);
@@ -119,13 +118,12 @@ export default function LettersView() {
 
     setIsLoading(true);
     try {
-      const result = await sendLetter(user.uid, receiverIdentifier, content, isOffline);
+      const result = await sendLetter(user.uid, receiverIdentifier, content);
 
       if (result.success) {
         toast({ title: '전송 완료!', description: result.message });
         setReceiverIdentifier('');
         setContent('');
-        setIsOffline(false);
       } else {
         throw new Error(result.message);
       }
@@ -198,26 +196,6 @@ export default function LettersView() {
                   rows={6}
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="offline" 
-                    checked={isOffline}
-                    onCheckedChange={(checked) => setIsOffline(checked as boolean)}
-                    disabled={isLoading}
-                    />
-                  <Label htmlFor="offline" className="cursor-pointer">
-                    오프라인으로 편지 전달하기
-                  </Label>
-              </div>
-              {isOffline && (
-                 <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>오프라인 편지 안내</AlertTitle>
-                  <AlertDescription>
-                    학생회에서 편지 내용을 확인 후, 오프라인으로 대신 전달해 드립니다.
-                  </AlertDescription>
-                </Alert>
-              )}
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button type="submit" className="font-bold" disabled={isLoading}>
@@ -255,7 +233,7 @@ export default function LettersView() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                    {letter.isOffline ? '학생회를 통해 오프라인으로 편지가 전달되었습니다.' : letter.content}
+                    {letter.content}
                   </p>
                 </div>
               ))

@@ -45,7 +45,6 @@ interface Letter {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
   senderUid: string;
-  isOffline?: boolean;
 }
 
 export default function AdminLettersPage() {
@@ -128,7 +127,6 @@ export default function AdminLettersPage() {
                 <TableHead>보낸 학생</TableHead>
                 <TableHead>받는 학생</TableHead>
                 <TableHead>내용</TableHead>
-                <TableHead>유형</TableHead>
                 <TableHead>상태</TableHead>
                 <TableHead>요청일</TableHead>
                 <TableHead className="text-right">작업</TableHead>
@@ -138,14 +136,14 @@ export default function AdminLettersPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={6}>
                       <Skeleton className="h-8 w-full" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : letters.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center h-24">
+                  <TableCell colSpan={6} className="text-center h-24">
                     도착한 편지가 없습니다.
                   </TableCell>
                 </TableRow>
@@ -156,13 +154,6 @@ export default function AdminLettersPage() {
                     <TableCell>{letter.receiverStudentId || 'N/A'}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {letter.content}
-                    </TableCell>
-                    <TableCell>
-                      {letter.isOffline === true ? (
-                          <Badge variant="secondary"><Printer className="h-3 w-3 mr-1"/>오프라인</Badge>
-                      ) : (
-                          <Badge variant="outline">온라인</Badge>
-                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[letter.status] || 'secondary'}>

@@ -19,7 +19,6 @@ interface Letter {
   content: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
-  isOffline?: boolean;
 }
 
 export default function LetterDetailPage({ params: { id: letterId } }: { params: { id: string } }) {
@@ -133,16 +132,6 @@ export default function LetterDetailPage({ params: { id: letterId } }: { params:
                  )}
                </div>
             )}
-            {letter.isOffline && (
-                <Button asChild size="sm" variant="outline" className="gap-1">
-                    <Link href={`/admin/letters/print?id=${letter.id}`} target="_blank">
-                        <Printer className="h-3.5 w-3.5" />
-                        <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                        인쇄하기
-                        </span>
-                    </Link>
-                </Button>
-            )}
         </div>
       <Card>
         <CardHeader>
@@ -161,11 +150,6 @@ export default function LetterDetailPage({ params: { id: letterId } }: { params:
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">상태:</span>
                         <span><Badge variant={statusVariant[letter.status]}>{statusText[letter.status]}</Badge></span>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <Type className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">유형:</span>
-                        <span className="font-medium">{letter.isOffline ? '오프라인' : '온라인'}</span>
                     </div>
                 </div>
 
