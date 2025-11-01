@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -304,6 +305,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
   // Friend Invite Logic
   if (/^\d{5}$/.test(upperCaseCode)) {
     const friendStudentId = upperCaseCode;
+    const invitePoints = 1;
     
     const userSnap = await getDoc(doc(db, 'users', userId));
     if (!userSnap.exists()) throw new Error("존재하지 않는 사용자입니다.");
@@ -354,8 +356,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (friendUsedMyId) {
           throw new Error("이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.");
         }
-        
-        const invitePoints = 1;
 
         // --- 3. ALL WRITES ---
         // Calculate for user
@@ -409,7 +409,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       if (newLak > oldLak + 5) { // Check if gain is unexpectedly high
         createReport(userId, "의심스러운 친구 초대 포인트 획득", {
           friendId: friendStudentId,
-          pointsGained: 1, // The expected gain
+          pointsGained: invitePoints,
           oldBalance: oldLak,
           newBalance: newLak,
           timestamp: Timestamp.now(),
@@ -913,13 +913,6 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       const senderStudentId = senderData.studentId;
       if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
       if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
-      if (checkSuspiciousContent(content)) {
-          createReport(senderUid, "성의 없는 편지 작성", {
-              content: content,
-              receiver: receiverIdentifier,
-              timestamp: Timestamp.now(),
-          });
-      }
       
       // 3. Logic & Writes
       const pointsToAdd = 1;
@@ -939,6 +932,14 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
           transaction.update(senderRef, { piggyBank: increment(pointsForPiggyBank) });
           transaction.set(doc(collection(senderRef, 'transactions')), {
               date: Timestamp.now(), description: '초과 포인트 저금: 편지 쓰기', amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+          });
+      }
+      
+      if (checkSuspiciousContent(content)) {
+          createReport(senderUid, "성의 없는 편지 작성", {
+              content: content,
+              receiver: receiverIdentifier,
+              timestamp: Timestamp.now(),
           });
       }
 
@@ -1078,7 +1079,7 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
             score: increment(score), displayName: userData.displayName, studentId: userData.studentId, avatarGradient: userData.avatarGradient, lastUpdated: Timestamp.now()
         }, { merge: true });
         
-        const pointsToAdd = Math.floor(score / 10);
+        const pointsToAdd = Math.floor(score / 1);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
             const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
@@ -1101,7 +1102,7 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
         }
     });
 
-    const points = Math.floor(score / 10);
+    const points = Math.floor(score / 1);
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
 };
 
