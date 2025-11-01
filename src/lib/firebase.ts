@@ -12,7 +12,6 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit, arrayRemove } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { playWordChain as playWordChainFlow } from '@/ai/flows/play-word-chain-flow';
 
 
 const firebaseConfig = {
@@ -368,10 +367,10 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         const invitePoints = 2;
         
         // Give points to the user
-        await distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendId})`);
+        await distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendId})`, false);
         
         // Give points to the friend
-        await distributePoints(transaction, friendRef, friendData.data(), invitePoints, `친구 초대 보상 (초대받은 친구: ${userStudentId})`);
+        await distributePoints(transaction, friendRef, friendData.data(), invitePoints, `친구 초대 보상 (초대받은 친구: ${userStudentId})`, false);
         
         // Update records
         transaction.update(userRef, { usedFriendId: arrayUnion(friendId) });
@@ -559,18 +558,6 @@ export const resetAllData = async () => {
         throw new Error("데이터 초기화 중 오류가 발생했습니다.");
     }
 };
-
-export async function playWordChain(userId: string, word: string) {
-  try {
-    const result = await playWordChainFlow({ userId, word });
-    return result;
-  } catch (error: any) {
-    console.error('Word chain error:', error);
-    const errorMessage = error.message || 'An unknown error occurred.';
-    return { success: false, message: errorMessage };
-  }
-}
-
 
 export const resetWordChainGame = async () => {
     try {
@@ -829,7 +816,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
         };
         transaction.set(letterRef, letterData);
         
-        await distributePoints(transaction, senderRef, senderData, 1, '편지 쓰기 보상');
+        await distributePoints(transaction, senderRef, senderData, 1, '편지 쓰기 보상', false);
 
         return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
     }).catch((error) => {
@@ -912,8 +899,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
             }, { merge: true });
         }
 
-        const { points } = { easy: { points: 1 }, medium: { points: 3 }, hard: { points: 5 } }[difficulty];
-        await distributePoints(transaction, userRef, userDoc.data(), points, `지뢰찾기 (${difficulty}) 승리 보상`);
+        await distributePoints(transaction, userRef, userDoc.data(), 3, `지뢰찾기 (${difficulty}) 승리 보상`, false);
     });
 };
 
@@ -937,7 +923,7 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
         
         const points = Math.floor(bricksBroken / 10);
         if (points > 0) {
-            await distributePoints(transaction, userRef, userDoc.data(), points, `벽돌깨기 점수 보상 (${bricksBroken}점)`);
+            await distributePoints(transaction, userRef, userDoc.data(), points, `벽돌깨기 점수 보상 (${bricksBroken}점)`, false);
         }
     });
 
@@ -1081,7 +1067,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
             throw new Error(`학생 데이터를 찾을 수 없습니다: ${studentId}`);
         }
         
-        await distributePoints(transaction, studentRef, freshStudentData.data(), value, `부스 참여: ${reason}`);
+        await distributePoints(transaction, studentRef, freshStudentData.data(), value, `부스 참여: ${reason}`, false);
       });
       result.successCount++;
     } catch (error: any) {
@@ -1128,7 +1114,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
                 const userRef = doc(db, 'users', rankerId);
                 const userDoc = await transaction.get(userRef);
                 if(!userDoc.exists()) throw new Error("Ranker user not found");
-                await distributePoints(transaction, userRef, userDoc.data(), rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`);
+                await distributePoints(transaction, userRef, userDoc.data(), rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`, false);
                 successCount++;
             });
        } catch (error) {
@@ -1152,7 +1138,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 
         const points = Math.floor(score / 500); // 500점당 1포인트
         if(points > 0) {
-            await distributePoints(transaction, userRef, userData, points, `테트리스 플레이 보상 (${score}점)`);
+            await distributePoints(transaction, userRef, userData, points, `테트리스 플레이 보상 (${score}점)`, false);
         }
 
         const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
@@ -1246,7 +1232,7 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
       createdAt: Timestamp.now(),
     });
 
-    await distributePoints(transaction, userRef, userDoc.data(), 5, '삼행시 참여 보상');
+    await distributePoints(transaction, userRef, userDoc.data(), 5, '삼행시 참여 보상', false);
   });
 };
 
@@ -1279,7 +1265,7 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
       createdAt: Timestamp.now(),
     });
 
-    await distributePoints(transaction, senderRef, senderDoc.data(), 5, '비밀 편지 작성 보상');
+    await distributePoints(transaction, senderRef, senderDoc.data(), 5, '비밀 편지 작성 보상', false);
   });
 };
 

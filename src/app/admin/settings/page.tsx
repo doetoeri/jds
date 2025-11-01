@@ -31,7 +31,6 @@ export default function AdminSettingsPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
   const [isShopEnabled, setIsShopEnabled] = useState<boolean>(true);
   const [isTogglingSystem, setIsTogglingSystem] = useState(true);
-  const [isResettingGame, setIsResettingGame] = useState(false);
   
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
   const [totalAvailableLak, setTotalAvailableLak] = useState<number | null>(null);
@@ -154,25 +153,6 @@ export default function AdminSettingsPage() {
         setIsSavingDiscount(false);
     }
   }
-
-  const handleResetGame = async () => {
-    setIsResettingGame(true);
-    try {
-        await resetWordChainGame();
-        toast({
-            title: "초기화 완료",
-            description: "끝말잇기 게임이 성공적으로 초기화되었습니다."
-        });
-    } catch(error: any) {
-         toast({
-            title: "초기화 오류",
-            description: error.message || "게임 초기화 중 오류가 발생했습니다.",
-            variant: "destructive"
-        });
-    } finally {
-        setIsResettingGame(false);
-    }
-  }
   
   const handleResetLeaderboard = async () => {
     if (!leaderboardToReset) {
@@ -274,35 +254,6 @@ export default function AdminSettingsPage() {
                         </Select>
                      </div>
                 </div>
-                 <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <Label className="text-base">끝말잇기 게임 초기화</Label>
-                        <p className="text-sm text-muted-foreground">게임 기록을 모두 삭제하고 처음부터 다시 시작합니다.</p>
-                    </div>
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="secondary" size="sm" disabled={isResettingGame}>
-                                {isResettingGame ? <Loader2 className="h-4 w-4 animate-spin"/> : <Eraser className="h-4 w-4"/>}
-                                <span className="ml-2">초기화</span>
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>끝말잇기 게임을 초기화할까요?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                이 작업은 모든 끝말잇기 기록을 영구적으로 삭제합니다. 되돌릴 수 없습니다.
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleResetGame} disabled={isResettingGame}>
-                                {isResettingGame ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                                네, 초기화합니다
-                            </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
                 <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                         <Label className="text-base">리더보드 초기화</Label>
@@ -325,7 +276,6 @@ export default function AdminSettingsPage() {
                                   <SelectValue placeholder="초기화할 리더보드 선택..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="word-chain">끝말잇기</SelectItem>
                                   <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
                                   <SelectItem value="breakout">벽돌깨기</SelectItem>
                                   <SelectItem value="tetris">테트리스</SelectItem>

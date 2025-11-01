@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -71,7 +70,7 @@ const TetrisPage: React.FC = () => {
   const gameLoopRef = useRef<number>();
   const lastTimeRef = useRef(0);
   const dropCounterRef = useRef(0);
-  const dropIntervalRef = useRef(700);
+  const dropIntervalRef = useRef(600);
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
@@ -195,7 +194,7 @@ const TetrisPage: React.FC = () => {
       const newLevel = Math.floor(newLines / 10) + 1;
       if (newLevel > level) {
         setLevel(newLevel);
-        dropIntervalRef.current = Math.max(100, 700 - (newLevel - 1) * 40);
+        dropIntervalRef.current = Math.max(100, 600 - (newLevel - 1) * 40);
       }
     }
     
@@ -250,7 +249,7 @@ const TetrisPage: React.FC = () => {
     setScore(0);
     setLinesCleared(0);
     setLevel(1);
-    dropIntervalRef.current = 700;
+    dropIntervalRef.current = 600;
     setGameState('playing');
   }, [createPiece]);
 
