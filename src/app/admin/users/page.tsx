@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser } from '@/lib/firebase';
-import { collection, onSnapshot, query, Timestamp, collectionGroup, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, Timestamp, collectionGroup, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
