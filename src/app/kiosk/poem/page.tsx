@@ -1,10 +1,10 @@
+
 'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { submitPoem, signUp, db } from '@/lib/firebase';
 import { Loader2, Feather, Send, User } from 'lucide-react';
@@ -35,14 +35,33 @@ export default function KioskPoemPage() {
       return;
     }
     setIsLoading(true);
-    const q = query(collection(db, 'users'), where('studentId', '==', studentId));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
-      setStage('signUp');
-    } else {
-      setStage('writePoem');
+     try {
+      const today = new Date().toISOString().split('T')[0];
+      const usageQuery = query(
+        collection(db, 'kiosk_usage'),
+        where('studentId', '==', studentId),
+        where('activity', '==', 'poem'),
+        where('date', '==', today)
+      );
+      const usageSnapshot = await getDocs(usageQuery);
+      if (!usageSnapshot.empty) {
+        toast({ title: '참여 제한', description: '오늘 이미 삼행시 짓기에 참여했습니다. 내일 다시 시도해주세요.', variant: 'destructive', duration: 5000 });
+        setStudentId('');
+        return;
+      }
+      
+      const q = query(collection(db, 'users'), where('studentId', '==', studentId));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        setStage('signUp');
+      } else {
+        setStage('writePoem');
+      }
+    } catch(err) {
+        toast({title: '오류', description: '오류가 발생했습니다.', variant: 'destructive'})
+    } finally {
+        setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -96,7 +115,7 @@ export default function KioskPoemPage() {
         return (
           <motion.div key="enterId" variants={containerVariants} initial="hidden" animate="visible" exit="exit">
             <h1 className="text-4xl font-bold font-headline mb-4 text-center">종달샘 삼행시</h1>
-            <p className="text-muted-foreground mb-8 text-center">학번을 입력하여 참여하고 포인트를 받아가세요!</p>
+            <p className="text-muted-foreground mb-8 text-center">학번을 입력하여 참여하고 포인트를 받아가세요! (1일 1회)</p>
             <form onSubmit={handleIdSubmit} className="space-y-4">
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />

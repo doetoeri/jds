@@ -26,7 +26,6 @@ export default function BreakoutPage() {
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bricksBroken, setBricksBroken] = useState(0);
 
   const [primaryColor, setPrimaryColor] = useState('18, 100%, 50%');
   const [primaryHue, setPrimaryHue] = useState('18');
@@ -51,8 +50,8 @@ export default function BreakoutPage() {
     if (!context) return;
 
     setGameState('playing');
-    setScore(0);
-    setBricksBroken(0);
+    let currentScore = 0;
+    setScore(currentScore);
 
     let ball = { x: canvas.width / 2, y: canvas.height - 30, dx: 3, dy: -3, radius: 8 };
     let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
@@ -74,8 +73,6 @@ export default function BreakoutPage() {
         bricks[c][r] = { x: 0, y: 0, status: 1 };
       }
     }
-    
-    let totalBricksBroken = 0;
 
     const drawBall = () => {
         const gradient = context.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.radius);
@@ -140,8 +137,8 @@ export default function BreakoutPage() {
                     if (ball.x > b.x && ball.x < b.x + brickWidth && ball.y > b.y && ball.y < b.y + brickHeight) {
                         ball.dy = -ball.dy;
                         b.status = 0;
-                        setScore(s => s + 1);
-                        totalBricksBroken++;
+                        currentScore += 10;
+                        setScore(currentScore);
                     }
                 }
             }
@@ -153,7 +150,6 @@ export default function BreakoutPage() {
 
     const endGame = async (won: boolean) => {
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-        setBricksBroken(totalBricksBroken);
         setGameState('over');
 
         if(won) {
@@ -162,9 +158,9 @@ export default function BreakoutPage() {
              toast({ title: "게임 오버", description: "다시 시도해보세요." });
         }
 
-        if (user && totalBricksBroken > 0) {
+        if (user && currentScore > 0) {
             setIsSubmitting(true);
-            const result = await awardBreakoutScore(user.uid, totalBricksBroken);
+            const result = await awardBreakoutScore(user.uid, currentScore);
             if (result.success) {
                 toast({ title: "점수 기록!", description: result.message });
             } else {

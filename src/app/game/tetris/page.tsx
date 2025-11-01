@@ -71,7 +71,7 @@ const TetrisPage: React.FC = () => {
   const gameLoopRef = useRef<number>();
   const lastTimeRef = useRef(0);
   const dropCounterRef = useRef(0);
-  const dropIntervalRef = useRef(1000);
+  const dropIntervalRef = useRef(700);
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
@@ -195,7 +195,7 @@ const TetrisPage: React.FC = () => {
       const newLevel = Math.floor(newLines / 10) + 1;
       if (newLevel > level) {
         setLevel(newLevel);
-        dropIntervalRef.current = Math.max(100, 1000 - (newLevel - 1) * 50);
+        dropIntervalRef.current = Math.max(100, 700 - (newLevel - 1) * 40);
       }
     }
     
@@ -250,7 +250,7 @@ const TetrisPage: React.FC = () => {
     setScore(0);
     setLinesCleared(0);
     setLevel(1);
-    dropIntervalRef.current = 1000;
+    dropIntervalRef.current = 700;
     setGameState('playing');
   }, [createPiece]);
 
@@ -332,7 +332,7 @@ const TetrisPage: React.FC = () => {
     if (keyMap[e.key]) {
       keyMap[e.key]();
     }
-  }, [gameState, playerMove, playerDrop, playerRotate]);
+  }, [gameState]);
 
 
   useEffect(() => {

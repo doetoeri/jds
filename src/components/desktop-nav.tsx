@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -28,7 +29,8 @@ import {
   BarChart3,
   ShieldQuestion,
   LayoutDashboard,
-  UserPlus
+  UserPlus,
+  Server,
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -61,6 +63,7 @@ const adminLinks = [
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
   { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
+  { name: '키오스크 기록', href: '/admin/kiosk-logs', icon: Server },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
   { name: '구매 문의 관리', href: '/admin/disputes', icon: ShieldQuestion },

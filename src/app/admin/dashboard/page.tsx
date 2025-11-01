@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -27,23 +28,19 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
         setIsLoading(true);
         try {
-            // Get total users
-            const usersQuery = query(collection(db, 'users'), where('role', 'in', ['student', 'council']));
+            const usersQuery = query(collection(db, 'users'), where('role', 'in', ['student', 'teacher', 'council', 'kiosk']));
             const usersSnapshot = await getDocs(usersQuery);
             const totalUsers = usersSnapshot.size;
 
-            // Get total circulating LAK
             let totalLak = 0;
             usersSnapshot.forEach(doc => {
                 totalLak += doc.data().lak || 0;
             });
 
-            // Get open inquiries
             const inquiriesQuery = query(collection(db, 'inquiries'), where('status', '==', 'open'));
             const inquiriesSnapshot = await getDocs(inquiriesQuery);
             const openInquiries = inquiriesSnapshot.size;
 
-            // Get total products
             const productsQuery = query(collection(db, 'products'));
             const productsSnapshot = await getDocs(productsQuery);
             const totalProducts = productsSnapshot.size;
@@ -59,13 +56,12 @@ export default function AdminDashboardPage() {
 
     fetchStats();
 
-    // Set up listeners for real-time updates
-    const usersUnsub = onSnapshot(query(collection(db, 'users'), where('role', 'in', ['student', 'council'])), (snapshot) => {
+    const usersUnsub = onSnapshot(query(collection(db, 'users'), where('role', 'in', ['student', 'teacher', 'council', 'kiosk'])), (snapshot) => {
         let totalLak = 0;
         snapshot.forEach(doc => {
             totalLak += doc.data().lak || 0;
         });
-        setStats(prev => prev ? { ...prev, totalUsers: snapshot.size, totalLak } : null);
+        setStats(prev => prev ? { ...prev, totalUsers: snapshot.size, totalLak } : { totalUsers: snapshot.size, totalLak, openInquiries: 0, totalProducts: 0 });
     });
 
     const inquiriesUnsub = onSnapshot(query(collection(db, 'inquiries'), where('status', '==', 'open')), (snapshot) => {
@@ -91,13 +87,13 @@ export default function AdminDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">총 가입 학생 수</CardTitle>
+                <CardTitle className="text-sm font-medium">총 가입자 수</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
                 {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers.toLocaleString() ?? 0} 명</div>}
                 <p className="text-xs text-muted-foreground">
-                현재 시스템에 등록된 총 학생 및 학생회 인원
+                현재 시스템에 등록된 모든 사용자
                 </p>
             </CardContent>
             </Card>
@@ -109,7 +105,7 @@ export default function AdminDashboardPage() {
             <CardContent>
                 {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLak.toLocaleString() ?? 0} 포인트</div>}
                 <p className="text-xs text-muted-foreground">
-                모든 학생들의 포인트 총합 (저금통 제외)
+                모든 사용자들의 포인트 총합 (저금통 제외)
                 </p>
             </CardContent>
             </Card>

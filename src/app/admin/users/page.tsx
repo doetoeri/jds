@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -12,13 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo } from '@/lib/firebase';
-import { collection, onSnapshot, query, Timestamp } from 'firebase/firestore';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser } from '@/lib/firebase';
+import { collection, onSnapshot, query, Timestamp, collectionGroup, getDocs } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil, Ban, CircleOff } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -45,6 +46,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { DateRange } from 'react-day-picker';
+import { addDays, format } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 
 interface User {
@@ -57,10 +62,17 @@ interface User {
   role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'kiosk';
   memo?: string;
   createdAt?: Timestamp;
+  restrictedUntil?: Timestamp;
+  restrictionReason?: string;
 }
 
 type SortKey = 'lak' | 'createdAt' | 'studentId';
 type SortDirection = 'asc' | 'desc';
+
+interface DailyEarning {
+    id: string; // YYYY-MM-DD
+    totalEarned: number;
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -73,6 +85,10 @@ export default function AdminUsersPage() {
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMemoDialogOpen, setIsMemoDialogOpen] = useState(false);
+  const [isRestrictDialogOpen, setIsRestrictDialogOpen] = useState(false);
+  const [isDailyEarningsDialogOpen, setIsDailyEarningsDialogOpen] = useState(false);
+  const [dailyEarnings, setDailyEarnings] = useState<DailyEarning[]>([]);
+
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
 
@@ -80,6 +96,11 @@ export default function AdminUsersPage() {
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [newRole, setNewRole] = useState<User['role'] | ''>('');
   const [memo, setMemo] = useState('');
+  const [restrictionReason, setRestrictionReason] = useState('');
+  const [restrictionDate, setRestrictionDate] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: addDays(new Date(), 7)
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [filter, setFilter] = useState('');
@@ -178,6 +199,23 @@ export default function AdminUsersPage() {
     setMemo(user.memo || '');
     setIsMemoDialogOpen(true);
   };
+
+  const openRestrictDialog = (user: User) => {
+    setSelectedUser(user);
+    setRestrictionReason('');
+    setRestrictionDate({ from: new Date(), to: addDays(new Date(), 7)});
+    setIsRestrictDialogOpen(true);
+  };
+
+  const openDailyEarningsDialog = async (user: User) => {
+    setSelectedUser(user);
+    setIsDailyEarningsDialogOpen(true);
+    const earningsCollectionRef = collection(db, `users/${user.id}/daily_earnings`);
+    const q = query(earningsCollectionRef, orderBy('id', 'desc'), limit(30));
+    const snapshot = await getDocs(q);
+    const earningsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyEarning));
+    setDailyEarnings(earningsData);
+  }
   
   const openDeleteDialog = (user: User) => {
     setSelectedUser(user);
@@ -330,6 +368,35 @@ export default function AdminUsersPage() {
         setIsMemoDialogOpen(false);
     } catch (e: any) {
         toast({ title: '오류', description: e.message, variant: 'destructive'});
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+  
+  const handleRestrictUser = async () => {
+    if (!selectedUser || !restrictionDate?.to || !restrictionReason) {
+      toast({ title: "입력 오류", description: "제한 기간과 사유를 모두 입력해주세요.", variant: "destructive" });
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await restrictUser(selectedUser.id, restrictionDate.to, restrictionReason);
+      toast({ title: "성공", description: `${renderIdentifier(selectedUser)}님의 계정을 제한했습니다.` });
+      setIsRestrictDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "오류", description: error.message || "계정 제한 중 오류가 발생했습니다.", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnrestrictUser = async (userId: string) => {
+    setIsProcessing(true);
+    try {
+        await unrestrictUser(userId);
+        toast({ title: "성공", description: "계정 제한을 해제했습니다." });
+    } catch (e: any) {
+         toast({ title: "오류", description: e.message, variant: "destructive" });
     } finally {
         setIsProcessing(false);
     }
@@ -504,7 +571,17 @@ export default function AdminUsersPage() {
                         aria-label={`Select user ${renderIdentifier(user)}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{renderIdentifier(user)}</TableCell>
+                    <TableCell className="font-medium">
+                        <span 
+                            className="cursor-pointer hover:underline"
+                            onClick={() => openDailyEarningsDialog(user)}
+                        >
+                            {renderIdentifier(user)}
+                        </span>
+                        {user.restrictedUntil && user.restrictedUntil.toMillis() > Date.now() && (
+                            <Badge variant="destructive" className="ml-2">제한됨</Badge>
+                        )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{user.memo || '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
@@ -523,6 +600,15 @@ export default function AdminUsersPage() {
                          <Pencil className="mr-1 h-3.5 w-3.5"/>
                          비고
                        </Button>
+                      {user.restrictedUntil && user.restrictedUntil.toMillis() > Date.now() ? (
+                        <Button variant="secondary" size="sm" onClick={() => handleUnrestrictUser(user.id)} disabled={isProcessing}>
+                          <CircleOff className="mr-1 h-3.5 w-3.5" /> 제한 해제
+                        </Button>
+                      ) : (
+                        <Button variant="destructive" size="sm" onClick={() => openRestrictDialog(user)} disabled={user.role === 'admin'}>
+                          <Ban className="mr-1 h-3.5 w-3.5" /> 계정 제한
+                        </Button>
+                      )}
                        <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(user)} disabled={user.role === 'admin'}>
                          <Trash2 className="h-4 w-4" />
                          <span className="sr-only">Delete User</span>
@@ -535,6 +621,33 @@ export default function AdminUsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isDailyEarningsDialogOpen} onOpenChange={setIsDailyEarningsDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{selectedUser?.displayName || selectedUser?.studentId} 님의 일일 획득량</DialogTitle>
+                <DialogDescription>최근 30일간의 포인트 획득 기록입니다.</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>날짜</TableHead>
+                            <TableHead className="text-right">획득량</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {dailyEarnings.length > 0 ? dailyEarnings.map(e => (
+                            <TableRow key={e.id}>
+                                <TableCell>{e.id}</TableCell>
+                                <TableCell className="text-right">{e.totalEarned.toLocaleString()} P</TableCell>
+                            </TableRow>
+                        )) : <TableRow><TableCell colSpan={2} className="text-center">기록이 없습니다.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Lak Adjust Dialog */}
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
@@ -800,6 +913,65 @@ export default function AdminUsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Restriction Dialog */}
+      <Dialog open={isRestrictDialogOpen} onOpenChange={setIsRestrictDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>계정 이용 제한: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
+                <DialogDescription>
+                    선택한 사용자의 서비스 이용을 지정된 기간동안 제한합니다.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label>제한 기간</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant={"outline"}
+                                className="w-full justify-start text-left font-normal"
+                            >
+                                {restrictionDate?.from ? (
+                                    restrictionDate.to ? (
+                                        <>
+                                            {format(restrictionDate.from, "yyyy-MM-dd")} - {format(restrictionDate.to, "yyyy-MM-dd")}
+                                        </>
+                                    ) : (
+                                        format(restrictionDate.from, "yyyy-MM-dd")
+                                    )
+                                ) : (
+                                    <span>기간 선택</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={restrictionDate?.from}
+                                selected={restrictionDate}
+                                onSelect={setRestrictionDate}
+                                numberOfMonths={2}
+                                disabled={(date) => date < new Date()}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="restriction-reason">제한 사유</Label>
+                    <Input id="restriction-reason" value={restrictionReason} onChange={e => setRestrictionReason(e.target.value)} placeholder="예: 비속어 사용" />
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="outline">취소</Button></DialogClose>
+                <Button variant="destructive" onClick={handleRestrictUser} disabled={isProcessing || !restrictionDate?.to || !restrictionReason}>
+                    {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 제한 실행
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Leaderboard Reward Dialog */}
       <Dialog open={isRewardDialogOpen} onOpenChange={setIsRewardDialogOpen}>
@@ -820,7 +992,6 @@ export default function AdminUsersPage() {
                   <SelectValue placeholder="게임 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="word-chain">끝말잇기</SelectItem>
                   <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
                   <SelectItem value="breakout">벽돌깨기</SelectItem>
                   <SelectItem value="tetris">테트리스</SelectItem>

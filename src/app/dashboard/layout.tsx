@@ -5,15 +5,30 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/logo';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, handleSignOut } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc, onSnapshot, query, collection, where, Timestamp } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageCircleQuestion } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+
+interface RestrictionInfo {
+    restrictedUntil: Timestamp;
+    restrictionReason: string;
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, loading] = useAuthState(auth);
@@ -23,6 +38,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isMaintenanceMode, setMaintenanceMode] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [restrictionInfo, setRestrictionInfo] = useState<RestrictionInfo | null>(null);
 
   useEffect(() => {
     document.documentElement.className = 'theme-student';
@@ -38,7 +54,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Allow access to shop page without login
     if (pathname === '/dashboard/shop') {
       setIsAuthorized(true);
       setCheckingAuth(false);
@@ -63,6 +78,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         if (userDoc.exists()) {
             const userData = userDoc.data();
             const role = userData.role;
+
+            if (userData.restrictedUntil && userData.restrictedUntil.toMillis() > Date.now()) {
+                setRestrictionInfo({
+                    restrictedUntil: userData.restrictedUntil,
+                    restrictionReason: userData.restrictionReason,
+                });
+                setIsAuthorized(false);
+                setCheckingAuth(false);
+                return;
+            }
             
             if (role === 'council') {
                 router.push('/council');
@@ -84,7 +109,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return; 
             }
             
-            // Setup notifications for council members
             if ((role === 'council') && userData.memo && 'Notification' in window) {
                 if (Notification.permission === 'granted') {
                     const notificationsQuery = query(
@@ -107,14 +131,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     return () => unsubscribeNotifications();
                 }
             }
-
         }
         setIsAuthorized(true);
         setCheckingAuth(false);
     };
-
     checkRoleAndSetupNotifications();
-
   }, [user, loading, router, toast, pathname]);
 
   if (loading || checkingAuth) {
@@ -125,7 +146,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (isMaintenanceMode && user) { // Only apply maintenance mode to logged-in users in this layout
+  if (restrictionInfo) {
+    return (
+        <AlertDialog open={true}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>계정 이용 제한</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        귀하의 계정은 관리자에 의해 이용이 제한되었습니다.
+                        <div className="mt-4 space-y-2 text-foreground">
+                            <p><strong>제한 기간:</strong> {restrictionInfo.restrictedUntil.toDate().toLocaleString()}까지</p>
+                            <p><strong>제한 사유:</strong> {restrictionInfo.restrictionReason}</p>
+                        </div>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <Button variant="outline" onClick={() => router.push('/dashboard/inquiry')}><MessageCircleQuestion className="mr-2 h-4 w-4" /> 문의하기</Button>
+                    <AlertDialogAction onClick={() => handleSignOut().then(() => router.push('/login'))}>확인 및 로그아웃</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
+  }
+
+  if (isMaintenanceMode && user) {
       return <MaintenancePage />;
   }
 
@@ -137,7 +181,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         );
   }
   
-  // Render layout without nav for public shop page
   if (pathname === '/dashboard/shop' && !user) {
     return (
       <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent">
@@ -145,7 +188,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </main>
     );
   }
-
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">

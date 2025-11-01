@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -227,16 +226,12 @@ export default function LeaderboardPageClient() {
           <Tabs defaultValue="class-ranking">
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
                <TabsTrigger value="class-ranking" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Users className="mr-2 h-4 w-4" />학급 랭킹</TabsTrigger>
-               <TabsTrigger value="word-chain" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">끝말잇기</TabsTrigger>
                <TabsTrigger value="minesweeper" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">지뢰찾기</TabsTrigger>
                <TabsTrigger value="breakout" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">벽돌깨기</TabsTrigger>
                <TabsTrigger value="tetris" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">테트리스</TabsTrigger>
             </TabsList>
              <TabsContent value="class-ranking" className="p-0">
                 <ClassLeaderboardTab />
-            </TabsContent>
-            <TabsContent value="word-chain" className="p-0">
-                <LeaderboardTab leaderboardId="leaderboards/word-chain/users" order="desc" unit="점" />
             </TabsContent>
              <TabsContent value="minesweeper" className="p-0">
                 <LeaderboardTab leaderboardId="leaderboards/minesweeper-easy/users" order="asc" unit="초" />
