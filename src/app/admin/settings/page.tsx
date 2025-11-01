@@ -200,6 +200,44 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+           <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 가입 학생 수</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {totalUsers === null ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{totalUsers.toLocaleString()} 명</div>}
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">현재 유통 포인트</CardTitle>
+                    <Coins className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {totalAvailableLak === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalAvailableLak.toLocaleString()} P</div>}
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 발행 포인트</CardTitle>
+                    <Plus className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {totalCredits === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalCredits.toLocaleString()} P</div>}
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">총 사용 포인트</CardTitle>
+                    <Minus className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {totalDebits === null ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{totalDebits.toLocaleString()} P</div>}
+                </CardContent>
+            </Card>
+       </div>
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><HardHat />시스템 관리</CardTitle>
