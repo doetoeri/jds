@@ -78,74 +78,6 @@ const checkSuspiciousContent = (content: string): boolean => {
 };
 
 
-// Helper function to handle point distribution
-const distributePoints = async (
-  transaction: any,
-  userRef: any,
-  userData: any, // Pass pre-read user data
-  pointsToAdd: number,
-  historyDesc: string,
-  isExemptFromDailyLimit: boolean = false
-) => {
-    const currentLak = userData.lak || 0;
-
-    let pointsForLak = 0;
-    let pointsForPiggyBank = 0;
-
-    if (isExemptFromDailyLimit) {
-        // Exempt codes bypass daily limits and go straight to lak or piggy bank based on the 25-point lak limit
-        pointsForLak = Math.min(pointsToAdd, Math.max(0, POINT_LIMIT - currentLak));
-        pointsForPiggyBank = pointsToAdd - pointsForLak;
-    } else {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        const dailyEarningRef = doc(db, `users/${userRef.id}/daily_earnings`, today);
-        const dailyEarningDoc = await transaction.get(dailyEarningRef);
-        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        
-        if (todayEarned >= DAILY_POINT_LIMIT) {
-             pointsForLak = 0;
-             pointsForPiggyBank = pointsToAdd;
-        } else {
-            const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
-            const pointsTowardsDailyLimit = Math.min(pointsToAdd, remainingDailyAllowance);
-
-            // These points can go to lak, up to the 25-point total lak limit
-            pointsForLak = Math.min(pointsTowardsDailyLimit, Math.max(0, POINT_LIMIT - currentLak));
-            
-            // Any leftover points go to piggy bank
-            pointsForPiggyBank = pointsToAdd - pointsForLak;
-            
-            if (pointsTowardsDailyLimit > 0) {
-                transaction.set(dailyEarningRef, { totalEarned: increment(pointsTowardsDailyLimit), id: today }, { merge: true });
-            }
-        }
-    }
-
-
-  if (pointsForLak > 0) {
-    transaction.update(userRef, { lak: increment(pointsForLak) });
-    const historyRef = doc(collection(userRef, 'transactions'));
-    transaction.set(historyRef, {
-      date: Timestamp.now(),
-      description: historyDesc,
-      amount: pointsForLak,
-      type: 'credit',
-    });
-  }
-
-  if (pointsForPiggyBank > 0) {
-    transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
-    const historyRef = doc(collection(userRef, 'transactions'));
-     transaction.set(historyRef, {
-      date: Timestamp.now(),
-      description: `초과 포인트 저금: ${historyDesc}`,
-      amount: pointsForPiggyBank,
-      type: 'credit',
-      isPiggyBank: true,
-    });
-  }
-};
-
 // --- Main Functions ---
 
 // Sign up function
@@ -399,7 +331,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
     try {
       await runTransaction(db, async (transaction) => {
-        // --- ALL READS FIRST ---
+        // --- 1. ALL READS ---
         const userRef = doc(db, 'users', userId);
         const friendRef = doc(db, 'users', friendUid);
         const userDoc = await transaction.get(userRef);
@@ -409,10 +341,16 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
+        const today = new Date().toISOString().split('T')[0];
+        const userDailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const friendDailyEarningRef = doc(db, `users/${friendUid}/daily_earnings`, today);
+        const userDailyEarningDoc = await transaction.get(userDailyEarningRef);
+        const friendDailyEarningDoc = await transaction.get(friendDailyEarningRef);
+
+        // --- 2. VALIDATION & LOGIC ---
         const userData = userDoc.data();
         const friendData = friendDocTx.data();
         
-        // --- VALIDATION AND LOGIC ---
         const myUsedFriends = userData.usedFriendId || [];
         if (myUsedFriends.includes(friendStudentId)) {
           throw new Error("이미 이 친구의 학번을 사용했습니다.");
@@ -424,9 +362,58 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         
         const invitePoints = 1;
 
-        // --- ALL WRITES LAST ---
-        await distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendStudentId})`, false);
-        await distributePoints(transaction, friendRef, friendData, invitePoints, `친구 초대 보상 (초대받은 친구: ${userStudentId})`, false);
+        // --- 3. ALL WRITES ---
+        const userTodayEarned = userDailyEarningDoc.exists() ? userDailyEarningDoc.data().totalEarned : 0;
+        let userPointsForLak = 0;
+        let userPointsForPiggyBank = 0;
+        if (userTodayEarned >= DAILY_POINT_LIMIT) {
+          userPointsForPiggyBank = invitePoints;
+        } else {
+          userPointsForLak = Math.min(invitePoints, Math.max(0, POINT_LIMIT - userData.lak));
+          userPointsForPiggyBank = invitePoints - userPointsForLak;
+          if (userPointsForLak > 0) {
+            transaction.set(userDailyEarningRef, { totalEarned: increment(userPointsForLak), id: today }, { merge: true });
+          }
+        }
+        
+        if (userPointsForLak > 0) {
+            transaction.update(userRef, { lak: increment(userPointsForLak) });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(), description: `친구 초대 보상 (초대한 친구: ${friendStudentId})`, amount: userPointsForLak, type: 'credit',
+            });
+        }
+        if (userPointsForPiggyBank > 0) {
+            transaction.update(userRef, { piggyBank: increment(userPointsForPiggyBank) });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(), description: `초과 포인트 저금: 친구 초대 보상`, amount: userPointsForPiggyBank, type: 'credit', isPiggyBank: true,
+            });
+        }
+
+        const friendTodayEarned = friendDailyEarningDoc.exists() ? friendDailyEarningDoc.data().totalEarned : 0;
+        let friendPointsForLak = 0;
+        let friendPointsForPiggyBank = 0;
+        if (friendTodayEarned >= DAILY_POINT_LIMIT) {
+          friendPointsForPiggyBank = invitePoints;
+        } else {
+          friendPointsForLak = Math.min(invitePoints, Math.max(0, POINT_LIMIT - friendData.lak));
+          friendPointsForPiggyBank = invitePoints - friendPointsForLak;
+          if (friendPointsForLak > 0) {
+            transaction.set(friendDailyEarningRef, { totalEarned: increment(friendPointsForLak), id: today }, { merge: true });
+          }
+        }
+        
+        if(friendPointsForLak > 0) {
+            transaction.update(friendRef, { lak: increment(friendPointsForLak) });
+            transaction.set(doc(collection(friendRef, 'transactions')), {
+              date: Timestamp.now(), description: `친구 초대 보상 (초대받은 친구: ${userStudentId})`, amount: friendPointsForLak, type: 'credit',
+            });
+        }
+        if(friendPointsForPiggyBank > 0) {
+            transaction.update(friendRef, { piggyBank: increment(friendPointsForPiggyBank) });
+            transaction.set(doc(collection(friendRef, 'transactions')), {
+              date: Timestamp.now(), description: `초과 포인트 저금: 친구 초대 보상`, amount: friendPointsForPiggyBank, type: 'credit', isPiggyBank: true,
+            });
+        }
         
         transaction.update(userRef, { usedFriendId: arrayUnion(friendStudentId) });
         transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
@@ -445,7 +432,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         });
       }
 
-      return { success: true, message: `친구 초대에 성공하여 나와 친구 모두 1포인트를 받았습니다!` };
+      return { success: true, message: `친구 초대에 성공하여 나와 친구 모두 ${invitePoints}포인트를 받았습니다!` };
     } catch (error: any) {
       console.error("Friend invite transaction error: ", error);
       throw new Error(error.message || "친구 초대 중 오류가 발생했습니다.");
@@ -454,10 +441,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
   // Regular Code Logic
   return await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', userId);
-    const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
-    
     // This getDocs is outside transaction, which is fine for reading data that doesn't need to be transactionally consistent.
+    const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     const codeSnapshot = await getDocs(codeQuery);
 
     if (codeSnapshot.empty) {
@@ -467,21 +452,46 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       });
       throw new Error("유효하지 않은 코드 또는 학번입니다.");
     }
-
+    
+    // --- 1. ALL READS ---
+    const userRef = doc(db, 'users', userId);
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
 
     const userDoc = await transaction.get(userRef);
     const freshCodeDoc = await transaction.get(codeRef);
-
+    
     if (!userDoc.exists()) throw new Error("존재하지 않는 사용자입니다.");
     if (!freshCodeDoc.exists()) throw new Error("코드를 찾을 수 없습니다.");
+
+    const today = new Date().toISOString().split('T')[0];
+    const dailyEarningRef = doc(db, `users/${userRef.id}/daily_earnings`, today);
+    const dailyEarningDoc = await transaction.get(dailyEarningRef);
     
+    // --- 2. VALIDATION & LOGIC ---
     const userData = userDoc.data();
     const userStudentId = userData.studentId;
     const freshCodeData = freshCodeDoc.data();
     const isExempt = freshCodeData.type === '온라인 특수코드' || freshCodeData.type === '히든코드';
     const oldLak = userData.lak;
+
+    let pointsForLak = 0;
+    let pointsForPiggyBank = 0;
+    
+    const calculatePoints = (pointsToAdd: number, currentLak: number, todayEarned: number) => {
+        let lakPoints = 0;
+        let piggyPoints = 0;
+        if (isExempt) {
+            lakPoints = Math.min(pointsToAdd, Math.max(0, POINT_LIMIT - currentLak));
+            piggyPoints = pointsToAdd - lakPoints;
+        } else {
+            const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+            const pointsTowardsDailyLimit = Math.min(pointsToAdd, remainingDailyAllowance);
+            lakPoints = Math.min(pointsTowardsDailyLimit, Math.max(0, POINT_LIMIT - currentLak));
+            piggyPoints = pointsToAdd - lakPoints;
+        }
+        return { lakPoints, piggyPoints };
+    };
 
     switch (freshCodeData.type) {
         case '히든코드':
@@ -490,15 +500,46 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (partnerStudentId === userStudentId) throw new Error("자기 자신을 파트너로 지정할 수 없습니다.");
             if (!/^\d{5}$/.test(partnerStudentId)) throw new Error("파트너의 학번은 5자리 숫자여야 합니다.");
 
+            // Read partner data inside transaction
             const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
-            const partnerSnapshot = await getDocs(partnerQuery);
+            const partnerSnapshot = await getDocs(partnerQuery); // This is outside transaction, which is risky but necessary if we don't have uid. For safety, let's pre-read.
             if (partnerSnapshot.empty) throw new Error(`파트너 학생(${partnerStudentId})을 찾을 수 없습니다.`);
             const partnerRef = partnerSnapshot.docs[0].ref;
             const partnerDoc = await transaction.get(partnerRef);
             if(!partnerDoc.exists()) throw new Error("파트너 학생 정보를 찾을 수 없습니다.");
+            const partnerData = partnerDoc.data();
+            const partnerDailyEarningRef = doc(db, `users/${partnerRef.id}/daily_earnings`, today);
+            const partnerDailyEarningDoc = await transaction.get(partnerDailyEarningRef);
 
-            await distributePoints(transaction, userRef, userData, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`, isExempt);
-            await distributePoints(transaction, partnerRef, partnerDoc.data(), freshCodeData.value, `히든코드 파트너 보상 (사용자: ${userStudentId})`, isExempt);
+            // Calculate points for both
+            const userPointCalc = calculatePoints(freshCodeData.value, userData.lak, dailyEarningDoc.data()?.totalEarned || 0);
+            pointsForLak = userPointCalc.lakPoints;
+            pointsForPiggyBank = userPointCalc.piggyPoints;
+
+            const partnerPointCalc = calculatePoints(freshCodeData.value, partnerData.lak, partnerDailyEarningDoc.data()?.totalEarned || 0);
+            const partnerPointsForLak = partnerPointCalc.lakPoints;
+            const partnerPointsForPiggyBank = partnerPointCalc.piggyPoints;
+            
+            // --- 3. ALL WRITES ---
+            if (pointsForLak > 0) {
+              transaction.update(userRef, { lak: increment(pointsForLak) });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 사용 (파트너: ${partnerStudentId})`, amount: pointsForLak, type: 'credit'});
+              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            }
+            if (pointsForPiggyBank > 0) {
+              transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 히든코드 사용`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true });
+            }
+
+            if (partnerPointsForLak > 0) {
+              transaction.update(partnerRef, { lak: increment(partnerPointsForLak) });
+              transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 파트너 보상 (사용자: ${userStudentId})`, amount: partnerPointsForLak, type: 'credit'});
+              if (!isExempt) transaction.set(partnerDailyEarningRef, { totalEarned: increment(partnerPointsForLak), id: today }, { merge: true });
+            }
+            if(partnerPointsForPiggyBank > 0) {
+              transaction.update(partnerRef, { piggyBank: increment(partnerPointsForPiggyBank) });
+              transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 히든코드 파트너 보상`, amount: partnerPointsForPiggyBank, type: 'credit', isPiggyBank: true });
+            }
             
             transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
             return { success: true, message: `코드를 사용해 나와 파트너 모두 ${freshCodeData.value} 포인트를 받았습니다!` };
@@ -507,19 +548,44 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             const usedBy = Array.isArray(freshCodeData.usedBy) ? freshCodeData.usedBy : [];
             if (usedBy.includes(userStudentId)) throw new Error("이미 이 코드를 사용했습니다.");
             if (usedBy.length >= freshCodeData.limit) throw new Error("코드가 모두 소진되었습니다. 다음 기회를 노려보세요!");
-
-            await distributePoints(transaction, userRef, userData, freshCodeData.value, `선착순코드 "${freshCodeData.code}" 사용`, isExempt);
-            transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             
+            const firstComeCalc = calculatePoints(freshCodeData.value, userData.lak, dailyEarningDoc.data()?.totalEarned || 0);
+            pointsForLak = firstComeCalc.lakPoints;
+            pointsForPiggyBank = firstComeCalc.piggyPoints;
+
+            // --- 3. ALL WRITES ---
+            if (pointsForLak > 0) {
+              transaction.update(userRef, { lak: increment(pointsForLak) });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
+              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            }
+            if (pointsForPiggyBank > 0) {
+              transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 선착순코드`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true });
+            }
+            transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             return { success: true, message: `선착순 코드를 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
 
         default:
             if (freshCodeData.used) throw new Error("이미 사용된 코드입니다.");
+            
+            const defaultCalc = calculatePoints(freshCodeData.value, userData.lak, dailyEarningDoc.data()?.totalEarned || 0);
+            pointsForLak = defaultCalc.lakPoints;
+            pointsForPiggyBank = defaultCalc.piggyPoints;
 
-            await distributePoints(transaction, userRef, userData, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`, isExempt);
+            // --- 3. ALL WRITES ---
+            if (pointsForLak > 0) {
+              transaction.update(userRef, { lak: increment(pointsForLak) });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
+              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            }
+             if (pointsForPiggyBank > 0) {
+              transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: ${freshCodeData.type}`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true });
+            }
             transaction.update(codeRef, { used: true, usedBy: userStudentId });
             
-            const newLak = userData.lak + freshCodeData.value;
+            const newLak = oldLak + pointsForLak;
             if(isExempt && newLak > oldLak + 10) { 
                  createReport(userId, "의심스러운 특수 코드 사용", {
                     code: upperCaseCode,
@@ -529,10 +595,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
                     timestamp: Timestamp.now(),
                 });
             }
-
             return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
     }
-
   }).catch((error) => {
       console.error("Code redemption error: ", error);
       const errorMessage = typeof error === 'string' ? error : (error.message || "코드 사용 중 오류가 발생했습니다.");
@@ -693,15 +757,26 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
     if (!userDoc.exists()) throw new Error("User does not exist.");
     
     if (amount > 0) {
-      await distributePoints(transaction, userRef, userDoc.data(), amount, `관리자 조정: ${reason}`, true);
+      const userData = userDoc.data();
+      const pointsForLak = Math.min(amount, Math.max(0, POINT_LIMIT - userData.lak));
+      const pointsForPiggyBank = amount - pointsForLak;
+      
+      if (pointsForLak > 0) {
+        transaction.update(userRef, { lak: increment(pointsForLak) });
+        transaction.set(doc(collection(userRef, 'transactions')), {
+            date: Timestamp.now(), description: `관리자 조정: ${reason}`, amount: pointsForLak, type: 'credit',
+        });
+      }
+      if (pointsForPiggyBank > 0) {
+          transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+           transaction.set(doc(collection(userRef, 'transactions')), {
+             date: Timestamp.now(), description: `초과 포인트 저금: 관리자 조정`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true,
+          });
+      }
     } else {
       transaction.update(userRef, { lak: increment(amount) });
-      const historyRef = doc(collection(userRef, 'transactions'));
-      transaction.set(historyRef, {
-        date: Timestamp.now(),
-        description: `관리자 조정: ${reason}`,
-        amount: amount,
-        type: 'debit',
+      transaction.set(doc(collection(userRef, 'transactions')), {
+        date: Timestamp.now(), description: `관리자 조정: ${reason}`, amount: amount, type: 'debit',
       });
     }
 
@@ -740,51 +815,15 @@ export const setUserLak = async (userId: string, amount: number, reason: string)
 
 
 export const bulkAdjustUserLak = async (userIds: string[], amount: number, reason: string) => {
-    
   for (const userId of userIds) {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error(`User with ID ${userId} not found.`);
-        if (amount > 0) {
-            await distributePoints(transaction, userRef, userDoc.data(), amount, `관리자 일괄 조정: ${reason}`, true);
-        } else {
-             transaction.update(userRef, { lak: increment(amount) });
-            const historyRef = doc(collection(userRef, 'transactions'));
-            transaction.set(historyRef, {
-                date: Timestamp.now(),
-                description: `관리자 일괄 조정: ${reason}`,
-                amount: amount,
-                type: 'debit',
-            });
-        }
-      });
+      await adjustUserLak(userId, amount, reason);
   }
 };
 
 export const bulkSetUserLak = async (userIds: string[], amount: number, reason: string) => {
 
   for (const userId of userIds) {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) {
-            throw new Error(`User with ID ${userId} does not exist.`);
-        }
-        
-        const currentLak = userDoc.data().lak || 0;
-        const difference = amount - currentLak;
-
-        transaction.update(userRef, { lak: amount });
-
-        const historyRef = doc(collection(userRef, 'transactions'));
-        transaction.set(historyRef, {
-            date: Timestamp.now(),
-            description: `관리자 일괄 설정: ${reason}`,
-            amount: difference,
-            type: difference >= 0 ? 'credit' : 'debit',
-        });
-      });
+      await setUserLak(userId, amount, reason);
   }
 };
 
@@ -878,63 +917,89 @@ export const postAnnouncement = async (
 };
 
 export const sendLetter = async (senderUid: string, receiverIdentifier: string, content: string) => {
-    // Pre-read receiver info
-    let receiverQuery;
-    if (/^\d{5}$/.test(receiverIdentifier)) {
-        receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
-    } else {
-        receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
-    }
-    const receiverSnapshot = await getDocs(receiverQuery);
+  // Pre-read receiver info
+  let receiverQuery;
+  if (/^\d{5}$/.test(receiverIdentifier)) {
+      receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
+  } else {
+      receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
+  }
+  const receiverSnapshot = await getDocs(receiverQuery);
 
-    return await runTransaction(db, async (transaction) => {
-        // Reads
-        const senderRef = doc(db, 'users', senderUid);
-        const senderDoc = await transaction.get(senderRef);
-        if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
-        
-        // Validation
-        const senderData = senderDoc.data();
-        const senderStudentId = senderData.studentId;
-        if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
+  return await runTransaction(db, async (transaction) => {
+      // 1. Reads
+      const senderRef = doc(db, 'users', senderUid);
+      const senderDoc = await transaction.get(senderRef);
+      if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
+      
+      const today = new Date().toISOString().split('T')[0];
+      const dailyEarningRef = doc(db, `users/${senderUid}/daily_earnings`, today);
+      const dailyEarningDoc = await transaction.get(dailyEarningRef);
+      
+      // 2. Validation
+      const senderData = senderDoc.data();
+      const senderStudentId = senderData.studentId;
+      if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
+      if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
 
-        if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
+      if (checkSuspiciousContent(content)) {
+          // This is a write, but it happens outside the transaction
+          createReport(senderUid, "성의 없는 편지 작성", {
+              content: content,
+              receiver: receiverIdentifier,
+              timestamp: Timestamp.now(),
+          });
+      }
+      
+      // 3. Logic & Writes
+      const pointsToAdd = 1;
+      const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+      let pointsForLak = 0;
+      let pointsForPiggyBank = 0;
+      if (todayEarned < DAILY_POINT_LIMIT) {
+          const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+          const pointsForDaily = Math.min(pointsToAdd, remainingDaily);
+          pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - senderData.lak));
+          pointsForPiggyBank = pointsToAdd - pointsForLak;
+      } else {
+          pointsForPiggyBank = pointsToAdd;
+      }
+      
+      if(pointsForLak > 0) {
+          transaction.update(senderRef, { lak: increment(pointsForLak) });
+          transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+          transaction.set(doc(collection(senderRef, 'transactions')), {
+              date: Timestamp.now(), description: '편지 쓰기 보상', amount: pointsForLak, type: 'credit',
+          });
+      }
+       if(pointsForPiggyBank > 0) {
+          transaction.update(senderRef, { piggyBank: increment(pointsForPiggyBank) });
+          transaction.set(doc(collection(senderRef, 'transactions')), {
+              date: Timestamp.now(), description: '초과 포인트 저금: 편지 쓰기', amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+          });
+      }
 
-        if (checkSuspiciousContent(content)) {
-            // This is a write, but it's not part of the transaction, so it's okay.
-            // However, to be perfectly safe, it should be called outside.
-            // For now, we'll assume this is acceptable as it's a non-critical side effect.
-            createReport(senderUid, "성의 없는 편지 작성", {
-                content: content,
-                receiver: receiverIdentifier,
-                timestamp: Timestamp.now(),
-            });
-        }
-        
-        // Writes
-        const receiverDoc = receiverSnapshot.docs[0];
-        const receiverData = receiverDoc.data();
-        const receiverIdentifierDisplay = receiverData.role === 'student' ? receiverData.studentId : receiverData.nickname;
+      const receiverDoc = receiverSnapshot.docs[0];
+      const receiverData = receiverDoc.data();
+      const receiverIdentifierDisplay = receiverData.role === 'student' ? receiverData.studentId : receiverData.nickname;
 
-        const letterRef = doc(collection(db, 'letters'));
-        const letterData = {
-            senderUid,
-            senderStudentId: senderData.displayName || senderStudentId,
-            receiverStudentId: receiverIdentifierDisplay,
-            content,
-            status: 'pending' as const,
-            createdAt: Timestamp.now(),
-        };
-        transaction.set(letterRef, letterData);
-        
-        await distributePoints(transaction, senderRef, senderData, 1, '편지 쓰기 보상', false);
-
-        return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
-    }).catch((error) => {
-        console.error("Send letter error: ", error);
-        const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";
-        return { success: false, message: errorMessage };
-    });
+      const letterRef = doc(collection(db, 'letters'));
+      const letterData = {
+          senderUid,
+          senderStudentId: senderData.displayName || senderStudentId,
+          receiverStudentId: receiverIdentifierDisplay,
+          content,
+          status: 'pending' as const,
+          createdAt: Timestamp.now(),
+      };
+      transaction.set(letterRef, letterData);
+      
+      return { success: true, message: '편지가 성공적으로 전송 요청되었습니다. 관리자 승인 후 전달됩니다.' };
+  }).catch((error) => {
+      console.error("Send letter error: ", error);
+      const errorMessage = typeof error === 'string' ? error : error.message || "편지 전송 중 오류가 발생했습니다.";
+      return { success: false, message: errorMessage };
+  });
 };
 
 
@@ -994,23 +1059,42 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
     const userRef = doc(db, 'users', userId);
     
     await runTransaction(db, async (transaction) => {
+        // Reads
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-
         const leaderboardRef = doc(db, `leaderboards/minesweeper-${difficulty}/users`, userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
-
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        
+        // Logic & Writes
         if (!leaderboardDoc.exists() || time < leaderboardDoc.data().score) {
             transaction.set(leaderboardRef, {
-                score: time,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
+                score: time, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now(),
             }, { merge: true });
         }
 
-        await distributePoints(transaction, userRef, userDoc.data(), 3, `지뢰찾기 (${difficulty}) 승리 보상`, false);
+        const pointsToAdd = 3;
+        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+        const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+        const pointsForDaily = Math.min(pointsToAdd, remainingDailyAllowance);
+        const pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - userDoc.data().lak));
+        const pointsForPiggyBank = pointsToAdd - pointsForLak;
+
+        if (pointsForLak > 0) {
+            transaction.update(userRef, { lak: increment(pointsForLak) });
+            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(), description: `지뢰찾기 (${difficulty}) 승리 보상`, amount: pointsForLak, type: 'credit',
+            });
+        }
+        if (pointsForPiggyBank > 0) {
+            transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(), description: `초과 포인트 저금: 지뢰찾기`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+            });
+        }
     });
 };
 
@@ -1019,22 +1103,41 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
     const userRef = doc(db, 'users', userId);
     
     await runTransaction(db, async (transaction) => {
+        // Reads
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
+
+        // Logic & Writes
         const userData = userDoc.data();
-        
         const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
         transaction.set(leaderboardRef, {
-            score: increment(score),
-            displayName: userData.displayName,
-            studentId: userData.studentId,
-            avatarGradient: userData.avatarGradient,
-            lastUpdated: Timestamp.now()
+            score: increment(score), displayName: userData.displayName, studentId: userData.studentId, avatarGradient: userData.avatarGradient, lastUpdated: Timestamp.now()
         }, { merge: true });
         
-        const points = Math.floor(score / 10);
-        if (points > 0) {
-            await distributePoints(transaction, userRef, userData, points, `벽돌깨기 점수 보상 (${score}점)`, false);
+        const pointsToAdd = Math.floor(score / 10);
+        if (pointsToAdd > 0) {
+            const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+            const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+            const pointsForDaily = Math.min(pointsToAdd, remainingDailyAllowance);
+            const pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - userData.lak));
+            const pointsForPiggyBank = pointsToAdd - pointsForLak;
+
+            if (pointsForLak > 0) {
+                transaction.update(userRef, { lak: increment(pointsForLak) });
+                transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                  date: Timestamp.now(), description: `벽돌깨기 점수 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
+                });
+            }
+            if (pointsForPiggyBank > 0) {
+                transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                  date: Timestamp.now(), description: `초과 포인트 저금: 벽돌깨기`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+                });
+            }
         }
     });
 
@@ -1159,11 +1262,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
   
   for (const studentId of studentIds) {
     try {
-       // Pre-read
-       const studentQuery = query(
-          collection(db, 'users'),
-          where('studentId', '==', studentId)
-        );
+       const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
        const studentSnapshot = await getDocs(studentQuery);
 
        if (studentSnapshot.empty) {
@@ -1173,13 +1272,34 @@ export const givePointsToMultipleStudentsAtBooth = async (
 
        await runTransaction(db, async (transaction) => {
         // Read
-        const freshStudentData = await transaction.get(studentRef);
-        if(!freshStudentData.exists()) {
-            throw new Error(`학생 데이터를 찾을 수 없습니다: ${studentId}`);
-        }
+        const freshStudentDoc = await transaction.get(studentRef);
+        if(!freshStudentDoc.exists()) throw new Error(`학생 데이터를 찾을 수 없습니다: ${studentId}`);
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${studentRef.id}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
         
+        // Logic
+        const studentData = freshStudentDoc.data();
+        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+        const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+        const pointsForDaily = Math.min(value, remainingDaily);
+        const pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - studentData.lak));
+        const pointsForPiggyBank = value - pointsForLak;
+
         // Write
-        await distributePoints(transaction, studentRef, freshStudentData.data(), value, `부스 참여: ${reason}`, false);
+        if (pointsForLak > 0) {
+            transaction.update(studentRef, { lak: increment(pointsForLak) });
+            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            transaction.set(doc(collection(studentRef, 'transactions')), {
+              date: Timestamp.now(), description: `부스 참여: ${reason}`, amount: pointsForLak, type: 'credit',
+            });
+        }
+        if (pointsForPiggyBank > 0) {
+            transaction.update(studentRef, { piggyBank: increment(pointsForPiggyBank) });
+            transaction.set(doc(collection(studentRef, 'transactions')), {
+              date: Timestamp.now(), description: `초과 포인트 저금: ${reason}`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+            });
+        }
       });
       result.successCount++;
     } catch (error: any) {
@@ -1225,7 +1345,23 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
                 const userRef = doc(db, 'users', rankerId);
                 const userDoc = await transaction.get(userRef);
                 if(!userDoc.exists()) throw new Error("Ranker user not found");
-                await distributePoints(transaction, userRef, userDoc.data(), rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`, true);
+                
+                const userData = userDoc.data();
+                const pointsForLak = Math.min(rewardAmount, Math.max(0, POINT_LIMIT - userData.lak));
+                const pointsForPiggyBank = rewardAmount - pointsForLak;
+
+                if (pointsForLak > 0) {
+                  transaction.update(userRef, { lak: increment(pointsForLak) });
+                   transaction.set(doc(collection(userRef, 'transactions')), {
+                      date: Timestamp.now(), description: `리더보드 보상 (${leaderboardName} ${index + 1}등)`, amount: pointsForLak, type: 'credit',
+                  });
+                }
+                if (pointsForPiggyBank > 0) {
+                    transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+                     transaction.set(doc(collection(userRef, 'transactions')), {
+                        date: Timestamp.now(), description: `초과 포인트 저금: 리더보드 보상`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+                    });
+                }
                 successCount++;
             });
        } catch (error) {
@@ -1246,24 +1382,41 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         // Reads
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-        const userData = userDoc.data();
-        
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
         const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
 
-        // Writes
-        const points = Math.floor(score / 500); // 500점당 1포인트
-        if(points > 0) {
-            await distributePoints(transaction, userRef, userData, points, `테트리스 플레이 보상 (${score}점)`, false);
+        // Logic & Writes
+        const userData = userDoc.data();
+        
+        const pointsToAdd = Math.floor(score / 500); // 500점당 1포인트
+        if (pointsToAdd > 0) {
+            const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+            const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+            const pointsForDaily = Math.min(pointsToAdd, remainingDailyAllowance);
+            const pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - userData.lak));
+            const pointsForPiggyBank = pointsToAdd - pointsForLak;
+
+            if (pointsForLak > 0) {
+                transaction.update(userRef, { lak: increment(pointsForLak) });
+                transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                  date: Timestamp.now(), description: `테트리스 플레이 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
+                });
+            }
+            if (pointsForPiggyBank > 0) {
+                transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                  date: Timestamp.now(), description: `초과 포인트 저금: 테트리스`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+                });
+            }
         }
 
         if (!leaderboardDoc.exists() || score > (leaderboardDoc.data().score || 0)) {
             transaction.set(leaderboardRef, {
-                score: score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now()
+                score: score, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
             }, { merge: true });
         }
     });
@@ -1318,7 +1471,6 @@ export const sendNotification = async (roleCode: string, message: string) => {
 };
 
 export const submitPoem = async (studentId: string, poemContent: string) => {
-  // Pre-read
   const userQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
   const userSnapshot = await getDocs(userQuery);
   if (userSnapshot.empty) {
@@ -1327,81 +1479,81 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
   const userRef = userSnapshot.docs[0].ref;
 
   return await runTransaction(db, async (transaction) => {
-    // Read
     const userDoc = await transaction.get(userRef);
     if(!userDoc.exists()) throw new Error('학생 데이터를 찾을 수 없습니다.');
     
-    // Validation
+    const today = new Date().toISOString().split('T')[0];
+    const dailyEarningRef = doc(db, `users/${userRef.id}/daily_earnings`, today);
+    const dailyEarningDoc = await transaction.get(dailyEarningRef);
+    
     if (checkSuspiciousContent(poemContent)) {
-        createReport(userDoc.id, "성의 없는 삼행시 작성", {
-            content: poemContent,
-            timestamp: Timestamp.now(),
-        });
+        createReport(userDoc.id, "성의 없는 삼행시 작성", { content: poemContent, timestamp: Timestamp.now() });
     }
     
-    // Writes
-    const today = new Date().toISOString().split('T')[0];
     const usageRef = doc(collection(db, 'kiosk_usage'));
-    transaction.set(usageRef, {
-        studentId,
-        activity: 'poem',
-        date: today,
-        timestamp: Timestamp.now()
-    });
+    transaction.set(usageRef, { studentId, activity: 'poem', date: today, timestamp: Timestamp.now() });
+    transaction.set(doc(collection(db, 'poems')), { studentId, content: poemContent, createdAt: Timestamp.now() });
 
-    const poemRef = doc(collection(db, 'poems'));
-    transaction.set(poemRef, {
-      studentId,
-      content: poemContent,
-      createdAt: Timestamp.now(),
-    });
+    const pointsToAdd = 5;
+    const studentData = userDoc.data();
+    const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+    const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+    const pointsForDaily = Math.min(pointsToAdd, remainingDaily);
+    const pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - studentData.lak));
+    const pointsForPiggyBank = pointsToAdd - pointsForLak;
 
-    await distributePoints(transaction, userRef, userDoc.data(), 5, '삼행시 참여 보상', false);
+    if (pointsForLak > 0) {
+        transaction.update(userRef, { lak: increment(pointsForLak) });
+        transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+        transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '삼행시 참여 보상', amount: pointsForLak, type: 'credit' });
+    }
+    if (pointsForPiggyBank > 0) {
+        transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
+        transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '초과 포인트 저금: 삼행시 참여', amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true });
+    }
   });
 };
 
 export const sendSecretLetter = async (senderStudentId: string, receiverIdentifier: string, content: string) => {
-    // Pre-read
     const senderQuery = query(collection(db, 'users'), where('studentId', '==', senderStudentId));
     const senderSnapshot = await getDocs(senderQuery);
     if (senderSnapshot.empty) throw new Error('보내는 학생 정보를 찾을 수 없습니다.');
     const senderRef = senderSnapshot.docs[0].ref;
 
   return await runTransaction(db, async (transaction) => {
-    // Read
     const senderDoc = await transaction.get(senderRef);
     if(!senderDoc.exists()) throw new Error('보내는 학생 데이터를 찾을 수 없습니다.');
+    const today = new Date().toISOString().split('T')[0];
+    const dailyEarningRef = doc(db, `users/${senderRef.id}/daily_earnings`, today);
+    const dailyEarningDoc = await transaction.get(dailyEarningRef);
 
-    // Validation
     if (checkSuspiciousContent(content)) {
-        createReport(senderDoc.id, "성의 없는 비밀 편지 작성", {
-            content: content,
-            receiver: receiverIdentifier,
-            timestamp: Timestamp.now(),
-        });
+        createReport(senderDoc.id, "성의 없는 비밀 편지 작성", { content: content, receiver: receiverIdentifier, timestamp: Timestamp.now() });
     }
 
-    // Writes
-    const today = new Date().toISOString().split('T')[0];
     const usageRef = doc(collection(db, 'kiosk_usage'));
-    transaction.set(usageRef, {
-        studentId: senderStudentId,
-        activity: 'letter',
-        date: today,
-        timestamp: Timestamp.now()
-    });
-    
-    const letterRef = doc(collection(db, 'letters'));
-    transaction.set(letterRef, {
-      senderStudentId: '익명', // Anonymous sender
-      receiverStudentId: receiverIdentifier,
-      content,
-      isOffline: true, // Secret letters are always offline for review.
-      status: 'pending',
-      createdAt: Timestamp.now(),
+    transaction.set(usageRef, { studentId: senderStudentId, activity: 'letter', date: today, timestamp: Timestamp.now() });
+    transaction.set(doc(collection(db, 'letters')), {
+      senderStudentId: '익명', receiverStudentId: receiverIdentifier, content, isOffline: true, status: 'pending', createdAt: Timestamp.now(),
     });
 
-    await distributePoints(transaction, senderRef, senderDoc.data(), 5, '비밀 편지 작성 보상', false);
+    const pointsToAdd = 5;
+    const studentData = senderDoc.data();
+    const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+    const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+    const pointsForDaily = Math.min(pointsToAdd, remainingDaily);
+    const pointsForLak = Math.min(pointsForDaily, Math.max(0, POINT_LIMIT - studentData.lak));
+    const pointsForPiggyBank = pointsToAdd - pointsForLak;
+
+    if (pointsForLak > 0) {
+        transaction.update(senderRef, { lak: increment(pointsForLak) });
+        transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+        transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsForLak, type: 'credit' });
+    }
+    if (pointsForPiggyBank > 0) {
+        transaction.update(senderRef, { piggyBank: increment(pointsForPiggyBank) });
+        transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '초과 포인트 저금: 비밀 편지', amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true });
+    }
   });
 };
 
