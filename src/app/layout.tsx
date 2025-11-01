@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import Script from 'next/script';
 import type { Metadata } from 'next';
 import RootLayoutClient from '@/components/root-layout-client';
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: {
@@ -61,6 +62,7 @@ export default function RootLayout({
           `}
         </Script>
         <RootLayoutClient>{children}</RootLayoutClient>
+        <Analytics />
       </body>
     </html>
   );
