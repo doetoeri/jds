@@ -33,6 +33,8 @@ const storage = getStorage(app);
 const POINT_LIMIT = 25;
 const DAILY_POINT_LIMIT = 15;
 
+// --- Utility Functions ---
+
 const generatePaymentCode = (type: 'ONL' | 'POS') => {
     const now = new Date();
     const datePart = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
@@ -40,6 +42,39 @@ const generatePaymentCode = (type: 'ONL' | 'POS') => {
     const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `${type}-${datePart}${timePart}-${randomPart}`;
 }
+
+const createReport = async (
+    userId: string, 
+    reason: string, 
+    details: Record<string, any>
+) => {
+    try {
+        const userSnap = await getDoc(doc(db, 'users', userId));
+        if (!userSnap.exists()) return;
+
+        const userData = userSnap.data();
+
+        await addDoc(collection(db, 'reports'), {
+            userId: userId,
+            studentId: userData.studentId || 'N/A',
+            displayName: userData.displayName || 'N/A',
+            reason: reason,
+            details: details,
+            createdAt: Timestamp.now(),
+            status: 'pending' // 'pending', 'resolved'
+        });
+    } catch (error) {
+        console.error("Error creating abuse report:", error);
+    }
+};
+
+const checkSuspiciousContent = (content: string): boolean => {
+    if (content.length < 10) return true;
+    const repetitiveChars = /(.)\1{4,}/.test(content); // e.g., 'aaaaa'
+    const meaninglessPatterns = /^(asdf|zxcv|qwer|ㅎㅎ|ㅋㅋ|ㅜㅜ|ㅠㅠ|ㅣㅣ)+$/.test(content.replace(/\s/g, ''));
+    return repetitiveChars || meaninglessPatterns;
+};
+
 
 // Helper function to handle point distribution
 const distributePoints = async (
@@ -65,17 +100,22 @@ const distributePoints = async (
         const dailyEarningDoc = await transaction.get(dailyEarningRef);
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
         
-        const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
-        const pointsTowardsDailyLimit = Math.min(pointsToAdd, remainingDailyAllowance);
+        if (todayEarned >= DAILY_POINT_LIMIT) {
+             pointsForLak = 0;
+             pointsForPiggyBank = pointsToAdd;
+        } else {
+            const remainingDailyAllowance = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+            const pointsTowardsDailyLimit = Math.min(pointsToAdd, remainingDailyAllowance);
 
-        // These points can go to lak, up to the 25-point total lak limit
-        pointsForLak = Math.min(pointsTowardsDailyLimit, Math.max(0, POINT_LIMIT - currentLak));
-        
-        // Any leftover points go to piggy bank
-        pointsForPiggyBank = pointsToAdd - pointsForLak;
-        
-        if (pointsTowardsDailyLimit > 0) {
-            transaction.set(dailyEarningRef, { totalEarned: increment(pointsTowardsDailyLimit) }, { merge: true });
+            // These points can go to lak, up to the 25-point total lak limit
+            pointsForLak = Math.min(pointsTowardsDailyLimit, Math.max(0, POINT_LIMIT - currentLak));
+            
+            // Any leftover points go to piggy bank
+            pointsForPiggyBank = pointsToAdd - pointsForLak;
+            
+            if (pointsTowardsDailyLimit > 0) {
+                transaction.set(dailyEarningRef, { totalEarned: increment(pointsTowardsDailyLimit), id: today }, { merge: true });
+            }
         }
     }
 
@@ -103,6 +143,8 @@ const distributePoints = async (
     });
   }
 };
+
+// --- Main Functions ---
 
 // Sign up function
 export const signUp = async (
@@ -345,6 +387,10 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         const friendQuery = query(collection(db, 'users'), where('studentId', '==', friendId));
         const friendSnapshot = await getDocs(friendQuery); // Use getDocs for querying
         if (friendSnapshot.empty) {
+            await createReport(userId, "친구 초대 실패 (존재하지 않는 학번)", {
+                attemptedFriendId: friendId,
+                timestamp: Timestamp.now(),
+            });
             throw `학번 ${friendId}에 해당하는 학생을 찾을 수 없습니다.`;
         }
 
@@ -365,6 +411,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         }
 
         const invitePoints = 2;
+        const oldLak = userData.lak;
         
         // Give points to the user
         await distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendId})`, false);
@@ -376,6 +423,18 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         transaction.update(userRef, { usedFriendId: arrayUnion(friendId) });
         transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
 
+        const newLak = (await transaction.get(userRef)).data()?.lak;
+        if(newLak > oldLak + 5) { // Threshold for suspicious gain
+             await createReport(userId, "의심스러운 친구 초대 포인트 획득", {
+                friendId: friendId,
+                pointsGained: invitePoints,
+                oldBalance: oldLak,
+                newBalance: newLak,
+                timestamp: Timestamp.now(),
+            });
+        }
+
+
         return { success: true, message: `친구 초대에 성공하여 나와 친구 모두 ${invitePoints}포인트를 받았습니다!` };
     }
 
@@ -384,6 +443,10 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const codeSnapshot = await getDocs(codeQuery);
     
     if (codeSnapshot.empty) {
+        await createReport(userId, "존재하지 않는 코드 사용 시도", {
+            attemptedCode: upperCaseCode,
+            timestamp: Timestamp.now(),
+        });
         throw "유효하지 않은 코드 또는 학번입니다.";
     }
 
@@ -393,6 +456,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     if (!freshCodeData) throw "코드를 찾을 수 없습니다.";
 
     const isExempt = freshCodeData.type === '온라인 특수코드' || freshCodeData.type === '히든코드';
+    const oldLak = userData.lak;
+
 
     switch (freshCodeData.type) {
         case '히든코드':
@@ -432,6 +497,17 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
         await distributePoints(transaction, userRef, userData, freshCodeData.value, `${freshCodeData.type} "${freshCodeData.code}" 사용`, isExempt);
         transaction.update(codeRef, { used: true, usedBy: userStudentId });
+        
+        const newLak = (await transaction.get(userRef)).data()?.lak;
+        if(isExempt && newLak > oldLak + 10) { // High point gain from special code
+             await createReport(userId, "의심스러운 특수 코드 사용", {
+                code: upperCaseCode,
+                pointsGained: freshCodeData.value,
+                oldBalance: oldLak,
+                newBalance: newLak,
+                timestamp: Timestamp.now(),
+            });
+        }
 
         return { success: true, message: `${freshCodeData.type}을(를) 사용하여 ${freshCodeData.value} 포인트를 적립했습니다!` };
     }
@@ -442,6 +518,9 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
       return { success: false, message: errorMessage };
   });
 };
+
+// ... (rest of the functions remain the same)
+
 
 export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number, id: string }[], totalCost: number) => {
   return await runTransaction(db, async (transaction) => {
@@ -559,17 +638,6 @@ export const resetAllData = async () => {
     }
 };
 
-export const resetWordChainGame = async () => {
-    try {
-        const gameRef = doc(db, 'games', 'word-chain');
-        await setDoc(gameRef, { history: [] }, { merge: true });
-    } catch (error) {
-        console.error("Error resetting word chain game: ", error);
-        throw new Error("끝말잇기 게임 초기화 중 오류가 발생했습니다.");
-    }
-};
-
-
 export const updateUserProfile = async (
   userId: string,
   data: { displayName?: string; avatarGradient?: string }
@@ -596,7 +664,7 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
     if (!userDoc.exists()) throw new Error("User does not exist.");
     
     if (amount > 0) {
-      await distributePoints(transaction, userRef, userDoc.data(), amount, `관리자 조정: ${reason}`);
+      await distributePoints(transaction, userRef, userDoc.data(), amount, `관리자 조정: ${reason}`, true);
     } else {
       transaction.update(userRef, { lak: increment(amount) });
       const historyRef = doc(collection(userRef, 'transactions'));
@@ -650,7 +718,7 @@ export const bulkAdjustUserLak = async (userIds: string[], amount: number, reaso
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error(`User with ID ${userId} not found.`);
         if (amount > 0) {
-            await distributePoints(transaction, userRef, userDoc.data(), amount, `관리자 일괄 조정: ${reason}`);
+            await distributePoints(transaction, userRef, userDoc.data(), amount, `관리자 일괄 조정: ${reason}`, true);
         } else {
              transaction.update(userRef, { lak: increment(amount) });
             const historyRef = doc(collection(userRef, 'transactions'));
@@ -788,6 +856,14 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
         const senderData = senderDoc.data();
         const senderStudentId = senderData.studentId;
 
+        if (checkSuspiciousContent(content)) {
+            await createReport(senderUid, "성의 없는 편지 작성", {
+                content: content,
+                receiver: receiverIdentifier,
+                timestamp: Timestamp.now(),
+            });
+        }
+
         let receiverQuery;
         if (/^\d{5}$/.test(receiverIdentifier)) {
             if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
@@ -903,8 +979,8 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
     });
 };
 
-export const awardBreakoutScore = async (userId: string, bricksBroken: number) => {
-    if (bricksBroken <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다."};
+export const awardBreakoutScore = async (userId: string, score: number) => {
+    if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다."};
 
     const userRef = doc(db, 'users', userId);
     
@@ -914,21 +990,21 @@ export const awardBreakoutScore = async (userId: string, bricksBroken: number) =
 
         const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
         transaction.set(leaderboardRef, {
-            score: increment(bricksBroken),
+            score: increment(score),
             displayName: userDoc.data().displayName,
             studentId: userDoc.data().studentId,
             avatarGradient: userDoc.data().avatarGradient,
             lastUpdated: Timestamp.now()
         }, { merge: true });
         
-        const points = Math.floor(bricksBroken / 10);
+        const points = Math.floor(score / 10);
         if (points > 0) {
-            await distributePoints(transaction, userRef, userDoc.data(), points, `벽돌깨기 점수 보상 (${bricksBroken}점)`, false);
+            await distributePoints(transaction, userRef, userDoc.data(), points, `벽돌깨기 점수 보상 (${score}점)`, false);
         }
     });
 
-    const points = Math.floor(bricksBroken / 10);
-    return { success: true, message: `점수 ${bricksBroken}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
+    const points = Math.floor(score / 10);
+    return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`};
 };
 
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
@@ -944,7 +1020,6 @@ export const setShopStatus = async (isEnabled: boolean) => {
 
 export const resetLeaderboard = async (leaderboardName: string) => {
     const pathMap: Record<string, string> = {
-        'word-chain': 'leaderboards/word-chain/users',
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
         'tetris': 'leaderboards/tetris/users',
@@ -1083,7 +1158,6 @@ export const givePointsToMultipleStudentsAtBooth = async (
 
 export const awardLeaderboardRewards = async (leaderboardName: string) => {
   const leaderboardIdMap: Record<string, { path: string, order: 'desc' | 'asc' }> = {
-    'word-chain': { path: 'leaderboards/word-chain/users', order: 'desc' },
     'minesweeper-easy': { path: 'leaderboards/minesweeper-easy/users', order: 'asc' },
     'breakout': { path: 'leaderboards/breakout/users', order: 'desc' },
     'tetris': { path: 'leaderboards/tetris/users', order: 'desc' },
@@ -1114,7 +1188,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
                 const userRef = doc(db, 'users', rankerId);
                 const userDoc = await transaction.get(userRef);
                 if(!userDoc.exists()) throw new Error("Ranker user not found");
-                await distributePoints(transaction, userRef, userDoc.data(), rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`, false);
+                await distributePoints(transaction, userRef, userDoc.data(), rewardAmount, `리더보드 보상 (${leaderboardName} ${index + 1}등)`, true);
                 successCount++;
             });
        } catch (error) {
@@ -1216,6 +1290,13 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     const userDoc = await transaction.get(userRef);
     if(!userDoc.exists()) throw new Error('학생 데이터를 찾을 수 없습니다.');
     
+    if (checkSuspiciousContent(poemContent)) {
+        await createReport(userDoc.id, "성의 없는 삼행시 작성", {
+            content: poemContent,
+            timestamp: Timestamp.now(),
+        });
+    }
+    
     const today = new Date().toISOString().split('T')[0];
     const usageRef = doc(collection(db, 'kiosk_usage'));
     transaction.set(usageRef, {
@@ -1244,6 +1325,14 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
     const senderRef = senderSnapshot.docs[0].ref;
     const senderDoc = await transaction.get(senderRef);
     if(!senderDoc.exists()) throw new Error('보내는 학생 데이터를 찾을 수 없습니다.');
+
+    if (checkSuspiciousContent(content)) {
+        await createReport(senderDoc.id, "성의 없는 비밀 편지 작성", {
+            content: content,
+            receiver: receiverIdentifier,
+            timestamp: Timestamp.now(),
+        });
+    }
 
     // We don't check receiver for this special kiosk function to allow sending to anyone.
     const today = new Date().toISOString().split('T')[0];
