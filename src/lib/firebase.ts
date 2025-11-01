@@ -371,7 +371,7 @@ export const resetUserPassword = async (userId: string) => {
 export const useCode = async (userId: string, inputCode: string, partnerStudentId?: string) => {
   const upperCaseCode = inputCode.toUpperCase();
   
-  // Friend Invite Logic - must be done outside transaction due to query
+  // Friend Invite Logic
   if (/^\d{5}$/.test(upperCaseCode)) {
     const friendId = upperCaseCode;
     const userSnap = await getDoc(doc(db, 'users', userId));
@@ -379,73 +379,74 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userStudentId = userSnap.data().studentId;
 
     if (friendId === userStudentId) {
-        throw new Error("자신의 학번은 친구로 초대할 수 없습니다.");
+      throw new Error("자신의 학번은 친구로 초대할 수 없습니다.");
     }
     
     const friendQuery = query(collection(db, 'users'), where('studentId', '==', friendId));
     const friendSnapshot = await getDocs(friendQuery);
     if (friendSnapshot.empty) {
-        await createReport(userId, "친구 초대 실패 (존재하지 않는 학번)", {
-            attemptedFriendId: friendId,
-            timestamp: Timestamp.now(),
-        });
-        throw new Error(`학번 ${friendId}에 해당하는 학생을 찾을 수 없습니다.`);
+      await createReport(userId, "친구 초대 실패 (존재하지 않는 학번)", {
+        attemptedFriendId: friendId,
+        timestamp: Timestamp.now(),
+      });
+      throw new Error(`학번 ${friendId}에 해당하는 학생을 찾을 수 없습니다.`);
     }
 
     const friendDoc = friendSnapshot.docs[0];
     const friendIdUid = friendDoc.id;
+    let oldLak = 0;
 
-    return runTransaction(db, async (transaction) => {
-        // All reads must come first inside the transaction.
+    try {
+      await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const friendRef = doc(db, 'users', friendIdUid);
         
         const userDoc = await transaction.get(userRef);
-        const friendDoc = await transaction.get(friendRef);
+        const friendDocTx = await transaction.get(friendRef);
 
-        if (!userDoc.exists() || !friendDoc.exists()) {
-            throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
+        if (!userDoc.exists() || !friendDocTx.exists()) {
+          throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
         const userData = userDoc.data();
-        const friendData = friendDoc.data();
+        const friendData = friendDocTx.data();
+        oldLak = userData.lak || 0;
 
         const myUsedFriends = userData.usedFriendId || [];
         if (myUsedFriends.includes(friendId)) {
-            throw new Error("이미 이 친구의 학번을 사용했습니다.");
+          throw new Error("이미 이 친구의 학번을 사용했습니다.");
         }
         
         const friendUsedMyId = (friendData.usedFriendId || []).includes(userStudentId);
         if (friendUsedMyId) {
-            throw new Error("이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.");
+          throw new Error("이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.");
         }
         
         const invitePoints = 1;
-        const oldLak = userData.lak;
-
         await distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendId})`, false);
         await distributePoints(transaction, friendRef, friendData, invitePoints, `친구 초대 보상 (초대받은 친구: ${userStudentId})`, false);
         
         transaction.update(userRef, { usedFriendId: arrayUnion(friendId) });
         transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
+      });
 
-        const newLak = (userData.lak || 0) + invitePoints; // Approximate new LAK
-         if(newLak > oldLak + 5) {
-             // We can't await inside transaction, so this will be an async call that doesn't block the transaction.
-             createReport(userId, "의심스러운 친구 초대 포인트 획득", {
-                friendId: friendId,
-                pointsGained: invitePoints,
-                oldBalance: oldLak,
-                newBalance: newLak,
-                timestamp: Timestamp.now(),
-            });
-        }
+      const userSnapAfter = await getDoc(doc(db, 'users', userId));
+      const newLak = userSnapAfter.data()?.lak || 0;
+      if (newLak > oldLak + 5) {
+        createReport(userId, "의심스러운 친구 초대 포인트 획득", {
+          friendId: friendId,
+          pointsGained: 1,
+          oldBalance: oldLak,
+          newBalance: newLak,
+          timestamp: Timestamp.now(),
+        });
+      }
 
-        return { success: true, message: `친구 초대에 성공하여 나와 친구 모두 ${invitePoints}포인트를 받았습니다!` };
-    }).catch((error) => {
-        console.error("Friend invite transaction error: ", error);
-        throw new Error(error.message || "친구 초대 중 오류가 발생했습니다.");
-    });
+      return { success: true, message: `친구 초대에 성공하여 나와 친구 모두 1포인트를 받았습니다!` };
+    } catch (error: any) {
+      console.error("Friend invite transaction error: ", error);
+      throw new Error(error.message || "친구 초대 중 오류가 발생했습니다.");
+    }
   }
 
   // Regular Code Logic
@@ -453,12 +454,9 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userRef = doc(db, 'users', userId);
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     
-    // We cannot run a query inside a transaction. So, we do this outside and pass the doc id.
-    // For this to be safe, the code logic must handle race conditions.
-    const codeSnapshot = await getDocs(codeQuery); // This is outside the transaction context, which is risky but necessary for the query.
+    const codeSnapshot = await getDocs(codeQuery);
 
     if (codeSnapshot.empty) {
-      // This report happens outside transaction.
       await createReport(userId, "존재하지 않는 코드 사용 시도", {
         attemptedCode: upperCaseCode,
         timestamp: Timestamp.now(),
@@ -469,7 +467,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const codeDoc = codeSnapshot.docs[0];
     const codeRef = codeDoc.ref;
 
-    // Now, let's perform transactional reads and writes
     const userDoc = await transaction.get(userRef);
     const freshCodeDoc = await transaction.get(codeRef);
 
@@ -489,18 +486,11 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (partnerStudentId === userStudentId) throw new Error("자기 자신을 파트너로 지정할 수 없습니다.");
             if (!/^\d{5}$/.test(partnerStudentId)) throw new Error("파트너의 학번은 5자리 숫자여야 합니다.");
 
-            // Cannot query for partner inside transaction, so this feature is fundamentally flawed with this structure.
-            // A better structure would be to do the partner check outside, get the partner UID, then run the transaction.
-            // For now, let's assume we can't do this and leave a comment.
-            // To fix this, we would need to restructure this whole function like the friend invite logic.
-            // For the sake of this fix, we will assume this part is not the source of the error, as the error is about friend invite.
-            // A full fix would require a separate, more involved change.
-            // Let's proceed with a simplified logic for now, that might not be fully atomic for the partner.
             const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
             const partnerSnapshot = await getDocs(partnerQuery);
             if (partnerSnapshot.empty) throw new Error(`파트너 학생(${partnerStudentId})을 찾을 수 없습니다.`);
             const partnerRef = partnerSnapshot.docs[0].ref;
-            const partnerDoc = await transaction.get(partnerRef); // This might fail if another transaction is on it.
+            const partnerDoc = await transaction.get(partnerRef);
             if(!partnerDoc.exists()) throw new Error("파트너 학생 정보를 찾을 수 없습니다.");
 
             await distributePoints(transaction, userRef, userData, freshCodeData.value, `히든코드 사용 (파트너: ${partnerStudentId})`, isExempt);
