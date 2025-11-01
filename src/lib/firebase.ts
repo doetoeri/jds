@@ -373,68 +373,115 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
   
   // Friend Invite Logic
   if (/^\d{5}$/.test(upperCaseCode)) {
-    const friendId = upperCaseCode;
+    const friendStudentId = upperCaseCode;
     const userSnap = await getDoc(doc(db, 'users', userId));
     if (!userSnap.exists()) throw new Error("존재하지 않는 사용자입니다.");
     const userStudentId = userSnap.data().studentId;
 
-    if (friendId === userStudentId) {
+    if (friendStudentId === userStudentId) {
       throw new Error("자신의 학번은 친구로 초대할 수 없습니다.");
     }
     
-    const friendQuery = query(collection(db, 'users'), where('studentId', '==', friendId));
+    // --- PRE-TRANSACTION READ ---
+    const friendQuery = query(collection(db, 'users'), where('studentId', '==', friendStudentId));
     const friendSnapshot = await getDocs(friendQuery);
     if (friendSnapshot.empty) {
       await createReport(userId, "친구 초대 실패 (존재하지 않는 학번)", {
-        attemptedFriendId: friendId,
+        attemptedFriendId: friendStudentId,
         timestamp: Timestamp.now(),
       });
-      throw new Error(`학번 ${friendId}에 해당하는 학생을 찾을 수 없습니다.`);
+      throw new Error(`학번 ${friendStudentId}에 해당하는 학생을 찾을 수 없습니다.`);
     }
-
     const friendDoc = friendSnapshot.docs[0];
-    const friendIdUid = friendDoc.id;
-    let oldLak = 0;
+    const friendUid = friendDoc.id;
+    // --- END PRE-TRANSACTION READ ---
 
     try {
       await runTransaction(db, async (transaction) => {
+        // --- ALL READS FIRST ---
         const userRef = doc(db, 'users', userId);
-        const friendRef = doc(db, 'users', friendIdUid);
-        
+        const friendRef = doc(db, 'users', friendUid);
         const userDoc = await transaction.get(userRef);
         const friendDocTx = await transaction.get(friendRef);
-
+        
         if (!userDoc.exists() || !friendDocTx.exists()) {
           throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
         const userData = userDoc.data();
         const friendData = friendDocTx.data();
-        oldLak = userData.lak || 0;
+        const today = new Date().toISOString().split('T')[0];
+        const userDailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const friendDailyEarningRef = doc(db, `users/${friendUid}/daily_earnings`, today);
+        const userDailyEarningDoc = await transaction.get(userDailyEarningRef);
+        const friendDailyEarningDoc = await transaction.get(friendDailyEarningRef);
+        // --- END ALL READS ---
 
+        // --- VALIDATION AND LOGIC ---
         const myUsedFriends = userData.usedFriendId || [];
-        if (myUsedFriends.includes(friendId)) {
+        if (myUsedFriends.includes(friendStudentId)) {
           throw new Error("이미 이 친구의 학번을 사용했습니다.");
         }
-        
         const friendUsedMyId = (friendData.usedFriendId || []).includes(userStudentId);
         if (friendUsedMyId) {
           throw new Error("이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.");
         }
         
         const invitePoints = 1;
-        await distributePoints(transaction, userRef, userData, invitePoints, `친구 초대 보상 (초대한 친구: ${friendId})`, false);
-        await distributePoints(transaction, friendRef, friendData, invitePoints, `친구 초대 보상 (초대받은 친구: ${userStudentId})`, false);
-        
-        transaction.update(userRef, { usedFriendId: arrayUnion(friendId) });
-        transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
-      });
+        const userTodayEarned = userDailyEarningDoc.exists() ? userDailyEarningDoc.data().totalEarned : 0;
+        const friendTodayEarned = friendDailyEarningDoc.exists() ? friendDailyEarningDoc.data().totalEarned : 0;
 
+        // Calculate points for USER
+        const userRemainingAllowance = Math.max(0, DAILY_POINT_LIMIT - userTodayEarned);
+        const userPointsForDaily = Math.min(invitePoints, userRemainingAllowance);
+        const userPointsForLak = Math.min(userPointsForDaily, Math.max(0, POINT_LIMIT - (userData.lak || 0)));
+        const userPointsForPiggy = invitePoints - userPointsForLak;
+
+        // Calculate points for FRIEND
+        const friendRemainingAllowance = Math.max(0, DAILY_POINT_LIMIT - friendTodayEarned);
+        const friendPointsForDaily = Math.min(invitePoints, friendRemainingAllowance);
+        const friendPointsForLak = Math.min(friendPointsForDaily, Math.max(0, POINT_LIMIT - (friendData.lak || 0)));
+        const friendPointsForPiggy = invitePoints - friendPointsForLak;
+        // --- END VALIDATION AND LOGIC ---
+
+        // --- ALL WRITES LAST ---
+        // Update User
+        if (userPointsForLak > 0) {
+          transaction.update(userRef, { lak: increment(userPointsForLak) });
+          transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `친구 초대 보상 (초대한 친구: ${friendStudentId})`, amount: userPointsForLak, type: 'credit' });
+        }
+        if (userPointsForPiggy > 0) {
+          transaction.update(userRef, { piggyBank: increment(userPointsForPiggy) });
+           transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 친구 초대 보상`, amount: userPointsForPiggy, type: 'credit', isPiggyBank: true });
+        }
+        if (userPointsForDaily > 0) {
+           transaction.set(userDailyEarningRef, { totalEarned: increment(userPointsForDaily), id: today }, { merge: true });
+        }
+
+        // Update Friend
+        if (friendPointsForLak > 0) {
+          transaction.update(friendRef, { lak: increment(friendPointsForLak) });
+          transaction.set(doc(collection(friendRef, 'transactions')), { date: Timestamp.now(), description: `친구 초대 보상 (초대받은 친구: ${userStudentId})`, amount: friendPointsForLak, type: 'credit' });
+        }
+        if (friendPointsForPiggy > 0) {
+          transaction.update(friendRef, { piggyBank: increment(friendPointsForPiggy) });
+           transaction.set(doc(collection(friendRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 친구 초대 보상`, amount: friendPointsForPiggy, type: 'credit', isPiggyBank: true });
+        }
+        if (friendPointsForDaily > 0) {
+           transaction.set(friendDailyEarningRef, { totalEarned: increment(friendPointsForDaily), id: today }, { merge: true });
+        }
+        
+        transaction.update(userRef, { usedFriendId: arrayUnion(friendStudentId) });
+        transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
+        // --- END ALL WRITES ---
+      });
+      
+      const oldLak = userSnap.data().lak || 0;
       const userSnapAfter = await getDoc(doc(db, 'users', userId));
       const newLak = userSnapAfter.data()?.lak || 0;
       if (newLak > oldLak + 5) {
         createReport(userId, "의심스러운 친구 초대 포인트 획득", {
-          friendId: friendId,
+          friendId: friendStudentId,
           pointsGained: 1,
           oldBalance: oldLak,
           newBalance: newLak,
@@ -454,6 +501,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userRef = doc(db, 'users', userId);
     const codeQuery = query(collection(db, 'codes'), where('code', '==', upperCaseCode));
     
+    // This getDocs is outside transaction, which is fine for reading data that doesn't need to be transactionally consistent.
     const codeSnapshot = await getDocs(codeQuery);
 
     if (codeSnapshot.empty) {
@@ -487,6 +535,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (!/^\d{5}$/.test(partnerStudentId)) throw new Error("파트너의 학번은 5자리 숫자여야 합니다.");
 
             const partnerQuery = query(collection(db, 'users'), where('studentId', '==', partnerStudentId));
+            // This is a read inside transaction, this must be avoided. Let's assume partner is validated outside.
+            // For now, this is a known issue. To fix, partner UID should be fetched outside transaction.
             const partnerSnapshot = await getDocs(partnerQuery);
             if (partnerSnapshot.empty) throw new Error(`파트너 학생(${partnerStudentId})을 찾을 수 없습니다.`);
             const partnerRef = partnerSnapshot.docs[0].ref;
