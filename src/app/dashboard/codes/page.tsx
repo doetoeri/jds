@@ -82,7 +82,7 @@ export default function CodesPage() {
               closeScanner();
               setIsPartnerDialogVisible(false);
               if (audioRef.current) {
-                audioRef.current.play();
+                audioRef.current.play().catch(error => console.error("Audio play failed:", error));
               }
           } else {
               toast({
