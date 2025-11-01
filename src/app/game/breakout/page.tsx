@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -137,7 +136,7 @@ export default function BreakoutPage() {
                     if (ball.x > b.x && ball.x < b.x + brickWidth && ball.y > b.y && ball.y < b.y + brickHeight) {
                         ball.dy = -ball.dy;
                         b.status = 0;
-                        currentScore += 10;
+                        currentScore += 1;
                         setScore(currentScore);
                     }
                 }
