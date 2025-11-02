@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -32,7 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Label } from '@/components/ui/label';
 
 interface ReceivedLetter {
@@ -52,6 +53,7 @@ export default function LettersView() {
   const [receivedLetters, setReceivedLetters] = useState<ReceivedLetter[]>([]);
   const { toast } = useToast();
   const [user] = useAuthState(auth);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'send';
   const initialReceiver = searchParams.get('to') || '';
@@ -122,6 +124,9 @@ export default function LettersView() {
 
       if (result.success) {
         toast({ title: '전송 완료!', description: result.message });
+        if (result.pointsToPiggy > 0) {
+            router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+        }
         setReceiverIdentifier('');
         setContent('');
       } else {

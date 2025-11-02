@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
 
 export default function BreakoutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -31,6 +32,7 @@ export default function BreakoutPage() {
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
+  const router = useRouter();
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -162,6 +164,9 @@ export default function BreakoutPage() {
             const result = await awardBreakoutScore(user.uid, currentScore);
             if (result.success) {
                 toast({ title: "점수 기록!", description: result.message });
+                 if (result.pointsToPiggy > 0) {
+                  router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+                }
             } else {
                 toast({ title: "오류", description: result.message, variant: 'destructive' });
             }
@@ -234,7 +239,7 @@ export default function BreakoutPage() {
         document.removeEventListener("keyup", handleKeyUp);
     };
 
-  }, [user, toast, primaryColor, primaryHue]);
+  }, [user, toast, primaryColor, primaryHue, router]);
   
    useEffect(() => {
     let cleanup: (() => void) | undefined;

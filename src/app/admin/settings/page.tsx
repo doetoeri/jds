@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent, Landmark, Minus, Plus, Equal, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, setMaintenanceMode, resetWordChainGame, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount, bulkUpdateProductPrices } from "@/lib/firebase";
+import { db, setMaintenanceMode, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount, bulkUpdateProductPrices } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs, getCountFromServer, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -238,6 +238,7 @@ export default function AdminSettingsPage() {
                 </CardContent>
             </Card>
        </div>
+       <AnnouncementPoster />
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><HardHat />시스템 관리</CardTitle>

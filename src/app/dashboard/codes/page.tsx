@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import jsQR from 'jsqr';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 
 export default function CodesPage() {
@@ -38,6 +38,7 @@ export default function CodesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [user] = useAuthState(auth);
+  const router = useRouter();
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -76,6 +77,9 @@ export default function CodesPage() {
                   title: "성공!",
                   description: result.message,
               });
+              if (result.pointsToPiggy > 0) {
+                  router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+              }
               setCode('');
               setPartnerStudentId('');
               closeScanner();
@@ -141,7 +145,7 @@ export default function CodesPage() {
     
     await confirmAndUseCode(codeToUse);
 
-  }, [user, toast, closeScanner]);
+  }, [user, toast, closeScanner, router]);
 
   const tick = useCallback(() => {
     if (isLoading || isPartnerDialogVisible || isConfirmingPartner) return;
