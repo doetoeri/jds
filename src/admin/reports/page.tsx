@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, getDocs, writeBatch, where } from 'firebase/firestore';
 import { db, restrictUser, setUserLak } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -333,3 +333,4 @@ export default function AdminReportsPage() {
     </>
   );
 }
+
