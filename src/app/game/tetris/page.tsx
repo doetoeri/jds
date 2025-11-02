@@ -17,11 +17,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 // --- Game Constants ---
 const COLS = 10;
 const ROWS = 20;
-const BLOCK_SIZE = 30;
+const BLOCK_SIZE = 25;
 const NEXT_COLS = 4;
 const NEXT_ROWS = 4;
 
@@ -53,19 +54,7 @@ const TetrisPage: React.FC = () => {
     const mainCanvasRef = useRef<HTMLCanvasElement>(null);
     const nextCanvasRef = useRef<HTMLCanvasElement>(null);
     const gameLoopRef = useRef<number>();
-    
-    // Use refs for game state to avoid re-renders inside game loop
-    const gameStateRef = useRef<GameState>('start');
-    const boardRef = useRef<Board>(createEmptyBoard());
-    const currentPieceRef = useRef<Piece | null>(null);
-    const nextPieceRef = useRef<Piece | null>(null);
-    const pieceBagRef = useRef<ShapeName[]>([]);
-    const scoreRef = useRef(0);
-    const levelRef = useRef(1);
-    const linesClearedRef = useRef(0);
-    const dropCounterRef = useRef(0);
-    const dropIntervalRef = useRef(1000);
-    const lastTimeRef = useRef(0);
+    const router = useRouter();
     
     // Use state for React-managed UI updates
     const [score, setScore] = useState(0);
@@ -74,41 +63,24 @@ const TetrisPage: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>('start');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Use refs for game state to avoid re-renders inside game loop
+    const boardRef = useRef<Board>(createEmptyBoard());
+    const currentPieceRef = useRef<Piece | null>(null);
+    const nextPieceRef = useRef<Piece | null>(null);
+    const dropCounterRef = useRef(0);
+    const dropIntervalRef = useRef(1000);
+    const lastTimeRef = useRef(0);
+    const pieceBagRef = useRef<ShapeName[]>([]);
+
     const { toast } = useToast();
     const [user] = useAuthState(auth);
 
-    const updateUI = () => {
-        setScore(scoreRef.current);
-        setLevel(levelRef.current);
-        setLinesCleared(linesClearedRef.current);
-    };
-
-    const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string, ghost = false) => {
+    // --- Drawing Functions ---
+    const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string) => {
         ctx.fillStyle = color;
-        if (ghost) {
-            ctx.globalAlpha = 0.3;
-            ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            ctx.globalAlpha = 1.0;
-        } else {
-            ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
-        }
-    };
-    
-    const isValidMove = (pieceMatrix: number[][], offsetX: number, offsetY: number, board: Board): boolean => {
-        for (let y = 0; y < pieceMatrix.length; y++) {
-            for (let x = 0; x < pieceMatrix[y].length; x++) {
-                if (pieceMatrix[y][x] !== 0) {
-                    const newX = offsetX + x;
-                    const newY = offsetY + y;
-                    if (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && board[newY]?.[newX] !== null)) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
+        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        ctx.strokeStyle = "rgba(0,0,0,0.2)";
+        ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
     };
     
     const draw = useCallback(() => {
@@ -116,22 +88,12 @@ const TetrisPage: React.FC = () => {
         const mainCtx = mainCanvasRef.current?.getContext('2d');
         if (mainCtx) {
             mainCtx.clearRect(0, 0, mainCtx.canvas.width, mainCtx.canvas.height);
-            mainCtx.strokeStyle = 'rgba(128, 128, 128, 0.1)';
-            for (let i = 1; i < COLS; i++) { mainCtx.beginPath(); mainCtx.moveTo(i * BLOCK_SIZE, 0); mainCtx.lineTo(i * BLOCK_SIZE, ROWS * BLOCK_SIZE); mainCtx.stroke(); }
-            for (let i = 1; i < ROWS; i++) { mainCtx.beginPath(); mainCtx.moveTo(0, i * BLOCK_SIZE); mainCtx.lineTo(COLS * BLOCK_SIZE, i * BLOCK_SIZE); mainCtx.stroke(); }
-    
             boardRef.current.forEach((row, y) => row.forEach((cell, x) => {
                 if (cell) drawBlock(mainCtx, x, y, SHAPES[cell].color);
             }));
             
             const currentPiece = currentPieceRef.current;
             if (currentPiece) {
-                let ghostY = currentPiece.y;
-                while(isValidMove(currentPiece.matrix, currentPiece.x, ghostY + 1, boardRef.current)) { ghostY++; }
-                currentPiece.matrix.forEach((row, y) => row.forEach((val, x) => {
-                    if (val) drawBlock(mainCtx, currentPiece.x + x, ghostY + y, SHAPES[currentPiece.shapeName].color, true);
-                }));
-    
                 currentPiece.matrix.forEach((row, y) => row.forEach((val, x) => {
                     if (val) drawBlock(mainCtx, currentPiece.x + x, currentPiece.y + y, SHAPES[currentPiece.shapeName].color);
                 }));
@@ -152,26 +114,20 @@ const TetrisPage: React.FC = () => {
         }
     }, []);
 
-    const endGame = useCallback(async () => {
-        if (gameStateRef.current === 'over') return;
-        
-        gameStateRef.current = 'over';
-        setGameState('over');
-
-        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-        
-        if (user && scoreRef.current > 0) {
-            setIsSubmitting(true);
-            try {
-                const result = await awardTetrisScore(user.uid, scoreRef.current);
-                if (result.success) toast({ title: '점수 기록!', description: result.message });
-            } catch (e: any) {
-                toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
-            } finally {
-                setIsSubmitting(false);
+    const isValidMove = (pieceMatrix: number[][], offsetX: number, offsetY: number): boolean => {
+        for (let y = 0; y < pieceMatrix.length; y++) {
+            for (let x = 0; x < pieceMatrix[y].length; x++) {
+                if (pieceMatrix[y][x] !== 0) {
+                    const newX = offsetX + x;
+                    const newY = offsetY + y;
+                    if (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && boardRef.current[newY]?.[newX] !== null)) {
+                        return false;
+                    }
+                }
             }
         }
-    }, [user, toast]);
+        return true;
+    };
 
     const getFromBag = useCallback((): ShapeName => {
         if (pieceBagRef.current.length === 0) {
@@ -189,16 +145,16 @@ const TetrisPage: React.FC = () => {
             y: 0,
         };
     }, []);
-
+    
     const resetPiece = useCallback(() => {
         currentPieceRef.current = nextPieceRef.current;
         const newShape = getFromBag();
         nextPieceRef.current = createPiece(newShape);
 
-        if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y, boardRef.current)) {
-            endGame();
+        if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y)) {
+            setGameState('over');
         }
-    }, [createPiece, getFromBag, endGame]);
+    }, [createPiece, getFromBag]);
 
     const lockPieceAndContinue = useCallback(() => {
         const currentPiece = currentPieceRef.current;
@@ -211,66 +167,62 @@ const TetrisPage: React.FC = () => {
         }));
 
         let linesClearedCount = 0;
-        for (let y = boardRef.current.length - 1; y >= 0; ) {
-            if (boardRef.current[y].every(cell => cell !== null)) {
-                boardRef.current.splice(y, 1);
-                linesClearedCount++;
-            } else {
-                y--;
+        outer: for (let y = boardRef.current.length - 1; y > 0; y--) {
+            for(let x=0; x < boardRef.current[y].length; x++){
+                if(boardRef.current[y][x] === null){
+                    continue outer;
+                }
             }
-        }
-        while (boardRef.current.length < ROWS) {
-            boardRef.current.unshift(Array(COLS).fill(null));
+            const row = boardRef.current.splice(y, 1)[0].fill(null);
+            boardRef.current.unshift(row);
+            linesClearedCount++;
+            y++;
         }
 
         if (linesClearedCount > 0) {
-            linesClearedRef.current += linesClearedCount;
-            scoreRef.current += [0, 100, 300, 500, 800][linesClearedCount] * levelRef.current;
-            const newLevel = Math.floor(linesClearedRef.current / 10) + 1;
-            if (newLevel > levelRef.current) {
-                levelRef.current = newLevel;
+            setLinesCleared(prev => prev + linesClearedCount);
+            setScore(prev => prev + [0, 100, 300, 500, 800][linesClearedCount] * level);
+            const newLevel = Math.floor((linesCleared + linesClearedCount) / 10) + 1;
+            if(newLevel > level) {
+                setLevel(newLevel);
                 dropIntervalRef.current = Math.max(100, 1000 - (newLevel - 1) * 50);
             }
-            updateUI();
         }
-
+        
         resetPiece();
-    }, [resetPiece]);
-
+    }, [resetPiece, level, linesCleared]);
+    
     const pieceDrop = useCallback(() => {
         const currentPiece = currentPieceRef.current;
-        if (!currentPiece || gameStateRef.current !== 'playing') return;
+        if (!currentPiece || gameState !== 'playing') return;
 
-        if (isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y + 1, boardRef.current)) {
+        if (isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y + 1)) {
             currentPiece.y++;
         } else {
             lockPieceAndContinue();
         }
         dropCounterRef.current = 0;
-        draw();
-    }, [lockPieceAndContinue, draw]);
-
+    }, [gameState, lockPieceAndContinue]);
+    
     const playerMove = (dx: number) => {
         const currentPiece = currentPieceRef.current;
-        if (!currentPiece || gameStateRef.current !== 'playing') return;
-        if (isValidMove(currentPiece.matrix, currentPiece.x + dx, currentPiece.y, boardRef.current)) {
+        if (!currentPiece || gameState !== 'playing') return;
+        if (isValidMove(currentPiece.matrix, currentPiece.x + dx, currentPiece.y)) {
             currentPiece.x += dx;
-            draw();
         }
     };
     
     const playerRotate = () => {
         const currentPiece = currentPieceRef.current;
-        if (!currentPiece || gameStateRef.current !== 'playing') return;
+        if (!currentPiece || gameState !== 'playing') return;
         const transposed = currentPiece.matrix[0].map((_, colIndex) => currentPiece.matrix.map(row => row[colIndex]));
         const rotated = transposed.map(row => row.reverse());
         
         const kicks = [0, 1, -1, 2, -2];
         for (const kick of kicks) {
-            if (isValidMove(rotated, currentPiece.x + kick, currentPiece.y, boardRef.current)) {
+            if (isValidMove(rotated, currentPiece.x + kick, currentPiece.y)) {
                 currentPiece.matrix = rotated;
                 currentPiece.x += kick;
-                draw();
                 return;
             }
         }
@@ -278,18 +230,15 @@ const TetrisPage: React.FC = () => {
     
     const playerDrop = (hard = false) => {
         const currentPiece = currentPieceRef.current;
-        if (!currentPiece || gameStateRef.current !== 'playing') return;
+        if (!currentPiece || gameState !== 'playing') return;
         if (hard) {
-            let ghostY = currentPiece.y;
-            while(isValidMove(currentPiece.matrix, currentPiece.x, ghostY + 1, boardRef.current)) {
-                ghostY++;
+            while(isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y + 1)) {
+                currentPiece.y++;
             }
-            currentPiece.y = ghostY;
             lockPieceAndContinue();
         } else {
             pieceDrop();
         }
-        draw();
     };
 
     const startGame = useCallback(() => {
@@ -300,23 +249,21 @@ const TetrisPage: React.FC = () => {
         currentPieceRef.current = createPiece(shape1);
         nextPieceRef.current = createPiece(shape2);
         
-        scoreRef.current = 0;
-        linesClearedRef.current = 0;
-        levelRef.current = 1;
+        setScore(0);
+        setLinesCleared(0);
+        setLevel(1);
         dropIntervalRef.current = 1000;
         lastTimeRef.current = 0;
         dropCounterRef.current = 0;
         
-        gameStateRef.current = 'playing';
         setGameState('playing');
-        updateUI();
         
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         gameLoopRef.current = requestAnimationFrame(gameLoop);
     }, [createPiece, getFromBag]);
 
     const gameLoop = useCallback((time: number) => {
-        if (gameStateRef.current !== 'playing') return;
+        if (gameState !== 'playing') return;
         
         if (lastTimeRef.current === 0) lastTimeRef.current = time;
         const deltaTime = time - lastTimeRef.current;
@@ -329,21 +276,17 @@ const TetrisPage: React.FC = () => {
         
         draw();
         gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [draw, pieceDrop]);
+    }, [gameState, draw, pieceDrop]);
 
     useEffect(() => {
-        draw(); // Initial draw
-    }, [draw]);
-    
-    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (gameStateRef.current !== 'playing') return;
+            if (gameState !== 'playing') return;
             e.preventDefault();
             const keyMap: {[key: string]: Function} = {
-                'ArrowLeft': () => playerMove(-1), 'a': () => playerMove(-1),
-                'ArrowRight': () => playerMove(1), 'd': () => playerMove(1),
-                'ArrowDown': () => playerDrop(), 's': () => playerDrop(),
-                'ArrowUp': () => playerRotate(), 'w': () => playerRotate(), 'z': () => playerRotate(),
+                'ArrowLeft': () => playerMove(-1),
+                'ArrowRight': () => playerMove(1),
+                'ArrowDown': () => playerDrop(),
+                'ArrowUp': () => playerRotate(),
                 ' ': () => playerDrop(true),
             };
             if (keyMap[e.key]) keyMap[e.key]();
@@ -351,7 +294,47 @@ const TetrisPage: React.FC = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []); // Empty dependency array means this runs only once on mount
+    }, [gameState]);
+
+    useEffect(() => {
+        draw(); // Initial draw
+    }, [draw, gameState]);
+
+    useEffect(() => {
+        if (gameState === 'playing') {
+            gameLoopRef.current = requestAnimationFrame(gameLoop);
+        } else {
+            if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        }
+        return () => {
+            if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        }
+    }, [gameState, gameLoop]);
+    
+    useEffect(() => {
+        const endGameAndSubmit = async () => {
+            if (gameState === 'over') {
+                if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+                if (user && score > 0) {
+                    setIsSubmitting(true);
+                    try {
+                        const result = await awardTetrisScore(user.uid, score, level);
+                        if (result.success) {
+                            toast({ title: '점수 기록!', description: result.message });
+                            if (result.pointsToPiggy > 0) {
+                                router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+                            }
+                        }
+                    } catch (e: any) {
+                        toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                }
+            }
+        };
+        endGameAndSubmit();
+    }, [gameState, score, level, user, toast, router]);
 
     return (
         <>
@@ -364,7 +347,7 @@ const TetrisPage: React.FC = () => {
             <Card className="order-1 md:order-2 bg-slate-900/50 shadow-2xl rounded-lg border-primary/20">
               <CardContent className="p-2">
                 <div className="relative">
-                  <canvas ref={mainCanvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} className="rounded-md" />
+                  <canvas ref={mainCanvasRef} width={COLS * BLOCK_SIZE} height={ROWS * BLOCK_SIZE} className="rounded-md bg-black" />
                   {gameState !== 'playing' && (
                     <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 rounded-md backdrop-blur-sm">
                       <h2 className="text-5xl font-bold font-headline mb-2 text-primary">TETRIS</h2>
@@ -380,7 +363,7 @@ const TetrisPage: React.FC = () => {
             <div className="order-2 md:order-1 space-y-4 w-full md:w-48">
               <Card>
                 <CardHeader className="p-3"><CardTitle className="text-sm tracking-widest">NEXT</CardTitle></CardHeader>
-                <CardContent className="p-1 flex items-center justify-center bg-gray-900/80 rounded-b-lg h-[124px]">
+                <CardContent className="p-1 flex items-center justify-center bg-gray-900/80 rounded-b-lg h-[104px]">
                   <canvas ref={nextCanvasRef} width={NEXT_COLS * BLOCK_SIZE} height={NEXT_ROWS * BLOCK_SIZE} />
                 </CardContent>
               </Card>
@@ -398,20 +381,19 @@ const TetrisPage: React.FC = () => {
               </Card>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground hidden md:block">방향키 또는 W,A,S,D로 조종 | Z,W,위쪽키로 회전 | 스페이스로 하드 드롭</p>
+          <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키로 회전 | 스페이스로 하드 드롭</p>
         </div>
         
-        <AlertDialog open={gameState === 'over'}>
+        <AlertDialog open={gameState === 'over' && !isSubmitting}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>게임 오버!</AlertDialogTitle>
               <AlertDialogDescription>
                 최종 점수: <strong>{score}점</strong>
-                {isSubmitting && <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin h-4 w-4" /> 점수 기록 중...</div>}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogAction onClick={startGame} disabled={isSubmitting}>다시하기</AlertDialogAction>
+              <AlertDialogAction onClick={startGame}>다시하기</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
