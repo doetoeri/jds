@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -29,16 +30,18 @@ function PiggyBankContent() {
               <PiggyBank className="h-20 w-20 mx-auto text-primary" />
             </motion.div>
             <CardTitle className="text-2xl font-bold font-headline mt-4">초과 포인트 저금 완료!</CardTitle>
-            <CardDescription>일일/보유 한도를 초과한 포인트가 저금통에 안전하게 적립되었습니다.</CardDescription>
+            <CardDescription>포인트 한도를 초과하여 저금통에 안전하게 적립되었습니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">이번에 저금된 포인트</p>
               <p className="text-3xl font-bold text-primary">{parseInt(amount).toLocaleString()} P</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              저금통에 모인 포인트는 관리자가 특별한 이벤트나 보상으로 지급해 줄 수 있습니다.
-            </p>
+            <div className="text-xs text-muted-foreground text-left bg-secondary/50 p-3 rounded-md space-y-1">
+                <p><strong>- 일일 획득 한도:</strong> 하루에 게임, 코드 사용 등으로 얻을 수 있는 포인트는 <strong>최대 15포인트</strong>입니다.</p>
+                <p><strong>- 최대 보유 한도:</strong> 현재 보유할 수 있는 포인트는 <strong>최대 25포인트</strong>입니다.</p>
+                <p className="pt-2">💡 <strong>팁:</strong> 상점에서 포인트를 사용하면 다시 포인트를 획득할 수 있습니다!</p>
+            </div>
           </CardContent>
           <CardFooter>
             <Button className="w-full font-bold" onClick={() => router.push('/dashboard')}>
