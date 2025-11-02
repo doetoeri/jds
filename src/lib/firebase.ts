@@ -1338,7 +1338,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 
         const userData = userDoc.data();
 
-        const pointsToAdd = Math.floor(score / 1000);
+        const pointsToAdd = Math.floor(score / 100);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
             const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
@@ -1367,7 +1367,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         }
     });
 
-    const points = Math.floor(score / 1000);
+    const points = Math.floor(score / 100);
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
 };
 
@@ -1564,6 +1564,21 @@ export const resolvePurchaseDispute = async (disputeId: string, purchaseId: stri
     batch.update(purchaseRef, { disputeStatus: 'resolved' });
     
     await batch.commit();
+};
+
+export const sendWarningMessage = async (userId: string, message: string) => {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+        oneTimeWarning: message,
+        hasSeenWarning: false
+    });
+};
+
+export const markWarningAsSeen = async (userId: string) => {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+        hasSeenWarning: true
+    });
 };
 
 

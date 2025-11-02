@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -13,13 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser, sendWarningMessage } from '@/lib/firebase';
 import { collection, onSnapshot, query, Timestamp, collectionGroup, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil, Ban, CircleOff } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil, Ban, CircleOff, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -50,6 +51,7 @@ import type { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 
 
 interface User {
@@ -86,6 +88,7 @@ export default function AdminUsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMemoDialogOpen, setIsMemoDialogOpen] = useState(false);
   const [isRestrictDialogOpen, setIsRestrictDialogOpen] = useState(false);
+  const [isWarningDialogOpen, setIsWarningDialogOpen] = useState(false);
   const [isDailyEarningsDialogOpen, setIsDailyEarningsDialogOpen] = useState(false);
   const [dailyEarnings, setDailyEarnings] = useState<DailyEarning[]>([]);
 
@@ -97,6 +100,7 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState<User['role'] | ''>('');
   const [memo, setMemo] = useState('');
   const [restrictionReason, setRestrictionReason] = useState('');
+  const [warningMessage, setWarningMessage] = useState('');
   const [restrictionDate, setRestrictionDate] = useState<DateRange | undefined>({
     from: new Date(),
     to: addDays(new Date(), 7)
@@ -206,6 +210,13 @@ export default function AdminUsersPage() {
     setRestrictionDate({ from: new Date(), to: addDays(new Date(), 7)});
     setIsRestrictDialogOpen(true);
   };
+
+  const openWarningDialog = (user: User) => {
+    setSelectedUser(user);
+    setWarningMessage('');
+    setIsWarningDialogOpen(true);
+  };
+
 
   const openDailyEarningsDialog = async (user: User) => {
     setSelectedUser(user);
@@ -440,6 +451,23 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleSendWarning = async () => {
+    if (!selectedUser || !warningMessage) {
+      toast({ title: "입력 오류", description: "경고 메시지를 입력해주세요.", variant: "destructive" });
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await sendWarningMessage(selectedUser.id, warningMessage);
+      toast({ title: "성공", description: `${renderIdentifier(selectedUser)}님에게 경고 메시지를 보냈습니다.` });
+      setIsWarningDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "오류", description: error.message || "경고 메시지 전송 중 오류가 발생했습니다.", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
 
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
@@ -609,6 +637,9 @@ export default function AdminUsersPage() {
                           <Ban className="mr-1 h-3.5 w-3.5" /> 계정 제한
                         </Button>
                       )}
+                      <Button variant="destructive" size="sm" onClick={() => openWarningDialog(user)} disabled={user.role === 'admin'}>
+                        <AlertTriangle className="mr-1 h-3.5 w-3.5" /> 경고
+                      </Button>
                        <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(user)} disabled={user.role === 'admin'}>
                          <Trash2 className="h-4 w-4" />
                          <span className="sr-only">Delete User</span>
@@ -973,6 +1004,37 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
       
+      {/* Warning Dialog */}
+      <Dialog open={isWarningDialogOpen} onOpenChange={setIsWarningDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>경고 메시지 전송: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
+            <DialogDescription>
+              사용자가 다음 로그인 시 확인해야 하는 일회성 경고 메시지를 보냅니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="warning-message">경고 내용</Label>
+            <Textarea
+              id="warning-message"
+              value={warningMessage}
+              onChange={(e) => setWarningMessage(e.target.value)}
+              placeholder="예: 커뮤니티에서 부적절한 언어 사용이 확인되었습니다. 재발 시 계정이 제한될 수 있습니다."
+              disabled={isProcessing}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isProcessing}>취소</Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleSendWarning} disabled={isProcessing || !warningMessage}>
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 경고 보내기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       {/* Leaderboard Reward Dialog */}
       <Dialog open={isRewardDialogOpen} onOpenChange={setIsRewardDialogOpen}>
         <DialogContent>
@@ -1032,7 +1094,7 @@ export default function AdminUsersPage() {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={isProcessing}>취소</AlertDialogCancel>
+                <AlertDialogCancel disabled={isProcessing}>취소</Button>
                 <AlertDialogAction
                   className="bg-destructive hover:bg-destructive/90"
                   onClick={handleDeleteUser}

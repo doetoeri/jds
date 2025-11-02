@@ -1,16 +1,17 @@
 
+
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/logo';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db, handleSignOut } from '@/lib/firebase';
+import { auth, db, handleSignOut, markWarningAsSeen } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc, onSnapshot, query, collection, where, Timestamp } from 'firebase/firestore';
-import { Loader2, MessageCircleQuestion } from 'lucide-react';
+import { Loader2, MessageCircleQuestion, AlertTriangle } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
@@ -24,10 +25,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface RestrictionInfo {
     restrictedUntil: Timestamp;
     restrictionReason: string;
+}
+
+interface WarningInfo {
+    oneTimeWarning: string;
+    hasSeenWarning: boolean;
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -39,6 +46,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isMaintenanceMode, setMaintenanceMode] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [restrictionInfo, setRestrictionInfo] = useState<RestrictionInfo | null>(null);
+  const [warningInfo, setWarningInfo] = useState<WarningInfo | null>(null);
+  const [warningConfirmText, setWarningConfirmText] = useState("");
 
   useEffect(() => {
     document.documentElement.className = 'theme-student';
@@ -72,13 +81,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return;
     }
     
-    const checkRoleAndSetupNotifications = async () => {
+    const checkUserStatusAndSetup = async () => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
             const userData = userDoc.data();
             const role = userData.role;
+            
+            // Check for one-time warning first
+            if (userData.oneTimeWarning && !userData.hasSeenWarning) {
+                setWarningInfo({
+                    oneTimeWarning: userData.oneTimeWarning,
+                    hasSeenWarning: userData.hasSeenWarning,
+                });
+                setIsAuthorized(false); // Block access until warning is acknowledged
+                setCheckingAuth(false);
+                return;
+            }
 
+            // Check for restriction
             if (userData.restrictedUntil && userData.restrictedUntil.toMillis() > Date.now()) {
                 setRestrictionInfo({
                     restrictedUntil: userData.restrictedUntil,
@@ -89,6 +110,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return;
             }
             
+            // Role-based redirects
             if (role === 'council') {
                 router.push('/council');
                 return;
@@ -108,35 +130,28 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 setTimeout(() => router.push(redirectPath), 50);
                 return; 
             }
-            
-            if ((role === 'council') && userData.memo && 'Notification' in window) {
-                if (Notification.permission === 'granted') {
-                    const notificationsQuery = query(
-                        collection(db, 'notifications'),
-                        where('roleCode', '==', userData.memo),
-                        where('createdAt', '>', Timestamp.now())
-                    );
-                    
-                    const unsubscribeNotifications = onSnapshot(notificationsQuery, (snapshot) => {
-                        snapshot.docChanges().forEach((change) => {
-                            if (change.type === 'added') {
-                                const notificationData = change.doc.data();
-                                new Notification(`호출: ${notificationData.roleCode}`, {
-                                    body: notificationData.message,
-                                    icon: '/logo-192.png',
-                                });
-                            }
-                        });
-                    });
-                    return () => unsubscribeNotifications();
-                }
-            }
         }
         setIsAuthorized(true);
         setCheckingAuth(false);
     };
-    checkRoleAndSetupNotifications();
+    checkUserStatusAndSetup();
   }, [user, loading, router, toast, pathname]);
+
+  const handleWarningConfirm = async () => {
+    if (!user) return;
+    try {
+      await markWarningAsSeen(user.uid);
+      setWarningInfo(null);
+      setIsAuthorized(true); // Grant access after confirmation
+    } catch (error) {
+      toast({
+        title: "오류",
+        description: "경고 확인 처리 중 오류가 발생했습니다. 다시 시도해주세요.",
+        variant: "destructive"
+      });
+    }
+  };
+
 
   if (loading || checkingAuth) {
     return (
@@ -144,6 +159,35 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+  
+  if (warningInfo) {
+    return (
+        <AlertDialog open={true}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="text-destructive"/> 관리자 경고</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        다음은 관리자가 보낸 중요 메시지입니다. 내용을 반드시 확인해주세요.
+                        <div className="mt-4 p-4 bg-muted rounded-lg text-foreground whitespace-pre-wrap">{warningInfo.oneTimeWarning}</div>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                        아래 입력창에 '확인'을 입력하여 메시지를 읽었음을 알려주세요.
+                    </p>
+                    <Input 
+                        value={warningConfirmText}
+                        onChange={(e) => setWarningConfirmText(e.target.value)}
+                        placeholder="'확인'을 입력하세요"
+                    />
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={handleWarningConfirm} disabled={warningConfirmText !== '확인'}>확인</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
   }
 
   if (restrictionInfo) {
