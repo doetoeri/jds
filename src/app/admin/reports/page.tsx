@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, getDocs, writeBatch, where } from 'firebase/firestore';
 import { db, restrictUser, setUserLak } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,7 +40,7 @@ interface GroupedReport {
   status: 'pending' | 'resolved';
 }
 
-export default function AlaudaeReportsPage() {
+export default function AdminReportsPage() {
   const [groupedReports, setGroupedReports] = useState<GroupedReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
@@ -114,16 +114,20 @@ export default function AlaudaeReportsPage() {
   const handleMarkAsResolved = async (userId: string) => {
     setIsProcessing(userId);
     try {
-      const reportsToUpdate = query(collection(db, 'reports'), where('userId', '==', userId), where('status', '==', 'pending'));
-      const snapshot = await getDocs(reportsToUpdate);
-      const batch = writeBatch(db);
-      snapshot.forEach(doc => {
-          batch.update(doc.ref, { status: 'resolved' });
-      });
-      await batch.commit();
+      const reportsToUpdateQuery = query(collection(db, 'reports'), where('userId', '==', userId), where('status', '==', 'pending'));
+      const snapshot = await getDocs(reportsToUpdateQuery);
+      
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.forEach(docToUpdate => {
+            batch.update(docToUpdate.ref, { status: 'resolved' });
+        });
+        await batch.commit();
+      }
 
       toast({ title: '성공', description: '해당 학생의 모든 의심 활동을 해결됨으로 처리했습니다.' });
     } catch (error) {
+      console.error("Error marking reports as resolved: ", error);
       toast({ title: '오류', description: '상태 변경 중 오류가 발생했습니다.', variant: 'destructive' });
     } finally {
       setIsProcessing(null);
