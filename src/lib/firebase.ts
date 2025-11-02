@@ -406,9 +406,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     });
     
     // Run report check *after* transaction succeeds
-    const userLakAfter = (await getDoc(doc(db, 'users', userId))).data()?.lak;
-    const friendLakAfter = (await getDoc(doc(db, 'users', friendUid))).data()?.lak;
-    
     if (invitePoints >= 5) {
        await createReport(userId, "고액 친구 초대 보상 발생", {
             pointsGained: invitePoints,
@@ -1325,7 +1322,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
   return { successCount, failCount };
 };
 
-export const awardTetrisScore = async (userId: string, score: number, level: number) => {
+export const awardTetrisScore = async (userId: string, score: number) => {
     if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다.", pointsToPiggy: 0 };
     const userRef = doc(db, 'users', userId);
 
@@ -1567,42 +1564,6 @@ export const resolvePurchaseDispute = async (disputeId: string, purchaseId: stri
     batch.update(purchaseRef, { disputeStatus: 'resolved' });
     
     await batch.commit();
-};
-
-export const awardSudokuWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard') => {
-    const userRef = doc(db, 'users', userId);
-    const pointsMap = { easy: 1, medium: 2, hard: 3 };
-    const pointsToAdd = pointsMap[difficulty];
-    
-    let pointsToPiggy = 0;
-    await runTransaction(db, async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-        
-        const today = new Date().toISOString().split('T')[0];
-        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
-        const dailyEarningDoc = await transaction.get(dailyEarningRef);
-        
-        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-        const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userDoc.data().lak));
-        pointsToPiggy = pointsToAdd - pointsForLak;
-
-        if (pointsForLak > 0) {
-            transaction.update(userRef, { lak: increment(pointsForLak) });
-            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
-            transaction.set(doc(collection(userRef, 'transactions')), {
-              date: Timestamp.now(), description: `스도쿠 (${difficulty}) 승리 보상`, amount: pointsForLak, type: 'credit',
-            });
-        }
-        if (pointsToPiggy > 0) {
-            transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-            transaction.set(doc(collection(userRef, 'transactions')), {
-              date: Timestamp.now(), description: `초과 포인트 저금: 스도쿠`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
-            });
-        }
-    });
-    return { success: true, message: `스도쿠를 완료하여 ${pointsToAdd} 포인트를 획득했습니다!`, pointsToPiggy };
 };
 
 

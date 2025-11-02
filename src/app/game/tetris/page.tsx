@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Puzzle, Loader2, Play, Pause, RotateCw } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Puzzle, Loader2, Play, Pause, RotateCw, ArrowLeft, ArrowRight, ArrowDown, ArrowUp, ChevronsDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardTetrisScore } from '@/lib/firebase';
@@ -162,7 +163,9 @@ const TetrisPage: React.FC = () => {
 
         currentPiece.matrix.forEach((row, y) => row.forEach((val, x) => {
             if (val) {
-                boardRef.current[currentPiece.y + y][currentPiece.x + x] = currentPiece.shapeName;
+                if (currentPiece.y + y >= 0) { // Only lock blocks inside the board
+                    boardRef.current[currentPiece.y + y][currentPiece.x + x] = currentPiece.shapeName;
+                }
             }
         }));
 
@@ -180,17 +183,20 @@ const TetrisPage: React.FC = () => {
         }
 
         if (linesClearedCount > 0) {
-            setLinesCleared(prev => prev + linesClearedCount);
+            setLinesCleared(prev => {
+                const totalLines = prev + linesClearedCount;
+                const newLevel = Math.floor(totalLines / 10) + 1;
+                if (newLevel > level) {
+                    setLevel(newLevel);
+                    dropIntervalRef.current = Math.max(100, 1000 - (newLevel - 1) * 50);
+                }
+                return totalLines;
+            });
             setScore(prev => prev + [0, 100, 300, 500, 800][linesClearedCount] * level);
-            const newLevel = Math.floor((linesCleared + linesClearedCount) / 10) + 1;
-            if(newLevel > level) {
-                setLevel(newLevel);
-                dropIntervalRef.current = Math.max(100, 1000 - (newLevel - 1) * 50);
-            }
         }
         
         resetPiece();
-    }, [resetPiece, level, linesCleared]);
+    }, [resetPiece, level]);
     
     const pieceDrop = useCallback(() => {
         const currentPiece = currentPieceRef.current;
@@ -223,6 +229,7 @@ const TetrisPage: React.FC = () => {
             if (isValidMove(rotated, currentPiece.x + kick, currentPiece.y)) {
                 currentPiece.matrix = rotated;
                 currentPiece.x += kick;
+                draw();
                 return;
             }
         }
@@ -318,7 +325,7 @@ const TetrisPage: React.FC = () => {
                 if (user && score > 0) {
                     setIsSubmitting(true);
                     try {
-                        const result = await awardTetrisScore(user.uid, score, level);
+                        const result = await awardTetrisScore(user.uid, score);
                         if (result.success) {
                             toast({ title: '점수 기록!', description: result.message });
                             if (result.pointsToPiggy > 0) {
@@ -334,16 +341,16 @@ const TetrisPage: React.FC = () => {
             }
         };
         endGameAndSubmit();
-    }, [gameState, score, level, user, toast, router]);
+    }, [gameState, score, user, toast, router]);
 
     return (
         <>
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-4">
           <h1 className="text-3xl font-bold tracking-tight font-headline flex items-center">
             <Puzzle className="mr-2 h-7 w-7" />
             테트리스
           </h1>
-          <div className="flex flex-col md:flex-row-reverse gap-6 items-start">
+          <div className="flex flex-col md:flex-row-reverse gap-4 items-start">
             <Card className="order-1 md:order-2 bg-slate-900/50 shadow-2xl rounded-lg border-primary/20">
               <CardContent className="p-2">
                 <div className="relative">
@@ -381,6 +388,17 @@ const TetrisPage: React.FC = () => {
               </Card>
             </div>
           </div>
+            <div className="md:hidden flex flex-col items-center gap-2 mt-4 w-full max-w-sm">
+                <div className="flex justify-between w-full">
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerRotate()}><RotateCw /></Button>
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerDrop(true)}><ChevronsDown /></Button>
+                </div>
+                 <div className="flex justify-center w-full gap-2">
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerMove(-1)}><ArrowLeft /></Button>
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerDrop()}><ArrowDown /></Button>
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerMove(1)}><ArrowRight /></Button>
+                </div>
+            </div>
           <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키로 회전 | 스페이스로 하드 드롭</p>
         </div>
         

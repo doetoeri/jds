@@ -4,7 +4,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, BrainCircuit } from 'lucide-react';
+import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -29,13 +29,6 @@ const games = [
     icon: Puzzle,
     status: "active"
   },
-  {
-    title: "스도쿠",
-    description: "논리와 추론으로 숫자 퍼즐을 완성하는 게임입니다.",
-    href: "/game/sudoku",
-    icon: BrainCircuit,
-    status: "active"
-  }
 ]
 
 export default function GamePage() {
@@ -47,7 +40,7 @@ export default function GamePage() {
             미니게임
         </h1>
         <p className="text-muted-foreground">
-          다양한 게임을 즐기고 리더보드 순위에 도전해보세요! 이틀마다 순위표 상위 10명에게 보상이 지급됩니다.
+          다양한 게임을 즐기고 리더보드 순위에 도전해보세요. 이틀마다 순위표 상위 10명에게 보상이 지급됩니다.
         </p>
       </div>
 
