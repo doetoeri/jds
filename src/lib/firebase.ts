@@ -409,7 +409,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userLakAfter = (await getDoc(doc(db, 'users', userId))).data()?.lak;
     const friendLakAfter = (await getDoc(doc(db, 'users', friendUid))).data()?.lak;
     
-    if ((userLakAfter - (friendDoc.data().lak || 0)) > 5 || (friendLakAfter - (friendDoc.data()?.lak || 0)) > 5) {
+    if (invitePoints >= 5) {
        await createReport(userId, "고액 친구 초대 보상 발생", {
             pointsGained: invitePoints,
             friendStudentId: friendStudentId,
@@ -524,7 +524,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
-              transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -533,12 +533,15 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             break;
 
-        default:
+        default: // 종달코드, 온라인 특수코드
             if (freshCodeData.used) throw new Error("이미 사용된 코드입니다.");
+            if (freshCodeData.type === '온라인 특수코드' && freshCodeData.forStudentId !== userStudentId) {
+                throw new Error("이 코드는 다른 학생을 위한 코드입니다.");
+            }
 
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
-              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: defPointsForLak, type: 'credit'});
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
               if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
             }
              if (pointsToPiggy > 0) {
@@ -1107,6 +1110,9 @@ export const resetLeaderboard = async (leaderboardName: string) => {
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
         'tetris': 'leaderboards/tetris/users',
+        'sudoku-easy': 'leaderboards/sudoku-easy/users',
+        'sudoku-medium': 'leaderboards/sudoku-medium/users',
+        'sudoku-hard': 'leaderboards/sudoku-hard/users',
     };
     const collectionPath = pathMap[leaderboardName];
     if (!collectionPath) throw new Error("유효하지 않은 리더보드입니다.");
@@ -1335,7 +1341,7 @@ export const awardTetrisScore = async (userId: string, score: number, level: num
 
         const userData = userDoc.data();
 
-        const pointsToAdd = Math.floor(score / 100);
+        const pointsToAdd = Math.floor(score / 1000);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
             const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
@@ -1364,7 +1370,7 @@ export const awardTetrisScore = async (userId: string, score: number, level: num
         }
     });
 
-    const points = Math.floor(score / 100);
+    const points = Math.floor(score / 1000);
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
 };
 
@@ -1561,6 +1567,42 @@ export const resolvePurchaseDispute = async (disputeId: string, purchaseId: stri
     batch.update(purchaseRef, { disputeStatus: 'resolved' });
     
     await batch.commit();
+};
+
+export const awardSudokuWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard') => {
+    const userRef = doc(db, 'users', userId);
+    const pointsMap = { easy: 1, medium: 2, hard: 3 };
+    const pointsToAdd = pointsMap[difficulty];
+    
+    let pointsToPiggy = 0;
+    await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        
+        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+        const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
+        const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userDoc.data().lak));
+        pointsToPiggy = pointsToAdd - pointsForLak;
+
+        if (pointsForLak > 0) {
+            transaction.update(userRef, { lak: increment(pointsForLak) });
+            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(), description: `스도쿠 (${difficulty}) 승리 보상`, amount: pointsForLak, type: 'credit',
+            });
+        }
+        if (pointsToPiggy > 0) {
+            transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(), description: `초과 포인트 저금: 스도쿠`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+            });
+        }
+    });
+    return { success: true, message: `스도쿠를 완료하여 ${pointsToAdd} 포인트를 획득했습니다!`, pointsToPiggy };
 };
 
 

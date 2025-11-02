@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle } from 'lucide-react';
+import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, BrainCircuit } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -28,6 +29,13 @@ const games = [
     icon: Puzzle,
     status: "active"
   },
+  {
+    title: "스도쿠",
+    description: "논리와 추론으로 숫자 퍼즐을 완성하는 게임입니다.",
+    href: "/game/sudoku",
+    icon: BrainCircuit,
+    status: "active"
+  }
 ]
 
 export default function GamePage() {
