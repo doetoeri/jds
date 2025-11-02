@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Puzzle, Loader2, Play, Pause, RotateCw, ArrowLeft, ArrowRight, ArrowDown, ArrowUp, ChevronsDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
