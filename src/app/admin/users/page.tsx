@@ -1094,7 +1094,7 @@ export default function AdminUsersPage() {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={isProcessing}>취소</Button>
+                <AlertDialogCancel disabled={isProcessing}>취소</AlertDialogCancel>
                 <AlertDialogAction
                   className="bg-destructive hover:bg-destructive/90"
                   onClick={handleDeleteUser}
@@ -1109,3 +1109,4 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
