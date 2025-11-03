@@ -378,7 +378,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (pointsToUserPiggy > 0) {
             transaction.update(userRef, { piggyBank: increment(pointsToUserPiggy) });
             transaction.set(doc(collection(userRef, 'transactions')), {
-              date: Timestamp.now(), description: `초과 포인트 저금: 친구 초대 보상`, amount: pointsToUserPiggy, type: 'credit', isPiggyBank: true,
+              date: Timestamp.now(), description: `포인트 적립: 친구 초대 보상`, amount: pointsToUserPiggy, type: 'credit', isPiggyBank: true,
             });
         }
         transaction.update(userRef, { usedFriendId: arrayUnion(friendStudentId) });
@@ -399,7 +399,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if(pointsToFriendPiggy > 0) {
             transaction.update(friendRef, { piggyBank: increment(pointsToFriendPiggy) });
             transaction.set(doc(collection(friendRef, 'transactions')), {
-              date: Timestamp.now(), description: `초과 포인트 저금: 친구 초대 보상`, amount: pointsToFriendPiggy, type: 'credit', isPiggyBank: true,
+              date: Timestamp.now(), description: `포인트 적립: 친구 초대 보상`, amount: pointsToFriendPiggy, type: 'credit', isPiggyBank: true,
             });
         }
         transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
@@ -491,7 +491,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 히든코드 사용`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `포인트 적립: 히든코드 사용`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
             }
 
             // Partner points
@@ -507,7 +507,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             }
             if(partnerPointsForPiggyBank > 0) {
               transaction.update(partnerRef, { piggyBank: increment(partnerPointsForPiggyBank) });
-              transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 히든코드 파트너 보상`, amount: partnerPointsForPiggyBank, type: 'credit', isPiggyBank: true });
+              transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `포인트 적립: 히든코드 파트너 보상`, amount: partnerPointsForPiggyBank, type: 'credit', isPiggyBank: true });
             }
             
             transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
@@ -525,7 +525,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: 선착순코드`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `포인트 적립: 선착순코드`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
             }
             transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             break;
@@ -543,7 +543,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             }
              if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `초과 포인트 저금: ${freshCodeData.type}`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+              transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `포인트 적립: ${freshCodeData.type}`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
             }
             transaction.update(codeRef, { used: true, usedBy: userStudentId });
             break;
@@ -610,7 +610,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = cart[i];
+      const item = items[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
@@ -933,7 +933,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
        if(pointsToPiggy > 0) {
           transaction.update(senderRef, { piggyBank: increment(pointsToPiggy) });
           transaction.set(doc(collection(senderRef, 'transactions')), {
-              date: Timestamp.now(), description: '초과 포인트 저금: 편지 쓰기', amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+              date: Timestamp.now(), description: '포인트 적립: 편지 쓰기', amount: pointsToPiggy, type: 'credit', isPiggyBank: true
           });
       }
       
@@ -1039,7 +1039,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         if (pointsToPiggy > 0) {
             transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
             transaction.set(doc(collection(userRef, 'transactions')), {
-              date: Timestamp.now(), description: `초과 포인트 저금: 지뢰찾기`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+              date: Timestamp.now(), description: `포인트 적립: 지뢰찾기`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
             });
         }
     });
@@ -1081,7 +1081,7 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
             if (pointsToPiggy > 0) {
                 transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
                 transaction.set(doc(collection(userRef, 'transactions')), {
-                  date: Timestamp.now(), description: `초과 포인트 저금: 벽돌깨기`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+                  date: Timestamp.now(), description: `포인트 적립: 벽돌깨기`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
                 });
             }
         }
@@ -1107,9 +1107,6 @@ export const resetLeaderboard = async (leaderboardName: string) => {
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
         'tetris': 'leaderboards/tetris/users',
-        'sudoku-easy': 'leaderboards/sudoku-easy/users',
-        'sudoku-medium': 'leaderboards/sudoku-medium/users',
-        'sudoku-hard': 'leaderboards/sudoku-hard/users',
     };
     const collectionPath = pathMap[leaderboardName];
     if (!collectionPath) throw new Error("유효하지 않은 리더보드입니다.");
@@ -1244,7 +1241,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
         if (pointsToPiggy > 0) {
             transaction.update(studentRef, { piggyBank: increment(pointsToPiggy) });
             transaction.set(doc(collection(studentRef, 'transactions')), {
-              date: Timestamp.now(), description: `초과 포인트 저금: ${reason}`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+              date: Timestamp.now(), description: `포인트 적립: ${reason}`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
             });
         }
       });
@@ -1307,7 +1304,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
                 if (pointsForPiggyBank > 0) {
                     transaction.update(userRef, { piggyBank: increment(pointsForPiggyBank) });
                      transaction.set(doc(collection(userRef, 'transactions')), {
-                        date: Timestamp.now(), description: `초과 포인트 저금: 리더보드 보상`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
+                        date: Timestamp.now(), description: `포인트 적립: 리더보드 보상`, amount: pointsForPiggyBank, type: 'credit', isPiggyBank: true
                     });
                 }
                 successCount++;
@@ -1355,7 +1352,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
             if (pointsToPiggy > 0) {
                 transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
                 transaction.set(doc(collection(userRef, 'transactions')), {
-                    date: Timestamp.now(), description: `초과 포인트 저금: 테트리스`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+                    date: Timestamp.now(), description: `포인트 적립: 테트리스`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
                 });
             }
         }
@@ -1457,7 +1454,7 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     }
     if (pointsToPiggy > 0) {
         transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-        transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '초과 포인트 저금: 삼행시 참여', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+        transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 삼행시 참여', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
     }
   });
   return { success: true, pointsToPiggy };
@@ -1502,7 +1499,7 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         }
         if (pointsToPiggy > 0) {
             transaction.update(senderRef, { piggyBank: increment(pointsToPiggy) });
-            transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '초과 포인트 저금: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+            transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
         }
     });
     return { success: true, pointsToPiggy };

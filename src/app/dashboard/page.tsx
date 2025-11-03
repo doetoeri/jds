@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -195,9 +196,6 @@ export default function DashboardPage() {
                 )}
                 </>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
-              초과 포인트 저금통: {userData?.piggyBank?.toLocaleString() ?? 0} 포인트
-            </p>
           </CardContent>
         </Card>
         
