@@ -31,6 +31,7 @@ import {
   UserPlus,
   Server,
   AlertTriangle,
+  Wrench, // New Icon
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
@@ -71,6 +72,7 @@ const adminLinks = [
   { name: '전체 내역', href: '/admin/history', icon: History },
   { name: '전체 주문 내역', href: '/admin/purchases', icon: ListOrdered },
   { name: '시스템 설정', href: '/admin/settings', icon: Cog },
+  { name: '개발자 도구', href: '/admin/tools', icon: Wrench },
 ];
 
 const councilLinks = [

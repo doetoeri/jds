@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -232,30 +230,26 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
   try {
     let finalEmail = studentIdOrEmail;
     
-    if (/^\d{5}$/.test(studentIdOrEmail)) {
-      const studentQuery = query(
-        collection(db, 'users'),
-        where('studentId', '==', studentIdOrEmail),
-        where('role', '==', 'student')
-      );
-      const studentSnapshot = await getDocs(studentQuery);
-
-      if (studentSnapshot.empty) {
-        throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
-      }
-      finalEmail = studentSnapshot.docs[0].data().email;
-    } else if (studentIdOrEmail.toLowerCase() === 'admin') {
-      finalEmail = 'admin@jongdalsem.com';
-    } else if (studentIdOrEmail.indexOf('@') === -1) {
-      const specialAccountQuery = query(
-        collection(db, 'users'),
-        where('studentId', '==', studentIdOrEmail)
-      );
-      const specialAccountSnapshot = await getDocs(specialAccountQuery);
-      if (!specialAccountSnapshot.empty) {
-        finalEmail = specialAccountSnapshot.docs[0].data().email;
-      }
+    if (studentIdOrEmail.indexOf('@') === -1) {
+        if (/^\d{5}$/.test(studentIdOrEmail)) {
+            const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail), where('role', '==', 'student'));
+            const studentSnapshot = await getDocs(studentQuery);
+            if (!studentSnapshot.empty) {
+                finalEmail = studentSnapshot.docs[0].data().email;
+            } else {
+                 throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
+            }
+        } else if (studentIdOrEmail.toLowerCase() === 'admin') {
+            finalEmail = 'admin@jongdalsem.com';
+        } else {
+            const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
+            const specialAccountSnapshot = await getDocs(specialAccountQuery);
+            if (!specialAccountSnapshot.empty) {
+                finalEmail = specialAccountSnapshot.docs[0].data().email;
+            }
+        }
     }
+
 
     const userCredential = await signInWithEmailAndPassword(auth, finalEmail, password);
     const user = userCredential.user;
@@ -1494,11 +1488,13 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         pointsToPiggy = pointsToAdd - pointsForLak;
 
         if (pointsForLak > 0) {
+            const userRef = senderRef; // Define userRef here for clarity
             transaction.update(userRef, { lak: increment(pointsForLak) });
             transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsForLak, type: 'credit' });
         }
         if (pointsToPiggy > 0) {
+            const userRef = senderRef; // Define userRef here for clarity
             transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
         }
@@ -1576,6 +1572,126 @@ export const markWarningAsSeen = async (userId: string) => {
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
         hasSeenWarning: true
+    });
+};
+
+const copySubcollection = async (
+    transaction: any,
+    fromPath: string,
+    toPath: string
+) => {
+    const fromCollectionRef = collection(db, fromPath);
+    const snapshot = await getDocs(query(fromCollectionRef));
+    for (const docSnapshot of snapshot.docs) {
+        const toDocRef = doc(db, toPath, docSnapshot.id);
+        transaction.set(toDocRef, docSnapshot.data());
+    }
+};
+
+const deleteSubcollection = async (
+    transaction: any,
+    collectionPath: string
+) => {
+    const collectionRef = collection(db, collectionPath);
+    const snapshot = await getDocs(query(collectionRef));
+    for (const docSnapshot of snapshot.docs) {
+        transaction.delete(docSnapshot.ref);
+    }
+};
+
+export const migrateUserData = async (oldUid: string, newUid: string) => {
+    if (!oldUid || !newUid || oldUid === newUid) {
+        throw new Error("유효한 기존 UID와 새로운 UID를 모두 입력해야 합니다.");
+    }
+    const oldUserRef = doc(db, "users", oldUid);
+    const newUserRef = doc(db, "users", newUid);
+    const migrationLogRef = doc(db, "system_settings", "last_migration");
+
+    return runTransaction(db, async (transaction) => {
+        // 1. READS
+        const [oldUserDoc, newUserDoc] = await Promise.all([
+            transaction.get(oldUserRef),
+            transaction.get(newUserRef),
+        ]);
+
+        if (!oldUserDoc.exists()) {
+            throw new Error(`기존 UID(${oldUid})에 해당하는 사용자를 찾을 수 없습니다.`);
+        }
+        if (!newUserDoc.exists()) {
+            throw new Error(`새로운 UID(${newUid})에 해당하는 사용자를 찾을 수 없습니다.`);
+        }
+        
+        const oldUserData = oldUserDoc.data();
+        // 2. BACKUP & ARCHIVE
+        // Archive the old user's data by renaming the document
+        const archiveRef = doc(db, "archived_users", oldUid);
+        transaction.set(archiveRef, { ...oldUserData, archivedAt: Timestamp.now(), originalUid: oldUid });
+
+        // Backup new user's data before overwriting
+        const newUserBackup = { ...newUserDoc.data(), newUid: newUid };
+
+        // 3. DATA MIGRATION (Main Document)
+        // Overwrite new user's doc with old user's data, keeping new email/auth info
+        const newEmail = newUserDoc.data().email;
+        const newCreatedAt = newUserDoc.data().createdAt;
+        const dataToMigrate = {
+            ...oldUserData,
+            email: newEmail,
+            createdAt: newCreatedAt,
+        };
+        transaction.set(newUserRef, dataToMigrate);
+
+        // 4. SUBCOLLECTIONS MIGRATION
+        // Note: This is read-heavy. In a real scenario, this would be a backend job.
+        // For this context, we do it directly but it can be slow/costly.
+        await copySubcollection(transaction, `users/${oldUid}/transactions`, `users/${newUid}/transactions`);
+        await copySubcollection(transaction, `users/${oldUid}/daily_earnings`, `users/${newUid}/daily_earnings`);
+        await deleteSubcollection(transaction, `users/${oldUid}/transactions`);
+        await deleteSubcollection(transaction, `users/${oldUid}/daily_earnings`);
+
+        // 5. UPDATE REFERENCES (This is a simplified example)
+        // Community Posts
+        const postsQuery = query(collection(db, "community_posts"), where("authorId", "==", oldUid));
+        const postsSnapshot = await getDocs(postsQuery);
+        postsSnapshot.forEach(postDoc => {
+            transaction.update(postDoc.ref, { authorId: newUid });
+        });
+
+        // 6. Finalize old user and log
+        transaction.set(oldUserRef, { status: 'archived', newUid: newUid, migrationDate: Timestamp.now() });
+        transaction.set(migrationLogRef, { from: oldUid, to: newUid, date: Timestamp.now(), reverted: false, newUserBackup });
+
+        return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
+    });
+};
+
+export const revertUserDataMigration = async () => {
+    const migrationLogRef = doc(db, "system_settings", "last_migration");
+    return runTransaction(db, async (transaction) => {
+        const logDoc = await transaction.get(migrationLogRef);
+        if (!logDoc.exists() || logDoc.data().reverted) {
+            throw new Error("되돌릴 이전 기록이 없거나 이미 되돌려졌습니다.");
+        }
+        const { from, to, newUserBackup } = logDoc.data();
+        
+        const oldUserRef = doc(db, "users", from);
+        const newUserRef = doc(db, "users", to);
+        const archiveRef = doc(db, "archived_users", from);
+        
+        // Restore new user's original state
+        transaction.set(newUserRef, newUserBackup);
+        
+        // Restore old user from archive
+        const archiveDoc = await transaction.get(archiveRef);
+        if (archiveDoc.exists()) {
+            const oldData = archiveDoc.data();
+            const { archivedAt, originalUid, ...restoredOldData } = oldData;
+            transaction.set(oldUserRef, restoredOldData);
+        }
+
+        // Mark as reverted
+        transaction.update(migrationLogRef, { reverted: true });
+        return { success: true, message: "마지막 데이터 이전이 되돌려졌습니다." };
     });
 };
 
