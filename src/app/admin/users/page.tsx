@@ -585,6 +585,7 @@ export default function AdminUsersPage() {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </TableHead>
+                <TableHead>UID</TableHead>
                 <TableHead>비고</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
@@ -613,6 +614,7 @@ export default function AdminUsersPage() {
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                   </TableRow>
@@ -638,6 +640,7 @@ export default function AdminUsersPage() {
                             <Badge variant="destructive" className="ml-2">제한됨</Badge>
                         )}
                     </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{user.id}</TableCell>
                     <TableCell className="text-muted-foreground">{user.memo || '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
