@@ -249,9 +249,6 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
         const specialAccountSnapshot = await getDocs(specialAccountQuery);
         if (!specialAccountSnapshot.empty) {
           finalEmail = specialAccountSnapshot.docs[0].data().email;
-        } else {
-          // If still not found, we pass the original string to signIn to let Firebase handle it
-          // This allows teacher login with email.
         }
     }
 
@@ -295,8 +292,6 @@ export const resetUserPassword = async (userId: string) => {
         throw new Error('User email not found.');
     }
     
-    // This is the correct, secure way to handle password resets from the client.
-    // We cannot directly change a password to '123456' without the Admin SDK.
     await sendPasswordResetEmail(auth, userEmail);
 };
 
@@ -606,13 +601,13 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
       }
     }
 
-    // 3. Write all changes
+    // 3. Writes
     const paymentCode = generatePaymentCode('ONL');
     transaction.update(userRef, { lak: increment(-totalCost) });
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = cart[i];
+      const item = items[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
@@ -919,7 +914,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       }
       
       // 3. Writes
-      const pointsToAdd = 1;
+      const pointsToAdd = 5;
       const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
       let pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
       let pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - senderData.lak));

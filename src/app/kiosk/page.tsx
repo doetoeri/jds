@@ -2,17 +2,11 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Award, Feather, MessageSquareHeart } from "lucide-react";
+import { Feather, MessageSquareHeart } from "lucide-react";
 import Link from "next/link";
 import { motion } from 'framer-motion';
 
 const kioskOptions = [
-    {
-        title: '포인트 지급 키오스크',
-        description: '부스 활동, 이벤트 참여 등 학생들에게 포인트를 지급합니다.',
-        href: '/kiosk/award/setup',
-        icon: Award
-    },
     {
         title: '종달샘 삼행시',
         description: '학생들이 제시어로 삼행시를 짓고 포인트를 받습니다.',
@@ -36,7 +30,7 @@ export default function KioskSelectPage() {
       </div>
 
       <motion.div 
-        className="grid md:grid-cols-3 gap-8"
+        className="grid md:grid-cols-2 gap-8"
         initial="hidden"
         animate="visible"
         variants={{
