@@ -79,6 +79,23 @@ const TetrisPage: React.FC = () => {
     const { toast } = useToast();
     const [user] = useAuthState(auth);
 
+    // --- Game Loop and State Management ---
+    const gameLoop = useCallback((time: number) => {
+        if (gameState !== 'playing') return;
+        
+        if (lastTimeRef.current === 0) lastTimeRef.current = time;
+        const deltaTime = time - lastTimeRef.current;
+        lastTimeRef.current = time;
+        dropCounterRef.current += deltaTime;
+        
+        if (dropCounterRef.current > dropIntervalRef.current) {
+            pieceDrop();
+        }
+        
+        draw();
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+    }, [gameState, draw, pieceDrop]);
+
     // --- Drawing Functions ---
     const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string, isGhost = false) => {
         const X = x * BLOCK_SIZE;
@@ -115,7 +132,7 @@ const TetrisPage: React.FC = () => {
     };
 
     const drawGrid = (ctx: CanvasRenderingContext2D) => {
-        ctx.strokeStyle = 'rgba(128, 128, 128, 0.1)';
+        ctx.strokeStyle = 'rgba(128, 128, 128, 0.2)';
         ctx.lineWidth = 1;
         for (let x = 0; x < COLS + 1; x++) {
             ctx.beginPath();
@@ -272,22 +289,6 @@ const TetrisPage: React.FC = () => {
         }
         dropCounterRef.current = 0;
     }, [gameState, lockPieceAndContinue]);
-
-    const gameLoop = useCallback((time: number) => {
-        if (gameState !== 'playing') return;
-        
-        if (lastTimeRef.current === 0) lastTimeRef.current = time;
-        const deltaTime = time - lastTimeRef.current;
-        lastTimeRef.current = time;
-        dropCounterRef.current += deltaTime;
-        
-        if (dropCounterRef.current > dropIntervalRef.current) {
-            pieceDrop();
-        }
-        
-        draw();
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [gameState, draw, pieceDrop]);
     
     const startGame = useCallback(() => {
         boardRef.current = createEmptyBoard();
@@ -381,7 +382,7 @@ const TetrisPage: React.FC = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [gameState]);
+    }, [gameState, playerMove, playerDrop, playerRotate, holdPiece]);
 
     useEffect(() => {
         draw(); // Initial draw
