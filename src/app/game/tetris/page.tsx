@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Puzzle, Loader2, Play, Pause, RotateCw, ArrowLeft, ArrowRight, ArrowDown, ArrowUp, ChevronsDown } from 'lucide-react';
+import { Puzzle, Loader2, Play, Pause, RotateCw, ArrowLeft, ArrowRight, ArrowDown, ChevronsDown, Forward, CornerDownLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardTetrisScore } from '@/lib/firebase';
@@ -24,7 +23,7 @@ import { useRouter } from 'next/navigation';
 // --- Game Constants ---
 const COLS = 10;
 const ROWS = 20;
-const BLOCK_SIZE = 25;
+const BLOCK_SIZE = 30; // Increased block size
 const NEXT_COLS = 4;
 const NEXT_ROWS = 4;
 
@@ -55,6 +54,7 @@ const createEmptyBoard = (): Board => Array.from({ length: ROWS }, () => Array(C
 const TetrisPage: React.FC = () => {
     const mainCanvasRef = useRef<HTMLCanvasElement>(null);
     const nextCanvasRef = useRef<HTMLCanvasElement>(null);
+    const holdCanvasRef = useRef<HTMLCanvasElement>(null);
     const gameLoopRef = useRef<number>();
     const router = useRouter();
     
@@ -69,8 +69,10 @@ const TetrisPage: React.FC = () => {
     const boardRef = useRef<Board>(createEmptyBoard());
     const currentPieceRef = useRef<Piece | null>(null);
     const nextPieceRef = useRef<Piece | null>(null);
+    const holdPieceRef = useRef<Piece | null>(null);
+    const hasHeldRef = useRef(false);
     const dropCounterRef = useRef(0);
-    const dropIntervalRef = useRef(1000);
+    const dropIntervalRef = useRef(900); // Slightly faster
     const lastTimeRef = useRef(0);
     const pieceBagRef = useRef<ShapeName[]>([]);
 
@@ -78,42 +80,101 @@ const TetrisPage: React.FC = () => {
     const [user] = useAuthState(auth);
 
     // --- Drawing Functions ---
-    const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string) => {
-        ctx.fillStyle = color;
-        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-        ctx.strokeStyle = "rgba(0,0,0,0.2)";
-        ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string, isGhost = false) => {
+        const X = x * BLOCK_SIZE;
+        const Y = y * BLOCK_SIZE;
+        
+        ctx.fillStyle = isGhost ? `hsla(0, 0%, 100%, 0.15)` : color;
+        ctx.strokeStyle = isGhost ? `hsla(0, 0%, 100%, 0.3)` : `rgba(0, 0, 0, 0.3)`;
+        ctx.lineWidth = isGhost ? 1 : 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(X + 5, Y);
+        ctx.lineTo(X + BLOCK_SIZE - 5, Y);
+        ctx.quadraticCurveTo(X + BLOCK_SIZE, Y, X + BLOCK_SIZE, Y + 5);
+        ctx.lineTo(X + BLOCK_SIZE, Y + BLOCK_SIZE - 5);
+        ctx.quadraticCurveTo(X + BLOCK_SIZE, Y + BLOCK_SIZE, X + BLOCK_SIZE - 5, Y + BLOCK_SIZE);
+        ctx.lineTo(X + 5, Y + BLOCK_SIZE);
+        ctx.quadraticCurveTo(X, Y + BLOCK_SIZE, X, Y + BLOCK_SIZE - 5);
+        ctx.lineTo(X, Y + 5);
+        ctx.quadraticCurveTo(X, Y, X + 5, Y);
+        ctx.closePath();
+        
+        ctx.fill();
+        ctx.stroke();
+
+        if (!isGhost) {
+            // Add a subtle highlight for a glassy effect
+            const gradient = ctx.createLinearGradient(X, Y, X + BLOCK_SIZE, Y + BLOCK_SIZE);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
     };
+
+    const drawGrid = (ctx: CanvasRenderingContext2D) => {
+        ctx.strokeStyle = 'rgba(128, 128, 128, 0.1)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < COLS + 1; x++) {
+            ctx.beginPath();
+            ctx.moveTo(x * BLOCK_SIZE, 0);
+            ctx.lineTo(x * BLOCK_SIZE, ROWS * BLOCK_SIZE);
+            ctx.stroke();
+        }
+        for (let y = 0; y < ROWS + 1; y++) {
+            ctx.beginPath();
+            ctx.moveTo(0, y * BLOCK_SIZE);
+            ctx.lineTo(COLS * BLOCK_SIZE, y * BLOCK_SIZE);
+            ctx.stroke();
+        }
+    }
     
     const draw = useCallback(() => {
         // --- Draw Main Board ---
         const mainCtx = mainCanvasRef.current?.getContext('2d');
         if (mainCtx) {
             mainCtx.clearRect(0, 0, mainCtx.canvas.width, mainCtx.canvas.height);
+            drawGrid(mainCtx);
             boardRef.current.forEach((row, y) => row.forEach((cell, x) => {
                 if (cell) drawBlock(mainCtx, x, y, SHAPES[cell].color);
             }));
             
             const currentPiece = currentPieceRef.current;
             if (currentPiece) {
+                // Draw ghost piece
+                let ghostY = currentPiece.y;
+                while(isValidMove(currentPiece.matrix, currentPiece.x, ghostY + 1)) {
+                    ghostY++;
+                }
+                currentPiece.matrix.forEach((row, y) => row.forEach((val, x) => {
+                    if (val) drawBlock(mainCtx, currentPiece.x + x, ghostY + y, 'transparent', true);
+                }));
+
+                // Draw actual piece
                 currentPiece.matrix.forEach((row, y) => row.forEach((val, x) => {
                     if (val) drawBlock(mainCtx, currentPiece.x + x, currentPiece.y + y, SHAPES[currentPiece.shapeName].color);
                 }));
             }
         }
     
-        // --- Draw Next Piece ---
-        const nextCtx = nextCanvasRef.current?.getContext('2d');
-        const nextPiece = nextPieceRef.current;
-        if (nextCtx && nextPiece) {
-            nextCtx.clearRect(0, 0, nextCtx.canvas.width, nextCtx.canvas.height);
-            const { shape, color } = SHAPES[nextPiece.shapeName];
+        const drawSidePiece = (canvasRef: React.RefObject<HTMLCanvasElement>, piece: Piece | null) => {
+            const ctx = canvasRef.current?.getContext('2d');
+            if (!ctx || !piece) return;
+
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            const { shape, color } = SHAPES[piece.shapeName];
             const centeredX = (NEXT_COLS * BLOCK_SIZE - shape[0].length * BLOCK_SIZE) / 2 / BLOCK_SIZE;
             const centeredY = (NEXT_ROWS * BLOCK_SIZE - shape.length * BLOCK_SIZE) / 2 / BLOCK_SIZE;
             shape.forEach((row, y) => row.forEach((val, x) => {
-                if (val) drawBlock(nextCtx, centeredX + x, centeredY + y, color);
+                if (val) drawBlock(ctx, centeredX + x, centeredY + y, color);
             }));
         }
+
+        drawSidePiece(nextCanvasRef, nextPieceRef.current);
+        drawSidePiece(holdCanvasRef, holdPieceRef.current);
+
     }, []);
 
     const isValidMove = (pieceMatrix: number[][], offsetX: number, offsetY: number): boolean => {
@@ -152,6 +213,7 @@ const TetrisPage: React.FC = () => {
         currentPieceRef.current = nextPieceRef.current;
         const newShape = getFromBag();
         nextPieceRef.current = createPiece(newShape);
+        hasHeldRef.current = false;
 
         if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y)) {
             setGameState('over');
@@ -171,7 +233,7 @@ const TetrisPage: React.FC = () => {
         }));
 
         let linesClearedCount = 0;
-        outer: for (let y = boardRef.current.length - 1; y > 0; y--) {
+        outer: for (let y = boardRef.current.length - 1; y >= 0; y--) {
             for(let x=0; x < boardRef.current[y].length; x++){
                 if(boardRef.current[y][x] === null){
                     continue outer;
@@ -249,6 +311,20 @@ const TetrisPage: React.FC = () => {
         }
     };
 
+    const holdPiece = () => {
+        if (!currentPieceRef.current || hasHeldRef.current || gameState !== 'playing') return;
+        
+        if (holdPieceRef.current) {
+            const temp = currentPieceRef.current;
+            currentPieceRef.current = createPiece(holdPieceRef.current.shapeName);
+            holdPieceRef.current = temp;
+        } else {
+            holdPieceRef.current = currentPieceRef.current;
+            resetPiece();
+        }
+        hasHeldRef.current = true;
+    }
+
     const startGame = useCallback(() => {
         boardRef.current = createEmptyBoard();
         pieceBagRef.current = [];
@@ -256,11 +332,13 @@ const TetrisPage: React.FC = () => {
         const shape2 = getFromBag();
         currentPieceRef.current = createPiece(shape1);
         nextPieceRef.current = createPiece(shape2);
+        holdPieceRef.current = null;
+        hasHeldRef.current = false;
         
         setScore(0);
         setLinesCleared(0);
         setLevel(1);
-        dropIntervalRef.current = 1000;
+        dropIntervalRef.current = 900;
         lastTimeRef.current = 0;
         dropCounterRef.current = 0;
         
@@ -268,7 +346,7 @@ const TetrisPage: React.FC = () => {
         
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [createPiece, getFromBag]);
+    }, [createPiece, getFromBag, gameLoop]);
 
     const gameLoop = useCallback((time: number) => {
         if (gameState !== 'playing') return;
@@ -296,6 +374,7 @@ const TetrisPage: React.FC = () => {
                 'ArrowDown': () => playerDrop(),
                 'ArrowUp': () => playerRotate(),
                 ' ': () => playerDrop(true),
+                'Shift': () => holdPiece(),
             };
             if (keyMap[e.key]) keyMap[e.key]();
         };
@@ -370,6 +449,12 @@ const TetrisPage: React.FC = () => {
             </Card>
             <div className="order-2 md:order-1 space-y-4 w-full md:w-48">
               <Card>
+                <CardHeader className="p-3"><CardTitle className="text-sm tracking-widest">HOLD</CardTitle></CardHeader>
+                <CardContent className="p-1 flex items-center justify-center bg-gray-900/80 rounded-b-lg h-[104px]">
+                  <canvas ref={holdCanvasRef} width={NEXT_COLS * BLOCK_SIZE} height={NEXT_ROWS * BLOCK_SIZE} />
+                </CardContent>
+              </Card>
+              <Card>
                 <CardHeader className="p-3"><CardTitle className="text-sm tracking-widest">NEXT</CardTitle></CardHeader>
                 <CardContent className="p-1 flex items-center justify-center bg-gray-900/80 rounded-b-lg h-[104px]">
                   <canvas ref={nextCanvasRef} width={NEXT_COLS * BLOCK_SIZE} height={NEXT_ROWS * BLOCK_SIZE} />
@@ -383,24 +468,22 @@ const TetrisPage: React.FC = () => {
                 <CardHeader className="p-3"><CardTitle className="text-sm tracking-widest">LEVEL</CardTitle></CardHeader>
                 <CardContent className="p-3"><p className="text-2xl font-bold font-mono">{level}</p></CardContent>
               </Card>
-              <Card>
-                <CardHeader className="p-3"><CardTitle className="text-sm tracking-widest">LINES</CardTitle></CardHeader>
-                <CardContent className="p-3"><p className="text-2xl font-bold font-mono">{linesCleared}</p></CardContent>
-              </Card>
             </div>
           </div>
             <div className="md:hidden flex flex-col items-center gap-2 mt-4 w-full max-w-sm">
                 <div className="flex justify-between w-full">
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => holdPiece()}>
+                       <Forward className="h-8 w-8 rotate-90" />
+                    </Button>
                     <Button size="lg" className="w-20 h-20" onTouchStart={() => playerRotate()}><RotateCw /></Button>
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerDrop(true)}><ChevronsDown /></Button>
                 </div>
                  <div className="flex justify-center w-full gap-2">
                     <Button size="lg" className="w-20 h-20" onTouchStart={() => playerMove(-1)}><ArrowLeft /></Button>
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerDrop()}><ArrowDown /></Button>
+                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerDrop(true)}><ChevronsDown /></Button>
                     <Button size="lg" className="w-20 h-20" onTouchStart={() => playerMove(1)}><ArrowRight /></Button>
                 </div>
             </div>
-          <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키로 회전 | 스페이스로 하드 드롭</p>
+          <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키: 회전 | 스페이스: 하드 드롭 | Shift: 홀드</p>
         </div>
         
         <AlertDialog open={gameState === 'over' && !isSubmitting}>
@@ -421,3 +504,4 @@ const TetrisPage: React.FC = () => {
 };
 
 export default TetrisPage;
+```
