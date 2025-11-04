@@ -272,6 +272,45 @@ const TetrisPage: React.FC = () => {
         }
         dropCounterRef.current = 0;
     }, [gameState, lockPieceAndContinue]);
+
+    const gameLoop = useCallback((time: number) => {
+        if (gameState !== 'playing') return;
+        
+        if (lastTimeRef.current === 0) lastTimeRef.current = time;
+        const deltaTime = time - lastTimeRef.current;
+        lastTimeRef.current = time;
+        dropCounterRef.current += deltaTime;
+        
+        if (dropCounterRef.current > dropIntervalRef.current) {
+            pieceDrop();
+        }
+        
+        draw();
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+    }, [gameState, draw, pieceDrop]);
+    
+    const startGame = useCallback(() => {
+        boardRef.current = createEmptyBoard();
+        pieceBagRef.current = [];
+        const shape1 = getFromBag();
+        const shape2 = getFromBag();
+        currentPieceRef.current = createPiece(shape1);
+        nextPieceRef.current = createPiece(shape2);
+        holdPieceRef.current = null;
+        hasHeldRef.current = false;
+        
+        setScore(0);
+        setLinesCleared(0);
+        setLevel(1);
+        dropIntervalRef.current = 900;
+        lastTimeRef.current = 0;
+        dropCounterRef.current = 0;
+        
+        setGameState('playing');
+        
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+    }, [createPiece, getFromBag, gameLoop]);
     
     const playerMove = (dx: number) => {
         const currentPiece = currentPieceRef.current;
@@ -324,45 +363,6 @@ const TetrisPage: React.FC = () => {
         }
         hasHeldRef.current = true;
     }
-
-    const startGame = useCallback(() => {
-        boardRef.current = createEmptyBoard();
-        pieceBagRef.current = [];
-        const shape1 = getFromBag();
-        const shape2 = getFromBag();
-        currentPieceRef.current = createPiece(shape1);
-        nextPieceRef.current = createPiece(shape2);
-        holdPieceRef.current = null;
-        hasHeldRef.current = false;
-        
-        setScore(0);
-        setLinesCleared(0);
-        setLevel(1);
-        dropIntervalRef.current = 900;
-        lastTimeRef.current = 0;
-        dropCounterRef.current = 0;
-        
-        setGameState('playing');
-        
-        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [createPiece, getFromBag, gameLoop]);
-
-    const gameLoop = useCallback((time: number) => {
-        if (gameState !== 'playing') return;
-        
-        if (lastTimeRef.current === 0) lastTimeRef.current = time;
-        const deltaTime = time - lastTimeRef.current;
-        lastTimeRef.current = time;
-        dropCounterRef.current += deltaTime;
-        
-        if (dropCounterRef.current > dropIntervalRef.current) {
-            pieceDrop();
-        }
-        
-        draw();
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [gameState, draw, pieceDrop]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
