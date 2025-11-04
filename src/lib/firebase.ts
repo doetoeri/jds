@@ -232,26 +232,30 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
   try {
     let finalEmail = studentIdOrEmail;
     
-    // If it's a 5-digit number, assume it's a student ID
     if (/^\d{5}$/.test(studentIdOrEmail)) {
-        const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail), where('role', '==', 'student'));
-        const studentSnapshot = await getDocs(studentQuery);
+      const studentQuery = query(
+        collection(db, 'users'),
+        where('studentId', '==', studentIdOrEmail),
+        where('role', '==', 'student')
+      );
+      const studentSnapshot = await getDocs(studentQuery);
 
-        if (studentSnapshot.empty) {
-            throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
-        }
-        finalEmail = studentSnapshot.docs[0].data().email;
+      if (studentSnapshot.empty) {
+        throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
+      }
+      finalEmail = studentSnapshot.docs[0].data().email;
     } else if (studentIdOrEmail.toLowerCase() === 'admin') {
-        finalEmail = 'admin@jongdalsem.com';
+      finalEmail = 'admin@jongdalsem.com';
     } else if (studentIdOrEmail.indexOf('@') === -1) {
-        // It's not an email, not a student ID, maybe a special account ID
-        const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
-        const specialAccountSnapshot = await getDocs(specialAccountQuery);
-        if (!specialAccountSnapshot.empty) {
-          finalEmail = specialAccountSnapshot.docs[0].data().email;
-        }
+      const specialAccountQuery = query(
+        collection(db, 'users'),
+        where('studentId', '==', studentIdOrEmail)
+      );
+      const specialAccountSnapshot = await getDocs(specialAccountQuery);
+      if (!specialAccountSnapshot.empty) {
+        finalEmail = specialAccountSnapshot.docs[0].data().email;
+      }
     }
-
 
     const userCredential = await signInWithEmailAndPassword(auth, finalEmail, password);
     const user = userCredential.user;
@@ -914,7 +918,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       }
       
       // 3. Writes
-      const pointsToAdd = 5;
+      const pointsToAdd = 1;
       const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
       let pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
       let pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - senderData.lak));
@@ -930,7 +934,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
        if(pointsToPiggy > 0) {
           transaction.update(senderRef, { piggyBank: increment(pointsToPiggy) });
           transaction.set(doc(collection(senderRef, 'transactions')), {
-              date: Timestamp.now(), description: '포인트 적립: 편지 쓰기', amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+              date: Timestamp.now(), description: `포인트 적립: 편지 쓰기`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
           });
       }
       
@@ -1490,13 +1494,13 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         pointsToPiggy = pointsToAdd - pointsForLak;
 
         if (pointsForLak > 0) {
-            transaction.update(senderRef, { lak: increment(pointsForLak) });
+            transaction.update(userRef, { lak: increment(pointsForLak) });
             transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
-            transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsForLak, type: 'credit' });
+            transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsForLak, type: 'credit' });
         }
         if (pointsToPiggy > 0) {
-            transaction.update(senderRef, { piggyBank: increment(pointsToPiggy) });
-            transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+            transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
+            transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
         }
     });
     return { success: true, pointsToPiggy };
