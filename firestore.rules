@@ -14,6 +14,11 @@ service cloud.firestore {
       let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
       return role == 'council' || role == 'council_booth';
     }
+    
+    // Helper function to check if user is a kiosk
+    function isKiosk() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'kiosk';
+    }
 
     // Helper function to check if user is teacher
     function isTeacher() {
@@ -102,8 +107,8 @@ service cloud.firestore {
     
     // COMMUNICATION_CHANNEL
     match /communication_channel/{messageId} {
-        allow read: if isAdmin() || isCouncil();
-        allow create: if (isAdmin() || isCouncil()) && request.auth.uid == request.resource.data.uid;
+        allow read: if isAdmin() || isCouncil() || isKiosk();
+        allow create: if (isAdmin() || isCouncil() || isKiosk()) && request.auth.uid == request.resource.data.uid;
         allow update, delete: if isAdmin();
     }
     

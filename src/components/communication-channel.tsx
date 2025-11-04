@@ -27,7 +27,7 @@ interface Message {
   text: string;
   createdAt: Timestamp;
   authorName: string;
-  authorRole: 'admin' | 'council';
+  authorRole: 'admin' | 'council' | 'kiosk';
 }
 
 interface CouncilMember {
@@ -95,10 +95,10 @@ export function CommunicationChannel() {
       if (!userDoc.exists()) throw new Error('사용자 정보를 찾을 수 없습니다.');
       
       const userData = userDoc.data();
-      const authorName = userData.memo || (userData.role === 'admin' ? '관리자' : userData.name || '학생회');
+      const authorName = userData.memo || (userData.role === 'admin' ? '관리자' : userData.name || '익명');
       const authorRole = userData.role;
 
-      if (authorRole !== 'admin' && authorRole !== 'council' && authorRole !== 'council_booth') {
+      if (!['admin', 'council', 'kiosk'].includes(authorRole)) {
         throw new Error('메시지를 보낼 권한이 없습니다.');
       }
 
@@ -156,7 +156,7 @@ export function CommunicationChannel() {
             )}>
               <Avatar className={cn(
                   "h-8 w-8",
-                  msg.authorRole === 'admin' ? 'bg-destructive' : 'bg-primary'
+                  msg.authorRole === 'admin' ? 'bg-destructive' : msg.authorRole === 'kiosk' ? 'bg-yellow-500' : 'bg-primary'
               )}>
                  <AvatarFallback className="text-sm text-white font-bold bg-transparent">
                     {getInitials(msg.authorName)}

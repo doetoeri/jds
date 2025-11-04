@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -61,7 +62,7 @@ export default function CouncilPosPage() {
       }
     });
     
-    const qProducts = query(collection(db, "products"), where("stock", ">", 0));
+    const qProducts = query(collection(db, "products"));
     const unsubProducts = onSnapshot(qProducts, (snapshot) => {
       const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setProducts(productsData);
@@ -115,6 +116,10 @@ export default function CouncilPosPage() {
   }, [globallyDiscountedTotal, manualDiscount]);
 
   const addToCart = (product: Product) => {
+    if (product.stock === 0) {
+      toast({ title: "재고 소진", description: `'${product.name}' 상품의 재고가 모두 소진되었습니다.`, variant: 'destructive' });
+      return;
+    }
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === product.id);
       if (existingItem) {
@@ -190,8 +195,9 @@ export default function CouncilPosPage() {
   };
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
-    return products.filter(product => 
+    const availableProducts = products.filter(p => p.stock > 0);
+    if (!searchTerm) return availableProducts;
+    return availableProducts.filter(product => 
         product.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [products, searchTerm]);

@@ -49,7 +49,7 @@ export default function ShopPage() {
         }
     });
     
-    const q = query(collection(db, "products"), where("stock", ">", 0));
+    const q = query(collection(db, "products"));
     const unsubProducts = onSnapshot(q, (snapshot) => {
       const productsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -75,6 +75,10 @@ export default function ShopPage() {
   }, [cart]);
 
   const addToCart = (product: Product) => {
+     if (product.stock === 0) {
+      toast({ title: "재고 소진", description: `'${product.name}' 상품의 재고가 모두 소진되었습니다.`, variant: 'destructive' });
+      return;
+    }
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === product.id);
       if (existingItem) {
@@ -177,7 +181,7 @@ export default function ShopPage() {
                   <div className="flex-grow">
                     <h3 className="font-bold text-lg">{product.name}</h3>
                     <p className="text-sm text-primary font-semibold">{product.price} 포인트</p>
-                    <p className="text-xs text-muted-foreground">남은 수량: {product.stock}개</p>
+                    <p className="text-xs text-muted-foreground">남은 수량: {product.stock > 0 ? `${product.stock}개` : '품절'}</p>
                   </div>
                   <div className="mt-4 flex items-center justify-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => removeFromCart(product.id)} disabled={!cart.some(item => item.id === product.id)}>
