@@ -79,22 +79,20 @@ const TetrisPage: React.FC = () => {
     const { toast } = useToast();
     const [user] = useAuthState(auth);
 
-    // --- Game Loop and State Management ---
-    const gameLoop = useCallback((time: number) => {
-        if (gameState !== 'playing') return;
-        
-        if (lastTimeRef.current === 0) lastTimeRef.current = time;
-        const deltaTime = time - lastTimeRef.current;
-        lastTimeRef.current = time;
-        dropCounterRef.current += deltaTime;
-        
-        if (dropCounterRef.current > dropIntervalRef.current) {
-            pieceDrop();
+    const isValidMove = (pieceMatrix: number[][], offsetX: number, offsetY: number): boolean => {
+        for (let y = 0; y < pieceMatrix.length; y++) {
+            for (let x = 0; x < pieceMatrix[y].length; x++) {
+                if (pieceMatrix[y][x] !== 0) {
+                    const newX = offsetX + x;
+                    const newY = offsetY + y;
+                    if (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && boardRef.current[newY]?.[newX] !== null)) {
+                        return false;
+                    }
+                }
+            }
         }
-        
-        draw();
-        gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [gameState, draw, pieceDrop]);
+        return true;
+    };
 
     // --- Drawing Functions ---
     const drawBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string, isGhost = false) => {
@@ -194,21 +192,6 @@ const TetrisPage: React.FC = () => {
 
     }, []);
 
-    const isValidMove = (pieceMatrix: number[][], offsetX: number, offsetY: number): boolean => {
-        for (let y = 0; y < pieceMatrix.length; y++) {
-            for (let x = 0; x < pieceMatrix[y].length; x++) {
-                if (pieceMatrix[y][x] !== 0) {
-                    const newX = offsetX + x;
-                    const newY = offsetY + y;
-                    if (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && boardRef.current[newY]?.[newX] !== null)) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    };
-
     const getFromBag = useCallback((): ShapeName => {
         if (pieceBagRef.current.length === 0) {
             pieceBagRef.current = (Object.keys(SHAPES) as ShapeName[]).sort(() => Math.random() - 0.5);
@@ -290,6 +273,22 @@ const TetrisPage: React.FC = () => {
         dropCounterRef.current = 0;
     }, [gameState, lockPieceAndContinue]);
     
+    const gameLoop = useCallback((time: number) => {
+        if (gameState !== 'playing') return;
+        
+        if (lastTimeRef.current === 0) lastTimeRef.current = time;
+        const deltaTime = time - lastTimeRef.current;
+        lastTimeRef.current = time;
+        dropCounterRef.current += deltaTime;
+        
+        if (dropCounterRef.current > dropIntervalRef.current) {
+            pieceDrop();
+        }
+        
+        draw();
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+    }, [gameState, draw, pieceDrop]);
+
     const startGame = useCallback(() => {
         boardRef.current = createEmptyBoard();
         pieceBagRef.current = [];
@@ -382,7 +381,7 @@ const TetrisPage: React.FC = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [gameState, playerMove, playerDrop, playerRotate, holdPiece]);
+    }, [gameState]);
 
     useEffect(() => {
         draw(); // Initial draw
@@ -505,3 +504,5 @@ const TetrisPage: React.FC = () => {
 };
 
 export default TetrisPage;
+
+    
