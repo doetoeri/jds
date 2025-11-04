@@ -14,13 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser, sendWarningMessage } from '@/lib/firebase';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser, sendWarningMessage, resetUserPassword } from '@/lib/firebase';
 import { collection, onSnapshot, query, Timestamp, collectionGroup, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil, Ban, CircleOff, AlertTriangle } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil, Ban, CircleOff, AlertTriangle, KeyRound } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -90,6 +90,7 @@ export default function AdminUsersPage() {
   const [isRestrictDialogOpen, setIsRestrictDialogOpen] = useState(false);
   const [isWarningDialogOpen, setIsWarningDialogOpen] = useState(false);
   const [isDailyEarningsDialogOpen, setIsDailyEarningsDialogOpen] = useState(false);
+  const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
   const [dailyEarnings, setDailyEarnings] = useState<DailyEarning[]>([]);
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -215,6 +216,11 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setWarningMessage('');
     setIsWarningDialogOpen(true);
+  };
+
+  const openPasswordResetDialog = (user: User) => {
+    setSelectedUser(user);
+    setIsPasswordResetDialogOpen(true);
   };
 
 
@@ -468,6 +474,28 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!selectedUser) return;
+    setIsProcessing(true);
+    try {
+      await resetUserPassword(selectedUser.id);
+      toast({
+        title: "전송 완료",
+        description: `${renderIdentifier(selectedUser)}님의 이메일로 비밀번호 재설정 링크를 보냈습니다.`,
+      });
+      setIsPasswordResetDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "오류",
+        description:
+          error.message || "비밀번호 재설정 이메일 전송 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
 
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
@@ -640,6 +668,9 @@ export default function AdminUsersPage() {
                       <Button variant="destructive" size="sm" onClick={() => openWarningDialog(user)} disabled={user.role === 'admin'}>
                         <AlertTriangle className="mr-1 h-3.5 w-3.5" /> 경고
                       </Button>
+                       <Button variant="secondary" size="sm" onClick={() => openPasswordResetDialog(user)}>
+                        <KeyRound className="mr-1 h-3.5 w-3.5" /> 비밀번호
+                       </Button>
                        <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(user)} disabled={user.role === 'admin'}>
                          <Trash2 className="h-4 w-4" />
                          <span className="sr-only">Delete User</span>
@@ -1080,6 +1111,25 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Password Reset Dialog */}
+      <AlertDialog open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>비밀번호를 초기화하시겠습니까?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      {selectedUser?.displayName} ({selectedUser?.studentId || selectedUser?.email}) 님의 이메일로 비밀번호 재설정 링크를 보냅니다.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isProcessing} onClick={() => setIsPasswordResetDialogOpen(false)}>취소</AlertDialogCancel>
+                  <AlertDialogAction onClick={handlePasswordReset} disabled={isProcessing}>
+                      {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                      재설정 링크 보내기
+                  </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete User Dialog */}
        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <AlertDialogContent>
@@ -1109,4 +1159,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-

@@ -295,6 +295,8 @@ export const resetUserPassword = async (userId: string) => {
         throw new Error('User email not found.');
     }
     
+    // This is the correct, secure way to handle password resets from the client.
+    // We cannot directly change a password to '123456' without the Admin SDK.
     await sendPasswordResetEmail(auth, userEmail);
 };
 
@@ -610,7 +612,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = items[i];
+      const item = cart[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
