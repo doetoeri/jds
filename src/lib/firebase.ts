@@ -231,10 +231,9 @@ export const signUp = async (
 export const signIn = async (studentIdOrEmail: string, password: string) => {
   try {
     let finalEmail = studentIdOrEmail;
-    const isEmail = studentIdOrEmail.includes('@');
-
+    
+    // If it's a 5-digit number, assume it's a student ID
     if (/^\d{5}$/.test(studentIdOrEmail)) {
-        // It's a 5-digit student ID
         const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail), where('role', '==', 'student'));
         const studentSnapshot = await getDocs(studentQuery);
 
@@ -242,18 +241,17 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
             throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
         }
         finalEmail = studentSnapshot.docs[0].data().email;
-    } else if (!isEmail) {
-        // It's not an email, could be 'admin' or special ID
-        if (studentIdOrEmail.toLowerCase() === 'admin') {
-            finalEmail = 'admin@jongdalsem.com';
+    } else if (studentIdOrEmail.toLowerCase() === 'admin') {
+        finalEmail = 'admin@jongdalsem.com';
+    } else if (studentIdOrEmail.indexOf('@') === -1) {
+        // It's not an email, not a student ID, maybe a special account ID
+        const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
+        const specialAccountSnapshot = await getDocs(specialAccountQuery);
+        if (!specialAccountSnapshot.empty) {
+          finalEmail = specialAccountSnapshot.docs[0].data().email;
         } else {
-            const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
-            const specialAccountSnapshot = await getDocs(specialAccountQuery);
-            if (!specialAccountSnapshot.empty) {
-                finalEmail = specialAccountSnapshot.docs[0].data().email;
-            }
-            // If still not found, we let signInWithEmailAndPassword handle it,
-            // as it might be a teacher's email without being explicitly checked here.
+          // If still not found, we pass the original string to signIn to let Firebase handle it
+          // This allows teacher login with email.
         }
     }
 
@@ -340,7 +338,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           transaction.get(friendRef),
           transaction.get(userDailyEarningRef),
           transaction.get(friendDailyEarningRef),
-          transaction.get(settingsRef),
+          transaction.get(settingsRef)
         ]);
         
         // --- 2. VALIDATION & LOGIC ---
@@ -348,7 +346,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
-        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const userData = userDoc.data();
         const friendData = friendDoc.data();
         const userStudentId = userData.studentId;
@@ -365,6 +362,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if (friendUsedMyId) {
           throw new Error("이 친구는 이미 당신의 학번을 사용했습니다. 서로 한 번만 사용할 수 있습니다.");
         }
+
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
 
         // --- 3. POINT CALCULATION & WRITES ---
         // For User
@@ -449,7 +448,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const [freshCodeDoc, userDoc, dailyEarningDoc, settingsDoc] = await Promise.all([
       transaction.get(codeRef),
       transaction.get(userRef),
-      transaction.get(dailyEarningRef),
+      transaction.get(dailyEarningDoc),
       transaction.get(settingsRef)
     ]);
 
@@ -1114,15 +1113,15 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
     await setDoc(settingsRef, { isMaintenanceMode: isMaintenance }, { merge: true });
 };
 
-export const setPointLimitStatus = async (isEnabled: boolean) => {
-    const settingsRef = doc(db, 'system_settings', 'main');
-    await setDoc(settingsRef, { isPointLimitEnabled: isEnabled }, { merge: true });
-};
-
 export const setShopStatus = async (isEnabled: boolean) => {
     const settingsRef = doc(db, 'system_settings', 'main');
     await setDoc(settingsRef, { isShopEnabled: isEnabled }, { merge: true });
 };
+
+export const setPointLimitStatus = async (isEnabled: boolean) => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    await setDoc(settingsRef, { isPointLimitEnabled: isEnabled }, { merge: true });
+}
 
 
 export const resetLeaderboard = async (leaderboardName: string) => {
@@ -1140,6 +1139,19 @@ export const resetLeaderboard = async (leaderboardName: string) => {
     snapshot.docs.forEach(doc => {
         batch.delete(doc.ref);
     });
+    
+    // Also reset the game state for The Button
+    if (leaderboardName === 'the-button') {
+        const gameRef = doc(db, 'games', 'the-button');
+        batch.set(gameRef, {
+            isFinished: false,
+            lastPressedBy: null,
+            lastPressedByDisplayName: null,
+            lastPresserAvatar: null,
+            timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000)
+        });
+    }
+    
     await batch.commit();
 };
 
@@ -1692,8 +1704,17 @@ export const pressTheButton = async (userId: string) => {
   return await runTransaction(db, async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
+    // If game doesn't exist, initialize it.
     if (!gameDoc.exists()) {
-      throw new Error("The Button 게임을 찾을 수 없습니다.");
+        const initialGameState = {
+            isFinished: false,
+            lastPressedBy: null,
+            lastPressedByDisplayName: null,
+            lastPresserAvatar: null,
+            timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000)
+        };
+        transaction.set(gameRef, initialGameState);
+        // We can let the first press logic continue after initializing.
     }
     
     const userDoc = await transaction.get(doc(db, 'users', userId));
@@ -1702,8 +1723,11 @@ export const pressTheButton = async (userId: string) => {
     }
     const userData = userDoc.data();
 
-    const gameData = gameDoc.data();
-    if (gameData.isFinished) {
+    // Re-fetch game doc in case it was just created
+    const freshGameDoc = await transaction.get(gameRef);
+    const gameData = freshGameDoc.data();
+
+    if (gameData?.isFinished) {
       throw new Error("이미 게임이 종료되었습니다.");
     }
     
@@ -1717,6 +1741,7 @@ export const pressTheButton = async (userId: string) => {
 };
 
 export const awardUpgradeWin = async (userId: string, level: number) => {
+    if (level <= 0) return { success: true, message: "0단계에서는 보상을 수확할 수 없습니다.", pointsToPiggy: 0 };
     // Points are awarded only when harvesting.
     const pointsToAdd = parseFloat((Math.pow(level, 1.5) * 0.4).toFixed(2));
     if (pointsToAdd <= 0) return { success: true, message: "포인트가 0보다 작아 지급되지 않았습니다.", pointsToPiggy: 0 };
@@ -1766,6 +1791,5 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
 
     return { success: true, message: `${pointsToAdd} 포인트를 획득했습니다!`, pointsToPiggy };
 };
-
 
 export { auth, db, storage };
