@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Gamepad2, Loader2, Award } from 'lucide-react';
+import { Gamepad2, Loader2, Award, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardBreakoutScore } from '@/lib/firebase';
@@ -25,6 +26,7 @@ export default function BreakoutPage() {
   
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [primaryColor, setPrimaryColor] = useState('18, 100%, 50%');
@@ -53,8 +55,11 @@ export default function BreakoutPage() {
     setGameState('playing');
     let currentScore = 0;
     setScore(currentScore);
+    let currentLives = 3;
+    setLives(currentLives);
 
-    let ball = { x: canvas.width / 2, y: canvas.height - 30, dx: 3, dy: -3, radius: 8 };
+    const initialBallX = canvas.width / 2 + (Math.random() - 0.5) * 80;
+    let ball = { x: initialBallX, y: canvas.height - 30, dx: 4, dy: -4, radius: 8 };
     let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
     const paddleSpeed = 7;
     
@@ -71,7 +76,8 @@ export default function BreakoutPage() {
     for (let c = 0; c < brickColumnCount; c++) {
       bricks[c] = [];
       for (let r = 0; r < brickRowCount; r++) {
-        bricks[c][r] = { x: 0, y: 0, status: 1 };
+        const status = Math.random() > 0.2 ? 1 : 0; // 80% chance of a brick appearing
+        bricks[c][r] = { x: 0, y: 0, status: status };
       }
     }
 
@@ -126,6 +132,12 @@ export default function BreakoutPage() {
                 }
             }
         }
+    };
+
+    const resetAfterLifeLost = () => {
+        const newBallX = canvas.width / 2 + (Math.random() - 0.5) * 80;
+        ball = { x: newBallX, y: canvas.height - 30, dx: 4 * (Math.random() > 0.5 ? 1 : -1), dy: -4, radius: 8 };
+        paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
     };
     
     const collisionDetection = () => {
@@ -197,8 +209,14 @@ export default function BreakoutPage() {
             if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
                 ball.dy = -ball.dy;
             } else {
-                endGame(false);
-                return;
+                currentLives--;
+                setLives(currentLives);
+                if (currentLives <= 0) {
+                    endGame(false);
+                    return;
+                } else {
+                    resetAfterLifeLost();
+                }
             }
         }
 
@@ -265,6 +283,12 @@ export default function BreakoutPage() {
                 
                 <div className="absolute top-4 left-4 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
                 SCORE: {score}
+                </div>
+
+                <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
+                    {Array.from({ length: lives }).map((_, i) => (
+                        <Heart key={i} className="h-6 w-6 text-red-500 fill-current" />
+                    ))}
                 </div>
                 
                 {gameState !== 'playing' && (
