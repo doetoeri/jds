@@ -1702,48 +1702,48 @@ export const pressTheButton = async (userId: string) => {
   const gameRef = doc(db, 'games', 'the-button');
   
   return await runTransaction(db, async (transaction) => {
+    // Perform all reads first
+    const userDoc = await transaction.get(doc(db, 'users', userId));
     const gameDoc = await transaction.get(gameRef);
 
-    // If game doesn't exist, initialize it.
-    if (!gameDoc.exists()) {
-        const initialGameState = {
-            isFinished: false,
-            lastPressedBy: null,
-            lastPressedByDisplayName: null,
-            lastPresserAvatar: null,
-            timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000)
-        };
-        transaction.set(gameRef, initialGameState);
-        // We can let the first press logic continue after initializing.
-    }
-    
-    const userDoc = await transaction.get(doc(db, 'users', userId));
     if (!userDoc.exists()) {
         throw new Error("사용자 정보를 찾을 수 없습니다.");
     }
-    const userData = userDoc.data();
 
-    // Re-fetch game doc in case it was just created
-    const freshGameDoc = await transaction.get(gameRef);
-    const gameData = freshGameDoc.data();
-
-    if (gameData?.isFinished) {
+    if (gameDoc.exists() && gameDoc.data()?.isFinished) {
       throw new Error("이미 게임이 종료되었습니다.");
     }
     
-    transaction.update(gameRef, {
+    // Now, perform writes
+    const userData = userDoc.data();
+    
+    const updateData = {
       lastPressedBy: userId,
       lastPressedByDisplayName: userData.displayName,
       lastPresserAvatar: userData.avatarGradient,
-      timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000) // 30 minutes
-    });
+      timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000), // 30 minutes
+      isFinished: false,
+    };
+    
+    transaction.set(gameRef, updateData, { merge: true });
   });
 };
 
 export const awardUpgradeWin = async (userId: string, level: number) => {
     if (level <= 0) return { success: true, message: "0단계에서는 보상을 수확할 수 없습니다.", pointsToPiggy: 0 };
-    // Points are awarded only when harvesting.
-    const pointsToAdd = parseFloat((Math.pow(level, 1.5) * 0.4).toFixed(2));
+    
+    const levels = [
+        { level: 0, chance: 90, reward: 0.4 }, { level: 1, chance: 80, reward: 1.13 },
+        { level: 2, chance: 70, reward: 2.08 }, { level: 3, chance: 60, reward: 3.2 },
+        { level: 4, chance: 50, reward: 4.47 }, { level: 5, chance: 40, reward: 5.88 },
+        { level: 6, chance: 30, reward: 7.4 }, { level: 7, chance: 20, reward: 9.02 },
+        { level: 8, chance: 10, reward: 10.73 }, { level: 9, chance: 5, reward: 12.65 },
+        { level: 10, chance: 0, reward: 15.0 }, 
+    ];
+
+    const rewardInfo = levels.find(l => l.level === level -1);
+    const pointsToAdd = rewardInfo ? rewardInfo.reward : 0;
+    
     if (pointsToAdd <= 0) return { success: true, message: "포인트가 0보다 작아 지급되지 않았습니다.", pointsToPiggy: 0 };
     
     let pointsToPiggy = 0;
@@ -1789,7 +1789,7 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
         });
     });
 
-    return { success: true, message: `${pointsToAdd} 포인트를 획득했습니다!`, pointsToPiggy };
+    return { success: true, message: `${pointsToAdd.toFixed(2)} 포인트를 획득했습니다!`, pointsToPiggy };
 };
 
 export { auth, db, storage };
