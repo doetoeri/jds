@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -230,9 +231,10 @@ export const signUp = async (
 export const signIn = async (studentIdOrEmail: string, password: string) => {
   try {
     let finalEmail = studentIdOrEmail;
-    
-    // If it's a 5-digit number, assume it's a student ID
+    const isEmail = studentIdOrEmail.includes('@');
+
     if (/^\d{5}$/.test(studentIdOrEmail)) {
+        // It's a 5-digit student ID
         const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail), where('role', '==', 'student'));
         const studentSnapshot = await getDocs(studentQuery);
 
@@ -240,17 +242,18 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
             throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
         }
         finalEmail = studentSnapshot.docs[0].data().email;
-    } else if (studentIdOrEmail.toLowerCase() === 'admin') {
-        finalEmail = 'admin@jongdalsem.com';
-    } else if (studentIdOrEmail.indexOf('@') === -1) {
-        // It's not an email, not a student ID, maybe a special account ID
-        const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
-        const specialAccountSnapshot = await getDocs(specialAccountQuery);
-        if (!specialAccountSnapshot.empty) {
-          finalEmail = specialAccountSnapshot.docs[0].data().email;
+    } else if (!isEmail) {
+        // It's not an email, could be 'admin' or special ID
+        if (studentIdOrEmail.toLowerCase() === 'admin') {
+            finalEmail = 'admin@jongdalsem.com';
         } else {
-          // If still not found, we pass the original string to signIn to let Firebase handle it
-          // This allows teacher login with email.
+            const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
+            const specialAccountSnapshot = await getDocs(specialAccountQuery);
+            if (!specialAccountSnapshot.empty) {
+                finalEmail = specialAccountSnapshot.docs[0].data().email;
+            }
+            // If still not found, we let signInWithEmailAndPassword handle it,
+            // as it might be a teacher's email without being explicitly checked here.
         }
     }
 
@@ -1635,21 +1638,24 @@ export const migrateUserData = async (oldUid: string, newUid: string) => {
         if (!newUserDoc.exists()) throw new Error(`새로운 UID(${newUid})에 해당하는 사용자를 찾을 수 없습니다.`);
         
         const oldUserData = oldUserDoc.data();
-        const newUserBackup = { ...newUserDoc.data(), newUid: newUid };
+        const newUserBackup = { ...newUserDoc.data() }; 
 
-        const archiveRef = doc(db, "archived_users", oldUid);
-        transaction.set(archiveRef, { ...oldUserData, archivedAt: Timestamp.now(), originalUid: oldUid });
+        // This is a simplified migration. It does NOT migrate subcollections.
+        const dataToMigrate = { ...oldUserData };
+        transaction.set(newUserRef, dataToMigrate, { merge: true }); 
+        
+        transaction.set(migrationLogRef, { 
+            from: oldUid, 
+            to: newUid, 
+            date: Timestamp.now(), 
+            reverted: false, 
+            oldUserDataBackup: oldUserData,
+            newUserOriginalDataBackup: newUserBackup,
+        });
 
-        const newEmail = newUserDoc.data().email;
-        const newCreatedAt = newUserDoc.data().createdAt;
-        const dataToMigrate = { ...oldUserData, email: newEmail, createdAt: newCreatedAt };
-        transaction.set(newUserRef, dataToMigrate);
-
-        // This operation is simplified and does NOT migrate subcollections.
-        // It's a trade-off for client-side transactional safety.
-
-        transaction.delete(oldUserRef); // Delete the old user doc instead of just archiving
-        transaction.set(migrationLogRef, { from: oldUid, to: newUid, date: Timestamp.now(), reverted: false, newUserBackup });
+        // It is safer not to delete the old user doc automatically.
+        // The admin can do it manually after confirming the migration.
+        // transaction.delete(oldUserRef);
 
         return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
     });
@@ -1662,26 +1668,20 @@ export const revertUserDataMigration = async () => {
         if (!logDoc.exists() || logDoc.data().reverted) {
             throw new Error("되돌릴 이전 기록이 없거나 이미 되돌려졌습니다.");
         }
-        const { from, to, newUserBackup } = logDoc.data();
+        const { from, to, oldUserDataBackup, newUserOriginalDataBackup } = logDoc.data();
         
         const oldUserRef = doc(db, "users", from);
         const newUserRef = doc(db, "users", to);
-        const archiveRef = doc(db, "archived_users", from);
+        
+        // Restore old user's data
+        transaction.set(oldUserRef, oldUserDataBackup);
         
         // Restore new user's original state
-        transaction.set(newUserRef, newUserBackup);
+        transaction.set(newUserRef, newUserOriginalDataBackup);
         
-        // Restore old user from archive
-        const archiveDoc = await getDoc(archiveRef); // Read outside transaction
-        if (archiveDoc.exists()) {
-            const oldData = archiveDoc.data();
-            const { archivedAt, originalUid, ...restoredOldData } = oldData;
-            transaction.set(oldUserRef, restoredOldData);
-            transaction.delete(archiveRef); // Clean up archive
-        }
-
         // Mark as reverted
         transaction.update(migrationLogRef, { reverted: true });
+
         return { success: true, message: "마지막 데이터 이전이 되돌려졌습니다." };
     });
 };
@@ -1711,9 +1711,51 @@ export const pressTheButton = async (userId: string) => {
       lastPressedBy: userId,
       lastPressedByDisplayName: userData.displayName,
       lastPresserAvatar: userData.avatarGradient,
-      timerEndsAt: Timestamp.fromMillis(Date.now() + 60 * 1000)
+      timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000) // 30 minutes
     });
   });
 };
+
+export const awardUpgradeWin = async (userId: string, level: number) => {
+    const pointsToAdd = Math.round(Math.pow(level, 2) * 0.5); // Example balancing: 1, 2, 4, 8, 12, 18, ...
+    if (pointsToAdd <= 0) return { success: true, message: "강화 성공!", pointsToPiggy: 0 };
+    
+    let pointsToPiggy = 0;
+     await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
+
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
+        const userData = userDoc.data();
+        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+        let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
+        pointsToPiggy = pointsToAdd - pointsForLak;
+
+        if (pointsForLak > 0) {
+            transaction.update(userRef, { lak: increment(pointsForLak) });
+            if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+                date: Timestamp.now(), description: `종달새 강화 ${level}단계 성공!`, amount: pointsForLak, type: 'credit'
+            });
+        }
+        if (pointsToPiggy > 0) {
+            transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
+            transaction.set(doc(collection(userRef, 'transactions')), {
+                date: Timestamp.now(), description: `포인트 적립: 종달새 강화`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+            });
+        }
+    });
+
+    return { success: true, message: `${pointsToAdd} 포인트를 획득했습니다!`, pointsToPiggy };
+};
+
 
 export { auth, db, storage };
