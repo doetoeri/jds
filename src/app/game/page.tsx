@@ -1,10 +1,9 @@
 
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio } from 'lucide-react';
+import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -34,6 +33,13 @@ const games = [
     description: "타이머가 0이 될 때까지 버튼을 지켜낸 최후의 1인이 되어보세요.",
     href: "/game/the-button",
     icon: Radio,
+    status: "active"
+  },
+  {
+    title: "종달새 강화하기",
+    description: "운에 모든 것을 맡기고 종달새의 등급을 높여보세요!",
+    href: "/game/upgrade",
+    icon: TrendingUp,
     status: "active"
   },
 ]
