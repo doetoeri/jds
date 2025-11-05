@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, TrendingUp, Zap, Sparkles } from 'lucide-react';
+import { Loader2, TrendingUp, Zap, Sparkles, HandCoins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardUpgradeWin } from '@/lib/firebase';
@@ -12,26 +12,43 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
 const levels = [
-  { level: 1, chance: 90, cost: 0, reward: 1 },
-  { level: 2, chance: 80, cost: 1, reward: 2 },
-  { level: 3, chance: 70, cost: 2, reward: 3 },
-  { level: 4, chance: 60, cost: 3, reward: 4 },
-  { level: 5, chance: 50, cost: 4, reward: 5 },
-  { level: 6, chance: 40, cost: 5, reward: 6 },
-  { level: 7, chance: 30, cost: 6, reward: 8 },
-  { level: 8, chance: 20, cost: 8, reward: 10 },
-  { level: 9, chance: 10, cost: 10, reward: 15 },
-  { level: 10, chance: 5, cost: 15, reward: 20 },
+  // level 0 (initial)
+  { level: 0, chance: 90, reward: 0.4 }, 
+  // level 1
+  { level: 1, chance: 80, reward: 1.13 },
+  // level 2
+  { level: 2, chance: 70, reward: 2.08 },
+  // level 3
+  { level: 3, chance: 60, reward: 3.2 },
+  // level 4
+  { level: 4, chance: 50, reward: 4.47 },
+  // level 5
+  { level: 5, chance: 40, reward: 5.88 },
+  // level 6
+  { level: 6, chance: 30, reward: 7.4 },
+  // level 7
+  { level: 7, chance: 20, reward: 9.02 },
+  // level 8
+  { level: 8, chance: 10, reward: 10.73 },
+  // level 9
+  { level: 9, chance: 5, reward: 12.65 },
+  // level 10 (max)
+  { level: 10, chance: 0, reward: 15.0 }, 
 ];
+
 
 export default function UpgradeGamePage() {
   const [currentLevel, setCurrentLevel] = useState(0);
-  const [isUpgrading, setIsUpgrading] = useState(false);
-  const [upgradeResult, setUpgradeResult] = useState<'success' | 'failure' | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastAction, setLastAction] = useState<'upgrade' | 'harvest' | null>(null);
   
   const { toast } = useToast();
   const [user] = useAuthState(auth);
   const router = useRouter();
+  
+  const resetGame = () => {
+      setCurrentLevel(0);
+  }
 
   const handleUpgrade = async () => {
     if (!user) {
@@ -41,35 +58,50 @@ export default function UpgradeGamePage() {
     const currentUpgradeInfo = levels[currentLevel];
     if (!currentUpgradeInfo) return; // Max level
 
-    setIsUpgrading(true);
-    setUpgradeResult(null);
+    setIsProcessing(true);
+    setLastAction('upgrade');
 
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate upgrade time
 
     const isSuccess = Math.random() * 100 < currentUpgradeInfo.chance;
 
     if (isSuccess) {
-      setUpgradeResult('success');
       const nextLevel = currentLevel + 1;
       setCurrentLevel(nextLevel);
-      try {
-        const result = await awardUpgradeWin(user.uid, nextLevel);
-        if (result.success) {
-            toast({
-                title: `강화 성공! (+${result.pointsToPiggy > 0 ? `${currentUpgradeInfo.reward}P 저금통` : `${currentUpgradeInfo.reward}P`})`,
-                description: `${nextLevel}단계 종달새가 되었습니다!`,
-            });
-        }
-      } catch (e: any) {
-        toast({ title: '오류', description: e.message, variant: 'destructive'});
-      }
+       toast({
+          title: `강화 성공!`,
+          description: `${nextLevel}단계 종달새가 되었습니다!`,
+      });
     } else {
-      setUpgradeResult('failure');
-      setCurrentLevel(0);
+      resetGame();
       toast({ title: '강화 실패...', description: '종달새가 0단계로 초기화되었습니다.', variant: 'destructive'});
     }
     
-    setIsUpgrading(false);
+    setIsProcessing(false);
+  };
+  
+  const handleHarvest = async () => {
+      if (!user || currentLevel === 0) return;
+      setIsProcessing(true);
+      setLastAction('harvest');
+
+      try {
+        const result = await awardUpgradeWin(user.uid, currentLevel);
+        if (result.success) {
+            toast({
+                title: `수확 완료! (+${result.pointsToPiggy > 0 ? `${levels[currentLevel -1].reward.toFixed(2)}P 저금통` : `${levels[currentLevel - 1].reward.toFixed(2)}P`})`,
+                description: `${currentLevel}단계 보상을 획득했습니다.`,
+            });
+            if (result.pointsToPiggy > 0) {
+              router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+            }
+        }
+      } catch (e: any) {
+        toast({ title: '오류', description: e.message, variant: 'destructive'});
+      } finally {
+        resetGame();
+        setIsProcessing(false);
+      }
   };
   
   const canUpgrade = currentLevel < levels.length;
@@ -82,7 +114,7 @@ export default function UpgradeGamePage() {
         종달새 강화하기
       </h1>
       <p className="text-muted-foreground max-w-prose">
-        운에 모든 것을 맡겨보세요! 강화에 성공하여 종달새의 등급을 올리고, 더 많은 포인트를 획득하세요. 실패 시 0단계로 돌아갑니다.
+        운에 모든 것을 맡겨보세요! 강화에 성공하여 종달새의 등급을 올리고, '수확'하여 더 많은 포인트를 획득하세요. 실패 시 0단계로 돌아갑니다.
       </p>
 
       <Card className="w-full max-w-sm">
@@ -111,19 +143,29 @@ export default function UpgradeGamePage() {
             <div className="text-sm w-full">
               <div className="flex justify-between">
                 <span>성공 확률: <strong className="text-primary">{upgradeInfo.chance}%</strong></span>
-                <span>성공 보상: <strong className="text-primary">{upgradeInfo.reward}P</strong></span>
+                <span>성공 보상: <strong className="text-primary">{upgradeInfo.reward.toFixed(2)} P</strong></span>
               </div>
             </div>
           )}
           {canUpgrade ? (
-            <Button className="w-full font-bold" onClick={handleUpgrade} disabled={isUpgrading}>
-              {isUpgrading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Zap className="mr-2 h-4 w-4" />
-              )}
-              {currentLevel + 1}단계 강화 시도
-            </Button>
+            <div className="w-full grid grid-cols-2 gap-2">
+                <Button className="w-full font-bold" onClick={handleHarvest} disabled={isProcessing || currentLevel === 0} variant="secondary">
+                  {isProcessing && lastAction === 'harvest' ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <HandCoins className="mr-2 h-4 w-4" />
+                  )}
+                  수확하고 끝내기
+                </Button>
+                <Button className="w-full font-bold" onClick={handleUpgrade} disabled={isProcessing}>
+                  {isProcessing && lastAction === 'upgrade' ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="mr-2 h-4 w-4" />
+                  )}
+                  {currentLevel + 1}단계 강화 시도
+                </Button>
+            </div>
           ) : (
             <div className="text-center font-bold text-amber-500 flex flex-col items-center">
                 <Sparkles className="h-8 w-8 mb-2"/>

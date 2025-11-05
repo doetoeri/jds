@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1717,8 +1716,9 @@ export const pressTheButton = async (userId: string) => {
 };
 
 export const awardUpgradeWin = async (userId: string, level: number) => {
-    const pointsToAdd = Math.round(Math.pow(level, 2) * 0.5); // Example balancing: 1, 2, 4, 8, 12, 18, ...
-    if (pointsToAdd <= 0) return { success: true, message: "강화 성공!", pointsToPiggy: 0 };
+    // Points are awarded only when harvesting.
+    const pointsToAdd = parseFloat((Math.pow(level, 1.5) * 0.4).toFixed(2));
+    if (pointsToAdd <= 0) return { success: true, message: "포인트가 0보다 작아 지급되지 않았습니다.", pointsToPiggy: 0 };
     
     let pointsToPiggy = 0;
      await runTransaction(db, async (transaction) => {
@@ -1743,7 +1743,7 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
             transaction.update(userRef, { lak: increment(pointsForLak) });
             if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             transaction.set(doc(collection(userRef, 'transactions')), {
-                date: Timestamp.now(), description: `종달새 강화 ${level}단계 성공!`, amount: pointsForLak, type: 'credit'
+                date: Timestamp.now(), description: `종달새 강화 ${level}단계 수확!`, amount: pointsForLak, type: 'credit'
             });
         }
         if (pointsToPiggy > 0) {
@@ -1752,6 +1752,15 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
                 date: Timestamp.now(), description: `포인트 적립: 종달새 강화`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
             });
         }
+        const logRef = doc(collection(db, 'games/upgrade-game/logs'));
+        transaction.set(logRef, {
+            userId,
+            studentId: userData.studentId,
+            displayName: userData.displayName,
+            level,
+            pointsAwarded: pointsToAdd,
+            timestamp: Timestamp.now()
+        });
     });
 
     return { success: true, message: `${pointsToAdd} 포인트를 획득했습니다!`, pointsToPiggy };
