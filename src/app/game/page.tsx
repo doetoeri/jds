@@ -4,7 +4,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle } from 'lucide-react';
+import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -27,6 +27,13 @@ const games = [
     description: "블록을 쌓아 줄을 없애는 중독성 강한 퍼즐 게임입니다.",
     href: "/game/tetris",
     icon: Puzzle,
+    status: "active"
+  },
+   {
+    title: "더 버튼",
+    description: "타이머가 0이 될 때까지 버튼을 지켜낸 최후의 1인이 되어보세요.",
+    href: "/game/the-button",
+    icon: Radio,
     status: "active"
   },
 ]

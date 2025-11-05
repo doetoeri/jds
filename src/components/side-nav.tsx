@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -36,7 +37,8 @@ import {
   UserPlus,
   Server,
   AlertTriangle,
-  Wrench, // New Icon
+  Wrench,
+  Radio, // New Icon for The Button
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -73,6 +75,7 @@ const adminLinks = [
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
   { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
+  { name: '더 버튼 관리', href: '/admin/the-button', icon: Radio },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '키오스크 기록', href: '/admin/kiosk-logs', icon: Server },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },

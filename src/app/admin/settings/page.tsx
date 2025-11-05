@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AnnouncementPoster } from "@/components/announcement-poster";
@@ -6,9 +7,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent, Landmark, Minus, Plus, Equal, AlertTriangle } from "lucide-react";
+import { HardHat, Eraser, Loader2, Swords, Users, Coins, ShoppingCart, Power, Crown, Settings, Trash2, Percent, Landmark, Minus, Plus, Equal, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, setMaintenanceMode, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount, bulkUpdateProductPrices } from "@/lib/firebase";
+import { db, setMaintenanceMode, resetLeaderboard, setShopStatus, updateUserMemo, updateBoothReasons, setGlobalDiscount, bulkUpdateProductPrices, setPointLimitStatus } from "@/lib/firebase";
 import { collection, doc, onSnapshot, query, where, collectionGroup, getDocs, getCountFromServer, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -30,6 +31,7 @@ import { Input } from "@/components/ui/input";
 export default function AdminSettingsPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
   const [isShopEnabled, setIsShopEnabled] = useState<boolean>(true);
+  const [isPointLimitEnabled, setIsPointLimitEnabled] = useState<boolean>(true);
   const [isTogglingSystem, setIsTogglingSystem] = useState(true);
   
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
@@ -60,10 +62,12 @@ export default function AdminSettingsPage() {
             setIsMaintenanceMode(data?.isMaintenanceMode ?? false);
             setIsShopEnabled(data?.isShopEnabled ?? true);
             setGlobalDiscount(data?.globalDiscount ?? 0);
+            setIsPointLimitEnabled(data?.isPointLimitEnabled ?? true);
         } else {
             setIsMaintenanceMode(false);
             setIsShopEnabled(true);
             setGlobalDiscount(0);
+            setIsPointLimitEnabled(true);
         }
         setIsTogglingSystem(false);
     });
@@ -112,7 +116,7 @@ export default function AdminSettingsPage() {
     };
   }, []);
 
-  const handleSystemToggle = async (type: 'maintenance' | 'shop', checked: boolean) => {
+  const handleSystemToggle = async (type: 'maintenance' | 'shop' | 'pointLimit', checked: boolean) => {
       setIsTogglingSystem(true);
       try {
           if (type === 'maintenance') {
@@ -126,6 +130,12 @@ export default function AdminSettingsPage() {
               toast({
                   title: "성공",
                   description: `상점 온라인 구매가 ${checked ? '활성화' : '비활성화'}되었습니다.`
+              });
+          } else if (type === 'pointLimit') {
+              await setPointLimitStatus(checked);
+              toast({
+                  title: "성공",
+                  description: `포인트 제한 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`
               });
           }
       } catch (error) {
@@ -269,6 +279,18 @@ export default function AdminSettingsPage() {
                         disabled={isTogglingSystem}
                     />
                 </div>
+                 <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                        <Label htmlFor="point-limit" className="text-base">포인트 제한 활성화</Label>
+                        <p className="text-sm text-muted-foreground">일일 획득(15P) 및 보유(25P) 한도를 설정합니다. 비활성화 시 모든 포인트가 즉시 지급됩니다.</p>
+                    </div>
+                    <Switch
+                        id="point-limit"
+                        checked={isPointLimitEnabled}
+                        onCheckedChange={(checked) => handleSystemToggle('pointLimit', checked)}
+                        disabled={isTogglingSystem}
+                    />
+                </div>
                  <div className="rounded-lg border p-3 shadow-sm space-y-2">
                     <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
@@ -318,6 +340,7 @@ export default function AdminSettingsPage() {
                                   <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
                                   <SelectItem value="breakout">벽돌깨기</SelectItem>
                                   <SelectItem value="tetris">테트리스</SelectItem>
+                                  <SelectItem value="the-button">더 버튼</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>

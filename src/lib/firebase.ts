@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -230,23 +231,26 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
   try {
     let finalEmail = studentIdOrEmail;
     
-    if (studentIdOrEmail.indexOf('@') === -1) {
-        if (/^\d{5}$/.test(studentIdOrEmail)) {
-            const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail), where('role', '==', 'student'));
-            const studentSnapshot = await getDocs(studentQuery);
-            if (!studentSnapshot.empty) {
-                finalEmail = studentSnapshot.docs[0].data().email;
-            } else {
-                 throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
-            }
-        } else if (studentIdOrEmail.toLowerCase() === 'admin') {
-            finalEmail = 'admin@jongdalsem.com';
+    // If it's a 5-digit number, assume it's a student ID
+    if (/^\d{5}$/.test(studentIdOrEmail)) {
+        const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail), where('role', '==', 'student'));
+        const studentSnapshot = await getDocs(studentQuery);
+
+        if (studentSnapshot.empty) {
+            throw new Error('해당 학번으로 가입된 학생을 찾을 수 없습니다.');
+        }
+        finalEmail = studentSnapshot.docs[0].data().email;
+    } else if (studentIdOrEmail.toLowerCase() === 'admin') {
+        finalEmail = 'admin@jongdalsem.com';
+    } else if (studentIdOrEmail.indexOf('@') === -1) {
+        // It's not an email, not a student ID, maybe a special account ID
+        const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
+        const specialAccountSnapshot = await getDocs(specialAccountQuery);
+        if (!specialAccountSnapshot.empty) {
+          finalEmail = specialAccountSnapshot.docs[0].data().email;
         } else {
-            const specialAccountQuery = query(collection(db, 'users'), where('studentId', '==', studentIdOrEmail));
-            const specialAccountSnapshot = await getDocs(specialAccountQuery);
-            if (!specialAccountSnapshot.empty) {
-                finalEmail = specialAccountSnapshot.docs[0].data().email;
-            }
+          // If still not found, we pass the original string to signIn to let Firebase handle it
+          // This allows teacher login with email.
         }
     }
 
@@ -326,12 +330,14 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         const today = new Date().toISOString().split('T')[0];
         const userDailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
         const friendDailyEarningRef = doc(db, `users/${friendUid}/daily_earnings`, today);
+        const settingsRef = doc(db, 'system_settings', 'main');
 
-        const [userDoc, friendDoc, userDailyEarningDoc, friendDailyEarningDoc] = await Promise.all([
+        const [userDoc, friendDoc, userDailyEarningDoc, friendDailyEarningDoc, settingsDoc] = await Promise.all([
           transaction.get(userRef),
           transaction.get(friendRef),
           transaction.get(userDailyEarningRef),
           transaction.get(friendDailyEarningRef),
+          transaction.get(settingsRef),
         ]);
         
         // --- 2. VALIDATION & LOGIC ---
@@ -339,6 +345,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
           throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const userData = userDoc.data();
         const friendData = friendDoc.data();
         const userStudentId = userData.studentId;
@@ -359,13 +366,13 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         // --- 3. POINT CALCULATION & WRITES ---
         // For User
         const userTodayEarned = userDailyEarningDoc.exists() ? userDailyEarningDoc.data().totalEarned : 0;
-        let userPointsToDistribute = Math.min(invitePoints, Math.max(0, DAILY_POINT_LIMIT - userTodayEarned));
-        let userPointsForLak = Math.min(userPointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+        let userPointsToDistribute = isPointLimitEnabled ? Math.min(invitePoints, Math.max(0, DAILY_POINT_LIMIT - userTodayEarned)) : invitePoints;
+        let userPointsForLak = isPointLimitEnabled ? Math.min(userPointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : userPointsToDistribute;
         pointsToUserPiggy = invitePoints - userPointsForLak;
         
         if (userPointsForLak > 0) {
             transaction.update(userRef, { lak: increment(userPointsForLak) });
-            transaction.set(userDailyEarningRef, { totalEarned: increment(userPointsForLak), id: today }, { merge: true });
+            if (isPointLimitEnabled) transaction.set(userDailyEarningRef, { totalEarned: increment(userPointsForLak), id: today }, { merge: true });
             transaction.set(doc(collection(userRef, 'transactions')), {
               date: Timestamp.now(), description: `친구 초대 보상 (초대한 친구: ${friendStudentId})`, amount: userPointsForLak, type: 'credit',
             });
@@ -380,13 +387,13 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
         // For Friend
         const friendTodayEarned = friendDailyEarningDoc.exists() ? friendDailyEarningDoc.data().totalEarned : 0;
-        let friendPointsToDistribute = Math.min(invitePoints, Math.max(0, DAILY_POINT_LIMIT - friendTodayEarned));
-        let friendPointsForLak = Math.min(friendPointsToDistribute, Math.max(0, POINT_LIMIT - friendData.lak));
+        let friendPointsToDistribute = isPointLimitEnabled ? Math.min(invitePoints, Math.max(0, DAILY_POINT_LIMIT - friendTodayEarned)) : invitePoints;
+        let friendPointsForLak = isPointLimitEnabled ? Math.min(friendPointsToDistribute, Math.max(0, POINT_LIMIT - friendData.lak)) : friendPointsToDistribute;
         let pointsToFriendPiggy = invitePoints - friendPointsForLak;
 
         if(friendPointsForLak > 0) {
             transaction.update(friendRef, { lak: increment(friendPointsForLak) });
-            transaction.set(friendDailyEarningRef, { totalEarned: increment(friendPointsForLak), id: today }, { merge: true });
+            if (isPointLimitEnabled) transaction.set(friendDailyEarningRef, { totalEarned: increment(friendPointsForLak), id: today }, { merge: true });
             transaction.set(doc(collection(friendRef, 'transactions')), {
               date: Timestamp.now(), description: `친구 초대 보상 (초대받은 친구: ${userStudentId})`, amount: friendPointsForLak, type: 'credit',
             });
@@ -434,17 +441,20 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const userRef = doc(db, 'users', userId);
     const today = new Date().toISOString().split('T')[0];
     const dailyEarningRef = doc(db, `users/${userRef.id}/daily_earnings`, today);
+    const settingsRef = doc(db, 'system_settings', 'main');
     
-    const [freshCodeDoc, userDoc, dailyEarningDoc] = await Promise.all([
+    const [freshCodeDoc, userDoc, dailyEarningDoc, settingsDoc] = await Promise.all([
       transaction.get(codeRef),
       transaction.get(userRef),
       transaction.get(dailyEarningRef),
+      transaction.get(settingsRef)
     ]);
 
     // --- 2. VALIDATION & LOGIC ---
     if (!userDoc.exists()) throw new Error("존재하지 않는 사용자입니다.");
     if (!freshCodeDoc.exists()) throw new Error("코드를 찾을 수 없습니다.");
-
+    
+    const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
     const userData = userDoc.data();
     userLakBefore = userData.lak || 0;
     const userStudentId = userData.studentId;
@@ -453,8 +463,8 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const isExempt = freshCodeData.type === '온라인 특수코드';
 
     const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-    let pointsToDistribute = isExempt ? freshCodeData.value : Math.min(freshCodeData.value, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-    let pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+    let pointsToDistribute = (isExempt || !isPointLimitEnabled) ? freshCodeData.value : Math.min(freshCodeData.value, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
+    let pointsForLak = (isExempt || !isPointLimitEnabled) ? pointsToDistribute : Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
     pointsToPiggy = freshCodeData.value - pointsForLak;
 
     switch (freshCodeData.type) {
@@ -482,7 +492,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 사용 (파트너: ${partnerStudentId})`, amount: pointsForLak, type: 'credit'});
-              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -491,14 +501,14 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
             // Partner points
             const partnerTodayEarned = partnerDailyEarningDoc.exists() ? partnerDailyEarningDoc.data().totalEarned : 0;
-            const partnerPointsToDistribute = isExempt ? freshCodeData.value : Math.min(freshCodeData.value, Math.max(0, DAILY_POINT_LIMIT - partnerTodayEarned));
-            const partnerPointsForLak = Math.min(partnerPointsToDistribute, Math.max(0, POINT_LIMIT - partnerData.lak));
+            const partnerPointsToDistribute = (isExempt || !isPointLimitEnabled) ? freshCodeData.value : Math.min(freshCodeData.value, Math.max(0, DAILY_POINT_LIMIT - partnerTodayEarned));
+            const partnerPointsForLak = (isExempt || !isPointLimitEnabled) ? partnerPointsToDistribute : Math.min(partnerPointsToDistribute, Math.max(0, POINT_LIMIT - partnerData.lak));
             const partnerPointsForPiggyBank = freshCodeData.value - partnerPointsForLak;
             
             if (partnerPointsForLak > 0) {
               transaction.update(partnerRef, { lak: increment(partnerPointsForLak) });
               transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 파트너 보상 (사용자: ${userStudentId})`, amount: partnerPointsForLak, type: 'credit'});
-              if (!isExempt) transaction.set(partnerDailyEarningRef, { totalEarned: increment(partnerPointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(partnerDailyEarningRef, { totalEarned: increment(partnerPointsToDistribute), id: today }, { merge: true });
             }
             if(partnerPointsForPiggyBank > 0) {
               transaction.update(partnerRef, { piggyBank: increment(partnerPointsForPiggyBank) });
@@ -516,7 +526,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
-              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -534,7 +544,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
-              if (!isExempt) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
             }
              if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -605,7 +615,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = items[i];
+      const item = cart[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
@@ -891,14 +901,18 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       const senderRef = doc(db, 'users', senderUid);
       const today = new Date().toISOString().split('T')[0];
       const dailyEarningRef = doc(db, `users/${senderUid}/daily_earnings`, today);
+      const settingsRef = doc(db, 'system_settings', 'main');
 
-      const [senderDoc, dailyEarningDoc] = await Promise.all([
+      const [senderDoc, dailyEarningDoc, settingsDoc] = await Promise.all([
         transaction.get(senderRef),
-        transaction.get(dailyEarningRef)
+        transaction.get(dailyEarningRef),
+        transaction.get(settingsRef)
       ]);
 
       // 2. Validation
       if (!senderDoc.exists()) throw new Error('보내는 사람의 정보를 찾을 수 없습니다.');
+      
+      const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
       const senderData = senderDoc.data();
       const senderStudentId = senderData.studentId;
       if (senderStudentId === receiverIdentifier) throw new Error('자기 자신에게는 편지를 보낼 수 없습니다.');
@@ -914,13 +928,13 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       // 3. Writes
       const pointsToAdd = 1;
       const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-      let pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-      let pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - senderData.lak));
+      let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+      let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - senderData.lak)) : pointsToDistribute;
       pointsToPiggy = pointsToAdd - pointsForLak;
       
       if(pointsForLak > 0) {
           transaction.update(senderRef, { lak: increment(pointsForLak) });
-          transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+          if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
           transaction.set(doc(collection(senderRef, 'transactions')), {
               date: Timestamp.now(), description: '편지 쓰기 보상', amount: pointsForLak, type: 'credit',
           });
@@ -1011,22 +1025,25 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         const today = new Date().toISOString().split('T')[0];
         const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
         const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
         
         if (!leaderboardDoc.exists() || time < leaderboardDoc.data().score) {
             transaction.set(leaderboardRef, {
                 score: time, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now(),
             }, { merge: true });
         }
-
+        
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const pointsToAdd = 3;
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-        const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userDoc.data().lak));
+        let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userDoc.data().lak)) : pointsToDistribute;
         pointsToPiggy = pointsToAdd - pointsForLak;
 
         if (pointsForLak > 0) {
             transaction.update(userRef, { lak: increment(pointsForLak) });
-            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             transaction.set(doc(collection(userRef, 'transactions')), {
               date: Timestamp.now(), description: `지뢰찾기 (${difficulty}) 승리 보상`, amount: pointsForLak, type: 'credit',
             });
@@ -1052,6 +1069,8 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
         const today = new Date().toISOString().split('T')[0];
         const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
         const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
 
         const userData = userDoc.data();
         const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
@@ -1059,16 +1078,17 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
             score: increment(score), displayName: userData.displayName, studentId: userData.studentId, avatarGradient: userData.avatarGradient, lastUpdated: Timestamp.now()
         }, { merge: true });
         
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const pointsToAdd = Math.floor(score / 10);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-            const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-            const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+            let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+            let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
             pointsToPiggy = pointsToAdd - pointsForLak;
 
             if (pointsForLak > 0) {
                 transaction.update(userRef, { lak: increment(pointsForLak) });
-                transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
                 transaction.set(doc(collection(userRef, 'transactions')), {
                   date: Timestamp.now(), description: `벽돌깨기 점수 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
                 });
@@ -1091,6 +1111,11 @@ export const setMaintenanceMode = async (isMaintenance: boolean) => {
     await setDoc(settingsRef, { isMaintenanceMode: isMaintenance }, { merge: true });
 };
 
+export const setPointLimitStatus = async (isEnabled: boolean) => {
+    const settingsRef = doc(db, 'system_settings', 'main');
+    await setDoc(settingsRef, { isPointLimitEnabled: isEnabled }, { merge: true });
+};
+
 export const setShopStatus = async (isEnabled: boolean) => {
     const settingsRef = doc(db, 'system_settings', 'main');
     await setDoc(settingsRef, { isShopEnabled: isEnabled }, { merge: true });
@@ -1102,6 +1127,7 @@ export const resetLeaderboard = async (leaderboardName: string) => {
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
         'tetris': 'leaderboards/tetris/users',
+        'the-button': 'games/the-button/winners'
     };
     const collectionPath = pathMap[leaderboardName];
     if (!collectionPath) throw new Error("유효하지 않은 리더보드입니다.");
@@ -1202,6 +1228,10 @@ export const givePointsToMultipleStudentsAtBooth = async (
 ) => {
   const result = { successCount: 0, failCount: 0, errors: [] as string[], totalPiggyPoints: 0 };
   
+  const settingsRef = doc(db, 'system_settings', 'main');
+  const settingsDoc = await getDoc(settingsRef);
+  const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
+
   for (const studentId of studentIds) {
     let pointsToPiggy = 0;
     try {
@@ -1222,13 +1252,13 @@ export const givePointsToMultipleStudentsAtBooth = async (
         
         const studentData = freshStudentDoc.data();
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        let pointsToDistribute = Math.min(value, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-        let pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak));
+        let pointsToDistribute = isPointLimitEnabled ? Math.min(value, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : value;
+        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak)) : pointsToDistribute;
         pointsToPiggy = value - pointsForLak;
 
         if (pointsForLak > 0) {
             transaction.update(studentRef, { lak: increment(pointsForLak) });
-            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             transaction.set(doc(collection(studentRef, 'transactions')), {
               date: Timestamp.now(), description: `부스 참여: ${reason}`, amount: pointsForLak, type: 'credit',
             });
@@ -1264,6 +1294,10 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
   if (!gameInfo) {
     throw new Error('유효하지 않은 리더보드 이름입니다.');
   }
+  
+  const settingsRef = doc(db, 'system_settings', 'main');
+  const settingsDoc = await getDoc(settingsRef);
+  const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
 
   const { path, order } = gameInfo;
   const rewards = [10, 7, 5, 3, 1]; // Points for 1st to 5th
@@ -1287,7 +1321,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
                 if(!userDoc.exists()) throw new Error("Ranker user not found");
                 
                 const userData = userDoc.data();
-                const pointsForLak = Math.min(rewardAmount, Math.max(0, POINT_LIMIT - userData.lak));
+                const pointsForLak = isPointLimitEnabled ? Math.min(rewardAmount, Math.max(0, POINT_LIMIT - userData.lak)) : rewardAmount;
                 const pointsForPiggyBank = rewardAmount - pointsForLak;
 
                 if (pointsForLak > 0) {
@@ -1327,19 +1361,22 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         const dailyEarningDoc = await transaction.get(dailyEarningRef);
         const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
 
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const userData = userDoc.data();
 
         const pointsToAdd = Math.floor(score / 100);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-            const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-            const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+            let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+            let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
             pointsToPiggy = pointsToAdd - pointsForLak;
 
             if (pointsForLak > 0) {
                 transaction.update(userRef, { lak: increment(pointsForLak) });
-                transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
                 transaction.set(doc(collection(userRef, 'transactions')), {
                     date: Timestamp.now(), description: `테트리스 플레이 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
                 });
@@ -1426,6 +1463,8 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     const today = new Date().toISOString().split('T')[0];
     const dailyEarningRef = doc(db, `users/${userRef.id}/daily_earnings`, today);
     const dailyEarningDoc = await transaction.get(dailyEarningRef);
+    const settingsRef = doc(db, 'system_settings', 'main');
+    const settingsDoc = await transaction.get(settingsRef);
     
     if (checkSuspiciousContent(poemContent)) {
         createReport(userDoc.id, "성의 없는 삼행시 작성", { content: poemContent, timestamp: Timestamp.now() });
@@ -1434,17 +1473,18 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     const usageRef = doc(collection(db, 'kiosk_usage'));
     transaction.set(usageRef, { studentId, activity: 'poem', date: today, timestamp: Timestamp.now() });
     transaction.set(doc(collection(db, 'poems')), { studentId, content: poemContent, createdAt: Timestamp.now() });
-
+    
+    const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
     const pointsToAdd = 5;
     const studentData = userDoc.data();
     const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-    const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-    const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak));
+    let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+    let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak)) : pointsToDistribute;
     pointsToPiggy = pointsToAdd - pointsForLak;
 
     if (pointsForLak > 0) {
         transaction.update(userRef, { lak: increment(pointsForLak) });
-        transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+        if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
         transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '삼행시 참여 보상', amount: pointsForLak, type: 'credit' });
     }
     if (pointsToPiggy > 0) {
@@ -1469,6 +1509,8 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         const today = new Date().toISOString().split('T')[0];
         const dailyEarningRef = doc(db, `users/${senderRef.id}/daily_earnings`, today);
         const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
 
         if (checkSuspiciousContent(content)) {
             createReport(senderDoc.id, "성의 없는 비밀 편지 작성", { content: content, receiver: receiverIdentifier, timestamp: Timestamp.now() });
@@ -1479,24 +1521,23 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         transaction.set(doc(collection(db, 'letters')), {
           senderStudentId: '익명', receiverStudentId: receiverIdentifier, content, isOffline: true, status: 'pending', createdAt: Timestamp.now(),
         });
-
+        
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const pointsToAdd = 5;
         const studentData = senderDoc.data();
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned));
-        const pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak));
+        let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak)) : pointsToDistribute;
         pointsToPiggy = pointsToAdd - pointsForLak;
 
         if (pointsForLak > 0) {
-            const userRef = senderRef; // Define userRef here for clarity
-            transaction.update(userRef, { lak: increment(pointsForLak) });
-            transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
-            transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsForLak, type: 'credit' });
+            transaction.update(senderRef, { lak: increment(pointsForLak) });
+            if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+            transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsForLak, type: 'credit' });
         }
         if (pointsToPiggy > 0) {
-            const userRef = senderRef; // Define userRef here for clarity
-            transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-            transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
+            transaction.update(senderRef, { piggyBank: increment(pointsToPiggy) });
+            transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '포인트 적립: 비밀 편지', amount: pointsToPiggy, type: 'credit', isPiggyBank: true });
         }
     });
     return { success: true, pointsToPiggy };
@@ -1575,90 +1616,39 @@ export const markWarningAsSeen = async (userId: string) => {
     });
 };
 
-const copySubcollection = async (
-    transaction: any,
-    fromPath: string,
-    toPath: string
-) => {
-    const fromCollectionRef = collection(db, fromPath);
-    const snapshot = await getDocs(query(fromCollectionRef));
-    for (const docSnapshot of snapshot.docs) {
-        const toDocRef = doc(db, toPath, docSnapshot.id);
-        transaction.set(toDocRef, docSnapshot.data());
-    }
-};
-
-const deleteSubcollection = async (
-    transaction: any,
-    collectionPath: string
-) => {
-    const collectionRef = collection(db, collectionPath);
-    const snapshot = await getDocs(query(collectionRef));
-    for (const docSnapshot of snapshot.docs) {
-        transaction.delete(docSnapshot.ref);
-    }
-};
-
 export const migrateUserData = async (oldUid: string, newUid: string) => {
     if (!oldUid || !newUid || oldUid === newUid) {
         throw new Error("유효한 기존 UID와 새로운 UID를 모두 입력해야 합니다.");
     }
-    const oldUserRef = doc(db, "users", oldUid);
-    const newUserRef = doc(db, "users", newUid);
-    const migrationLogRef = doc(db, "system_settings", "last_migration");
 
     return runTransaction(db, async (transaction) => {
-        // 1. READS
+        const oldUserRef = doc(db, "users", oldUid);
+        const newUserRef = doc(db, "users", newUid);
+        const migrationLogRef = doc(db, "system_settings", "last_migration");
+        
         const [oldUserDoc, newUserDoc] = await Promise.all([
             transaction.get(oldUserRef),
             transaction.get(newUserRef),
         ]);
 
-        if (!oldUserDoc.exists()) {
-            throw new Error(`기존 UID(${oldUid})에 해당하는 사용자를 찾을 수 없습니다.`);
-        }
-        if (!newUserDoc.exists()) {
-            throw new Error(`새로운 UID(${newUid})에 해당하는 사용자를 찾을 수 없습니다.`);
-        }
+        if (!oldUserDoc.exists()) throw new Error(`기존 UID(${oldUid})에 해당하는 사용자를 찾을 수 없습니다.`);
+        if (!newUserDoc.exists()) throw new Error(`새로운 UID(${newUid})에 해당하는 사용자를 찾을 수 없습니다.`);
         
         const oldUserData = oldUserDoc.data();
-        // 2. BACKUP & ARCHIVE
-        // Archive the old user's data by renaming the document
+        const newUserBackup = { ...newUserDoc.data(), newUid: newUid };
+
         const archiveRef = doc(db, "archived_users", oldUid);
         transaction.set(archiveRef, { ...oldUserData, archivedAt: Timestamp.now(), originalUid: oldUid });
 
-        // Backup new user's data before overwriting
-        const newUserBackup = { ...newUserDoc.data(), newUid: newUid };
-
-        // 3. DATA MIGRATION (Main Document)
-        // Overwrite new user's doc with old user's data, keeping new email/auth info
         const newEmail = newUserDoc.data().email;
         const newCreatedAt = newUserDoc.data().createdAt;
-        const dataToMigrate = {
-            ...oldUserData,
-            email: newEmail,
-            createdAt: newCreatedAt,
-        };
+        const dataToMigrate = { ...oldUserData, email: newEmail, createdAt: newCreatedAt };
         transaction.set(newUserRef, dataToMigrate);
 
-        // 4. SUBCOLLECTIONS MIGRATION
-        // Note: This is read-heavy. In a real scenario, this would be a backend job.
-        // For this context, we do it directly but it can be slow/costly.
-        await copySubcollection(transaction, `users/${oldUid}/transactions`, `users/${newUid}/transactions`);
-        await copySubcollection(transaction, `users/${oldUid}/daily_earnings`, `users/${newUid}/daily_earnings`);
-        await deleteSubcollection(transaction, `users/${oldUid}/transactions`);
-        await deleteSubcollection(transaction, `users/${oldUid}/daily_earnings`);
+        // This operation is simplified and does NOT migrate subcollections.
+        // It's a trade-off for client-side transactional safety.
 
-        // 5. UPDATE REFERENCES (This is a simplified example)
-        // Community Posts
-        const postsQuery = query(collection(db, "community_posts"), where("authorId", "==", oldUid));
-        const postsSnapshot = await getDocs(postsQuery);
-        postsSnapshot.forEach(postDoc => {
-            transaction.update(postDoc.ref, { authorId: newUid });
-        });
-
-        // 6. Finalize old user and log
-        transaction.set(oldUserRef, { status: 'archived', newUid: newUid, migrationDate: Timestamp.now() });
+        transaction.delete(oldUserRef); // Delete the old user doc instead of just archiving
         transaction.set(migrationLogRef, { from: oldUid, to: newUid, date: Timestamp.now(), reverted: false, newUserBackup });
 
         return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
@@ -1682,11 +1672,12 @@ export const revertUserDataMigration = async () => {
         transaction.set(newUserRef, newUserBackup);
         
         // Restore old user from archive
-        const archiveDoc = await transaction.get(archiveRef);
+        const archiveDoc = await getDoc(archiveRef); // Read outside transaction
         if (archiveDoc.exists()) {
             const oldData = archiveDoc.data();
             const { archivedAt, originalUid, ...restoredOldData } = oldData;
             transaction.set(oldUserRef, restoredOldData);
+            transaction.delete(archiveRef); // Clean up archive
         }
 
         // Mark as reverted
@@ -1695,5 +1686,34 @@ export const revertUserDataMigration = async () => {
     });
 };
 
+export const pressTheButton = async (userId: string) => {
+  const gameRef = doc(db, 'games', 'the-button');
+  
+  return await runTransaction(db, async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists()) {
+      throw new Error("The Button 게임을 찾을 수 없습니다.");
+    }
+    
+    const userDoc = await transaction.get(doc(db, 'users', userId));
+    if (!userDoc.exists()) {
+        throw new Error("사용자 정보를 찾을 수 없습니다.");
+    }
+    const userData = userDoc.data();
+
+    const gameData = gameDoc.data();
+    if (gameData.isFinished) {
+      throw new Error("이미 게임이 종료되었습니다.");
+    }
+    
+    transaction.update(gameRef, {
+      lastPressedBy: userId,
+      lastPressedByDisplayName: userData.displayName,
+      lastPresserAvatar: userData.avatarGradient,
+      timerEndsAt: Timestamp.fromMillis(Date.now() + 60 * 1000)
+    });
+  });
+};
 
 export { auth, db, storage };
