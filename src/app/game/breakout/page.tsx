@@ -19,32 +19,46 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 
+const BRICK_COLUMNS = 10;
+const PADDLE_HEIGHT_RATIO = 0.02;
+const BALL_RADIUS_RATIO = 0.01;
+const BRICK_SPAWN_INTERVAL = 30000; // 30 seconds
+
 export default function BreakoutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
-  const keysPressed = useRef<{[key: string]: boolean}>({});
-  
+  const keysPressed = useRef<{ [key: string]: boolean }>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
-  const [level, setLevel] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [primaryColor, setPrimaryColor] = useState('18, 100%, 50%');
-  const [primaryHue, setPrimaryHue] = useState('18');
 
   const { toast } = useToast();
   const [user] = useAuthState(auth);
   const router = useRouter();
-  
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const style = getComputedStyle(document.documentElement);
-      const colorValue = style.getPropertyValue('--primary').trim().replace(/ /g, ', ');
-      setPrimaryColor(colorValue);
-      setPrimaryHue(style.getPropertyValue('--primary-h')?.trim() || '18');
-    }
-  }, [gameState]);
+      setPrimaryColor(style.getPropertyValue('--primary').trim().replace(/ /g, ', '));
 
+      const handleResize = () => {
+        if (containerRef.current) {
+          const { clientWidth } = containerRef.current;
+          const width = Math.min(clientWidth, 1000); 
+          setCanvasSize({ width, height: width * 0.75 });
+        }
+      };
+      
+      window.addEventListener('resize', handleResize);
+      handleResize(); // Initial size set
+
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   const startGame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -53,220 +67,196 @@ export default function BreakoutPage() {
     if (!context) return;
 
     setGameState('playing');
-    let currentScore = 0;
-    setScore(currentScore);
-    let currentLevel = 1;
-    setLevel(currentLevel);
+    setScore(0);
 
-    const initialBallX = canvas.width / 2 + (Math.random() - 0.5) * 80;
-    let ball = { x: initialBallX, y: canvas.height - 30, dx: 3, dy: -3, radius: 8 };
-    let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
-    const paddleSpeed = 7;
+    const BALL_RADIUS = canvas.height * BALL_RADIUS_RATIO;
+    const PADDLE_HEIGHT = canvas.height * PADDLE_HEIGHT_RATIO;
     
-    let bricks: { x: number, y: number, status: number }[][] = [];
-    const createBricks = (level: number) => {
-        const brickRowCount = 7 + Math.floor(level / 2);
-        const brickColumnCount = 8;
-        const brickWidth = 70;
-        const brickHeight = 20;
-        const brickPadding = 10;
-        const brickOffsetTop = 30;
-        const brickOffsetLeft = (canvas.width - (brickColumnCount * (brickWidth + brickPadding) - brickPadding)) / 2;
-        const brickRadius = 4;
+    let ball = {
+      x: canvas.width / 2,
+      y: canvas.height - PADDLE_HEIGHT - BALL_RADIUS,
+      dx: (canvas.width / 150) * (Math.random() > 0.5 ? 1 : -1),
+      dy: -(canvas.height / 120),
+      radius: BALL_RADIUS
+    };
+
+    let paddle = {
+      width: canvas.width / 8,
+      height: PADDLE_HEIGHT,
+      x: (canvas.width - (canvas.width / 8)) / 2,
+      radius: 8,
+    };
+    
+    const paddleSpeed = canvas.width / 100;
+
+    let bricks: { x: number; y: number; width: number; height: number; status: number, color: string }[] = [];
+    const BRICK_ROW_COUNT = 5;
+    
+    const generateBrickRow = (rowIndex = 0) => {
+        const newBricks = [];
+        const BRICK_HEIGHT = canvas.height / 25;
+        const BRICK_PADDING = canvas.width / 100;
+        const BRICK_WIDTH = (canvas.width - BRICK_PADDING * (BRICK_COLUMNS + 1)) / BRICK_COLUMNS;
+
+        for (let c = 0; c < BRICK_COLUMNS; c++) {
+            const brickX = BRICK_PADDING + c * (BRICK_WIDTH + BRICK_PADDING);
+            const brickY = BRICK_PADDING + rowIndex * (BRICK_HEIGHT + BRICK_PADDING);
+            
+            const hue = (c / BRICK_COLUMNS) * 360;
+            const color = `hsl(${hue}, 70%, 60%)`;
+
+            newBricks.push({
+                x: brickX,
+                y: brickY,
+                width: BRICK_WIDTH,
+                height: BRICK_HEIGHT,
+                status: 1,
+                color,
+            });
+        }
+        return newBricks;
+    }
+    
+    const moveBricksDown = () => {
+        const BRICK_HEIGHT = canvas.height / 25;
+        const BRICK_PADDING = canvas.width / 100;
+        bricks.forEach(brick => {
+            brick.y += BRICK_HEIGHT + BRICK_PADDING;
+        });
+        const newRow = generateBrickRow();
+        bricks = [...newRow, ...bricks];
         
-        bricks = [];
-        for (let c = 0; c < brickColumnCount; c++) {
-          bricks[c] = [];
-          for (let r = 0; r < brickRowCount; r++) {
-            const status = Math.random() > 0.1 ? 1 : 0; 
-            bricks[c][r] = { x: 0, y: 0, status: status };
+        // Check if any brick is past the paddle
+        if(bricks.some(b => b.y + b.height > canvas.height - paddle.height * 2)) {
+             endGame(score);
+        }
+    }
+
+    for (let i = 0; i < BRICK_ROW_COUNT; i++) {
+        bricks.push(...generateBrickRow(i));
+    }
+    
+    const brickSpawnTimer = setInterval(moveBricksDown, BRICK_SPAWN_INTERVAL);
+
+    const endGame = async (finalScore: number) => {
+      if (gameState === 'over') return;
+      setGameState('over');
+      if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+      clearInterval(brickSpawnTimer);
+
+      if (user && finalScore > 0) {
+        setIsSubmitting(true);
+        try {
+          const result = await awardBreakoutScore(user.uid, finalScore);
+          if (result.success) {
+            toast({ title: '점수 기록!', description: result.message });
+            if (result.pointsToPiggy > 0) {
+              router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+            }
           }
-        }
-    }
-    
-    createBricks(currentLevel);
-
-    const drawBall = () => {
-        const gradient = context.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.radius);
-        gradient.addColorStop(0, `hsla(${primaryColor}, 0.8)`);
-        gradient.addColorStop(1, `hsl(${primaryColor})`);
-
-        context.beginPath();
-        context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        context.fillStyle = gradient;
-        context.fill();
-        context.closePath();
-    };
-    
-    function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
-    }
-
-
-    const drawPaddle = () => {
-        context.fillStyle = `hsl(${primaryColor})`;
-        roundRect(context, paddle.x, canvas.height - paddle.height, paddle.width, paddle.height, paddle.radius);
-        context.fill();
-    };
-    
-    const drawBricks = () => {
-        const brickRowCount = bricks[0]?.length || 0;
-        const brickColumnCount = bricks.length || 0;
-        const brickWidth = 70;
-        const brickHeight = 20;
-        const brickPadding = 10;
-        const brickOffsetTop = 30;
-        const brickOffsetLeft = (canvas.width - (brickColumnCount * (brickWidth + brickPadding) - brickPadding)) / 2;
-
-        for (let c = 0; c < brickColumnCount; c++) {
-            for (let r = 0; r < brickRowCount; r++) {
-                if (bricks[c][r].status === 1) {
-                    const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
-                    const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-                    bricks[c][r].x = brickX;
-                    bricks[c][r].y = brickY;
-                    
-                    const saturation = 100 - (r * 5);
-                    const lightness = 60 + (r * 4);
-                    context.fillStyle = `hsl(${primaryHue}, ${saturation}%, ${lightness}%)`;
-                    
-                    roundRect(context, brickX, brickY, brickWidth, brickHeight, 4);
-                    context.fill();
-                }
-            }
-        }
-    };
-
-    const resetAfterLifeLost = () => {
-        currentScore = Math.max(0, currentScore - 10);
-        setScore(currentScore);
-        const newBallX = canvas.width / 2 + (Math.random() - 0.5) * 80;
-        ball = { x: newBallX, y: canvas.height - 30, dx: 3 * (Math.random() > 0.5 ? 1 : -1), dy: -3, radius: 8 };
-        paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
-    };
-    
-    const collisionDetection = () => {
-        let allBricksBroken = true;
-        for (let c = 0; c < bricks.length; c++) {
-            for (let r = 0; r < bricks[c].length; r++) {
-                const b = bricks[c][r];
-                if (b.status === 1) {
-                    allBricksBroken = false;
-                    if (ball.x > b.x && ball.x < b.x + 70 && ball.y > b.y && ball.y < b.y + 20) {
-                        ball.dy = -ball.dy;
-                        b.status = 0;
-                        currentScore += 1;
-                        setScore(currentScore);
-                    }
-                }
-            }
-        }
-        if(allBricksBroken) {
-            currentLevel++;
-            setLevel(currentLevel);
-            createBricks(currentLevel);
-            ball.dy += 0.2; // Speed up slightly each level
-            ball.dx += (ball.dx > 0 ? 0.2 : -0.2);
-            toast({ title: `레벨 ${currentLevel} 시작!`, description: '벽돌이 다시 생성되었습니다.'});
-        }
-    };
-
-    const endGame = async () => {
-        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-        setGameState('over');
-
-        if (user && currentScore > 0) {
-            setIsSubmitting(true);
-            const result = await awardBreakoutScore(user.uid, currentScore);
-            if (result.success) {
-                toast({ title: "점수 기록!", description: result.message });
-                 if (result.pointsToPiggy > 0) {
-                  router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-                }
-            } else {
-                toast({ title: "오류", description: result.message, variant: 'destructive' });
-            }
+        } catch(e) {
+             toast({ title: '오류', description: '점수 기록에 실패했습니다.', variant: 'destructive'});
+        } finally {
             setIsSubmitting(false);
         }
+      }
     };
 
     const draw = () => {
-        if (!canvasRef.current) return;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        drawBricks();
-        drawBall();
-        drawPaddle();
-        collisionDetection();
+      if (!canvasRef.current) return;
+      context.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (keysPressed.current.ArrowRight) {
-            paddle.x = Math.min(paddle.x + paddleSpeed, canvas.width - paddle.width);
-        } else if (keysPressed.current.ArrowLeft) {
-            paddle.x = Math.max(paddle.x - paddleSpeed, 0);
+      // Draw bricks
+      bricks.forEach(brick => {
+        if (brick.status === 1) {
+          context.fillStyle = brick.color;
+          context.fillRect(brick.x, brick.y, brick.width, brick.height);
         }
+      });
 
-        if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
-            ball.dx = -ball.dx;
-        }
-        if (ball.y + ball.dy < ball.radius) {
+      // Draw ball
+      context.beginPath();
+      context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      context.fillStyle = `hsl(${primaryColor})`;
+      context.fill();
+      context.closePath();
+
+      // Draw paddle
+      context.fillStyle = `hsl(${primaryColor})`;
+      context.fillRect(paddle.x, canvas.height - paddle.height, paddle.width, paddle.height);
+      
+      // Collision detection - Bricks
+      bricks.forEach(brick => {
+        if (brick.status === 1) {
+          if (
+            ball.x > brick.x &&
+            ball.x < brick.x + brick.width &&
+            ball.y > brick.y &&
+            ball.y < brick.y + brick.height
+          ) {
             ball.dy = -ball.dy;
-        } else if (ball.y + ball.dy > canvas.height - ball.radius) {
-            if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
-                ball.dy = -ball.dy;
-            } else {
-                resetAfterLifeLost();
-            }
+            brick.status = 0;
+            setScore(prev => prev + 1);
+          }
         }
+      });
 
-        ball.x += ball.dx;
-        ball.y += ball.dy;
+      // Collision detection - Walls
+      if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+        ball.dx = -ball.dx;
+      }
+      if (ball.y + ball.dy < ball.radius) {
+        ball.dy = -ball.dy;
+      } else if (ball.y + ball.dy > canvas.height - ball.radius) {
+        if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+          ball.dy = -ball.dy;
+        } else {
+          endGame(score);
+          return;
+        }
+      }
 
-        gameLoopRef.current = requestAnimationFrame(draw);
+      // Movement
+      if (keysPressed.current.ArrowRight) {
+        paddle.x = Math.min(paddle.x + paddleSpeed, canvas.width - paddle.width);
+      } else if (keysPressed.current.ArrowLeft) {
+        paddle.x = Math.max(paddle.x - paddleSpeed, 0);
+      }
+
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      gameLoopRef.current = requestAnimationFrame(draw);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-        if (!canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const relativeX = e.clientX - rect.left;
-        if (relativeX > 0 && relativeX < canvas.width) {
-            paddle.x = relativeX - paddle.width / 2;
-        }
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const relativeX = e.clientX - rect.left;
+      if (relativeX > 0 && relativeX < canvas.width) {
+        paddle.x = Math.max(0, Math.min(relativeX - paddle.width / 2, canvas.width - paddle.width));
+      }
     };
     
-    const handleKeyDown = (e: KeyboardEvent) => {
-        keysPressed.current[e.key] = true;
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-        keysPressed.current[e.key] = false;
-    };
+    const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.key] = true; };
+    const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.key] = false; };
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);
 
-
     draw();
 
     return () => {
-        if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("keydown", handleKeyDown);
-        document.removeEventListener("keyup", handleKeyUp);
+      if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+      clearInterval(brickSpawnTimer);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
     };
+  }, [user, toast, primaryColor, router, canvasSize, score, gameState]);
 
-  }, [user, toast, primaryColor, primaryHue, router]);
-  
-   useEffect(() => {
+  useEffect(() => {
     let cleanup: (() => void) | undefined;
     if (gameState === 'playing') {
       cleanup = startGame();
@@ -276,41 +266,36 @@ export default function BreakoutPage() {
     };
   }, [gameState, startGame]);
 
-
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 w-full">
       <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
         <Gamepad2 className="mr-2 h-6 w-6" />
         벽돌깨기
       </h1>
-      <Card>
-        <CardContent className="p-2">
-            <div className="relative rounded-lg overflow-hidden">
-                <canvas ref={canvasRef} width="800" height="600" className="bg-background" />
-                
-                <div className="absolute top-4 left-4 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
+      <div ref={containerRef} className="w-full">
+        <Card className="w-full aspect-[4/3] max-w-[1000px] mx-auto">
+          <CardContent className="p-0 h-full">
+            <div className="relative rounded-lg overflow-hidden h-full">
+              <canvas ref={canvasRef} width={canvasSize.width} height={canvasSize.height} className="bg-background w-full h-full" />
+              <div className="absolute top-4 left-4 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
                 SCORE: {score}
-                </div>
-
-                <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
-                    Level: {level}
-                </div>
-                
-                {gameState !== 'playing' && (
+              </div>
+              {gameState !== 'playing' && (
                 <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
-                    {gameState === 'start' && (
+                  {gameState === 'start' && (
                     <>
-                        <h2 className="text-4xl font-bold font-headline mb-4">벽돌깨기</h2>
-                        <Button size="lg" onClick={() => setGameState('playing')}>
-                            게임 시작
-                        </Button>
+                      <h2 className="text-4xl font-bold font-headline mb-4">벽돌깨기</h2>
+                      <Button size="lg" onClick={() => setGameState('playing')}>
+                        게임 시작
+                      </Button>
                     </>
-                    )}
+                  )}
                 </div>
-                )}
+              )}
             </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
       <p className="text-sm text-muted-foreground">마우스 또는 키보드 방향키로 패들을 조종하세요.</p>
       
        <AlertDialog open={gameState === 'over' && !isSubmitting}>
