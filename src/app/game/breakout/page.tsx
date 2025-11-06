@@ -20,9 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 
 const BRICK_COLUMNS = 10;
-const PADDLE_HEIGHT_RATIO = 0.02;
-const BALL_RADIUS_RATIO = 0.01;
-const BRICK_SPAWN_INTERVAL = 30000; // 30 seconds
+const BRICK_ROW_COUNT = 5;
 
 export default function BreakoutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,81 +66,42 @@ export default function BreakoutPage() {
 
     setGameState('playing');
     setScore(0);
-
-    const BALL_RADIUS = canvas.height * BALL_RADIUS_RATIO;
-    const PADDLE_HEIGHT = canvas.height * PADDLE_HEIGHT_RATIO;
     
     let ball = {
       x: canvas.width / 2,
-      y: canvas.height - PADDLE_HEIGHT - BALL_RADIUS,
-      dx: (canvas.width / 150) * (Math.random() > 0.5 ? 1 : -1),
+      y: canvas.height - 30,
+      dx: (canvas.width / 150),
       dy: -(canvas.height / 120),
-      radius: BALL_RADIUS
+      radius: canvas.width / 100,
     };
 
     let paddle = {
+      height: canvas.height / 60,
       width: canvas.width / 8,
-      height: PADDLE_HEIGHT,
-      x: (canvas.width - (canvas.width / 8)) / 2,
-      radius: 8,
+      x: (canvas.width - (canvas.width / 8)) / 2
     };
-    
+
     const paddleSpeed = canvas.width / 100;
 
     let bricks: { x: number; y: number; width: number; height: number; status: number, color: string }[] = [];
-    const BRICK_ROW_COUNT = 5;
+    const BRICK_HEIGHT = canvas.height / 25;
+    const BRICK_PADDING = canvas.width / 100;
+    const BRICK_WIDTH = (canvas.width - BRICK_PADDING * (BRICK_COLUMNS + 1)) / BRICK_COLUMNS;
     
-    const generateBrickRow = (rowIndex = 0) => {
-        const newBricks = [];
-        const BRICK_HEIGHT = canvas.height / 25;
-        const BRICK_PADDING = canvas.width / 100;
-        const BRICK_WIDTH = (canvas.width - BRICK_PADDING * (BRICK_COLUMNS + 1)) / BRICK_COLUMNS;
-
-        for (let c = 0; c < BRICK_COLUMNS; c++) {
-            const brickX = BRICK_PADDING + c * (BRICK_WIDTH + BRICK_PADDING);
-            const brickY = BRICK_PADDING + rowIndex * (BRICK_HEIGHT + BRICK_PADDING);
-            
-            const hue = (c / BRICK_COLUMNS) * 360;
-            const color = `hsl(${hue}, 70%, 60%)`;
-
-            newBricks.push({
-                x: brickX,
-                y: brickY,
-                width: BRICK_WIDTH,
-                height: BRICK_HEIGHT,
-                status: 1,
-                color,
-            });
-        }
-        return newBricks;
+    for (let c = 0; c < BRICK_COLUMNS; c++) {
+      for (let r = 0; r < BRICK_ROW_COUNT; r++) {
+        const brickX = BRICK_PADDING + c * (BRICK_WIDTH + BRICK_PADDING);
+        const brickY = BRICK_PADDING + r * (BRICK_HEIGHT + BRICK_PADDING);
+        const hue = (c / BRICK_COLUMNS) * 360;
+        const color = `hsl(${hue}, 70%, 60%)`;
+        bricks.push({ x: brickX, y: brickY, width: BRICK_WIDTH, height: BRICK_HEIGHT, status: 1, color });
+      }
     }
-    
-    const moveBricksDown = () => {
-        const BRICK_HEIGHT = canvas.height / 25;
-        const BRICK_PADDING = canvas.width / 100;
-        bricks.forEach(brick => {
-            brick.y += BRICK_HEIGHT + BRICK_PADDING;
-        });
-        const newRow = generateBrickRow();
-        bricks = [...newRow, ...bricks];
-        
-        // Check if any brick is past the paddle
-        if(bricks.some(b => b.y + b.height > canvas.height - paddle.height * 2)) {
-             endGame(score);
-        }
-    }
-
-    for (let i = 0; i < BRICK_ROW_COUNT; i++) {
-        bricks.push(...generateBrickRow(i));
-    }
-    
-    const brickSpawnTimer = setInterval(moveBricksDown, BRICK_SPAWN_INTERVAL);
 
     const endGame = async (finalScore: number) => {
       if (gameState === 'over') return;
       setGameState('over');
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-      clearInterval(brickSpawnTimer);
 
       if (user && finalScore > 0) {
         setIsSubmitting(true);
@@ -215,6 +174,12 @@ export default function BreakoutPage() {
           return;
         }
       }
+      
+      const allBricksCleared = bricks.every(b => b.status === 0);
+      if(allBricksCleared) {
+          endGame(score);
+          return;
+      }
 
       // Movement
       if (keysPressed.current.ArrowRight) {
@@ -249,7 +214,6 @@ export default function BreakoutPage() {
 
     return () => {
       if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-      clearInterval(brickSpawnTimer);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
@@ -324,3 +288,5 @@ export default function BreakoutPage() {
     </div>
   );
 }
+
+    
