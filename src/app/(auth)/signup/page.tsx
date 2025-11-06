@@ -12,15 +12,9 @@ import { signUp } from '@/lib/firebase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
-import type { Metadata } from 'next';
 
 type UserType = 'student' | 'teacher';
 type Step = 1 | 2 | 3;
-
-export const metadata: Metadata = {
-    title: '회원가입',
-    description: '종달샘 허브에 가입하여 다양한 활동에 참여하고 포인트를 적립해보세요.',
-};
 
 const FADE_IN_VARIANTS = {
   hidden: { opacity: 0, filter: 'blur(16px)', scale: 1.1 },

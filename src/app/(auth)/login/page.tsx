@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { Metadata } from 'next';
 
 const FADE_IN_VARIANTS = {
   hidden: { opacity: 0, filter: 'blur(16px)', scale: 1.1 },
@@ -38,12 +37,6 @@ const FADE_IN_VARIANTS = {
       }
   }
 };
-
-export const metadata: Metadata = {
-    title: '로그인',
-    description: '종달샘 허브에 로그인하여 포인트를 확인하고 커뮤니티 활동에 참여하세요.',
-};
-
 
 export default function LoginPage() {
   const [studentId, setStudentId] = useState('');
