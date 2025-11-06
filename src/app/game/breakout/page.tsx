@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Gamepad2, Loader2, Award } from 'lucide-react';
+import { Gamepad2, Loader2, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardBreakoutScore } from '@/lib/firebase';
@@ -19,8 +19,11 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 
-const BRICK_ROW_COUNT = 5;
-const BRICK_COLUMN_COUNT = 8;
+const BRICK_ROW_COUNT = 7;
+const BRICK_COLUMN_COUNT = 10;
+const PADDLE_WIDTH = 100;
+const PADDLE_HEIGHT = 12;
+const BALL_RADIUS = 8;
 
 export default function BreakoutPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,62 +35,97 @@ export default function BreakoutPage() {
   const router = useRouter();
 
   const gameLoopRef = useRef<number>();
-  const ballRef = useRef<{ x: number, y: number, dx: number, dy: number, radius: number } | null>(null);
-  const paddleRef = useRef<{ x: number, width: number, height: number } | null>(null);
-  const bricksRef = useRef<{ x: number, y: number, width: number, height: number, status: number }[][]>([]);
+  const ballRef = useRef<{ x: number, y: number, dx: number, dy: number }>({ x: 0, y: 0, dx: 4, dy: -4 });
+  const paddleRef = useRef<{ x: number }>({ x: 0 });
+  const bricksRef = useRef<{ x: number, y: number, status: number }[][]>([]);
   const keysPressed = useRef<{ [key: string]: boolean }>({});
+
+  const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  const drawBall = useCallback((ctx: CanvasRenderingContext2D) => {
+    const ball = ballRef.current;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = "#FF5500";
+    ctx.fill();
+    ctx.closePath();
+  }, []);
+
+  const drawPaddle = useCallback((ctx: CanvasRenderingContext2D) => {
+    const paddle = paddleRef.current;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    ctx.fillStyle = "#FF5500";
+    drawRoundedRect(ctx, paddle.x, canvas.height - PADDLE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT, 5);
+  }, []);
+
+  const drawBricks = useCallback((ctx: CanvasRenderingContext2D) => {
+    const bricks = bricksRef.current;
+    const brickWidth = (canvasRef.current?.width || 0) / BRICK_COLUMN_COUNT - 5;
+    const brickHeight = 20;
+
+    bricks.forEach(column => {
+        column.forEach(brick => {
+            if (brick.status === 1) {
+                ctx.fillStyle = "#FF5500";
+                drawRoundedRect(ctx, brick.x, brick.y, brickWidth, brickHeight, 5);
+            }
+        });
+    });
+  }, []);
 
   const resetGame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Reset score and game state
     setScore(0);
     setGameState('playing');
 
-    // Ball properties
-    const ballRadius = 10;
     ballRef.current = {
       x: canvas.width / 2,
       y: canvas.height - 30,
       dx: 4,
       dy: -4,
-      radius: ballRadius,
     };
+    paddleRef.current = { x: (canvas.width - PADDLE_WIDTH) / 2 };
 
-    // Paddle properties
-    const paddleHeight = 10;
-    const paddleWidth = 100;
-    paddleRef.current = {
-      height: paddleHeight,
-      width: paddleWidth,
-      x: (canvas.width - paddleWidth) / 2,
-    };
-
-    // Brick properties
-    const brickWidth = 75;
+    const newBricks = [];
+    const brickWidth = canvas.width / BRICK_COLUMN_COUNT - 5;
     const brickHeight = 20;
-    const brickPadding = 10;
+    const brickPadding = 5;
     const brickOffsetTop = 30;
     const brickOffsetLeft = (canvas.width - (BRICK_COLUMN_COUNT * (brickWidth + brickPadding))) / 2 + brickPadding/2;
-    
-    const newBricks: typeof bricksRef.current = [];
+
+
     for (let c = 0; c < BRICK_COLUMN_COUNT; c++) {
       newBricks[c] = [];
       for (let r = 0; r < BRICK_ROW_COUNT; r++) {
         const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
         const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-        newBricks[c][r] = { x: brickX, y: brickY, width: brickWidth, height: brickHeight, status: 1 };
+        newBricks[c][r] = { x: brickX, y: brickY, status: 1 };
       }
     }
     bricksRef.current = newBricks;
-
   }, []);
 
   const collisionDetection = useCallback(() => {
     const ball = ballRef.current;
     const bricks = bricksRef.current;
-    if (!ball) return;
+    const brickWidth = (canvasRef.current?.width || 0) / BRICK_COLUMN_COUNT - 5;
+    const brickHeight = 20;
 
     for (let c = 0; c < BRICK_COLUMN_COUNT; c++) {
       for (let r = 0; r < BRICK_ROW_COUNT; r++) {
@@ -95,9 +133,9 @@ export default function BreakoutPage() {
         if (b.status === 1) {
           if (
             ball.x > b.x &&
-            ball.x < b.x + b.width &&
+            ball.x < b.x + brickWidth &&
             ball.y > b.y &&
-            ball.y < b.y + b.height
+            ball.y < b.y + brickHeight
           ) {
             ball.dy = -ball.dy;
             b.status = 0;
@@ -106,48 +144,6 @@ export default function BreakoutPage() {
         }
       }
     }
-  }, []);
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw Bricks
-    bricksRef.current.forEach(column => {
-        column.forEach(brick => {
-            if (brick.status === 1) {
-                ctx.beginPath();
-                ctx.rect(brick.x, brick.y, brick.width, brick.height);
-                ctx.fillStyle = "#FF5500";
-                ctx.fill();
-                ctx.closePath();
-            }
-        });
-    });
-
-    // Draw Ball
-    const ball = ballRef.current;
-    if (ball) {
-        ctx.beginPath();
-        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "#FF5500";
-        ctx.fill();
-        ctx.closePath();
-    }
-
-    // Draw Paddle
-    const paddle = paddleRef.current;
-    if (paddle) {
-        ctx.beginPath();
-        ctx.rect(paddle.x, canvas.height - paddle.height, paddle.width, paddle.height);
-        ctx.fillStyle = "#FF5500";
-        ctx.fill();
-        ctx.closePath();
-    }
-
   }, []);
   
   const gameOverHandler = useCallback(async (finalScore: number) => {
@@ -170,29 +166,40 @@ export default function BreakoutPage() {
     }
   }, [user, toast, router]);
 
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBricks(ctx);
+    drawBall(ctx);
+    drawPaddle(ctx);
+  }, [drawBall, drawPaddle, drawBricks]);
+
+
   const gameLoop = useCallback(() => {
     if (gameState !== 'playing') return;
 
     const canvas = canvasRef.current;
-    if (!canvas || !ballRef.current || !paddleRef.current) return;
-    
     const ball = ballRef.current;
     const paddle = paddleRef.current;
-    const paddleSpeed = 7;
+
+    if (!canvas) return;
 
     if (keysPressed.current.ArrowRight) {
-        paddle.x = Math.min(paddle.x + paddleSpeed, canvas.width - paddle.width);
+        paddle.x = Math.min(paddle.x + 7, canvas.width - PADDLE_WIDTH);
     } else if (keysPressed.current.ArrowLeft) {
-        paddle.x = Math.max(paddle.x - paddleSpeed, 0);
+        paddle.x = Math.max(paddle.x - 7, 0);
     }
 
-    if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+    if (ball.x + ball.dx > canvas.width - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) {
         ball.dx = -ball.dx;
     }
-    if (ball.y + ball.dy < ball.radius) {
+    if (ball.y + ball.dy < BALL_RADIUS) {
         ball.dy = -ball.dy;
-    } else if (ball.y + ball.dy > canvas.height - ball.radius) {
-        if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+    } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS) {
+        if (ball.x > paddle.x && ball.x < paddle.x + PADDLE_WIDTH) {
             ball.dy = -ball.dy;
         } else {
             gameOverHandler(score);
@@ -224,23 +231,22 @@ export default function BreakoutPage() {
     const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.key] = false; };
     const handleMouseMove = (e: MouseEvent) => {
       const canvas = canvasRef.current;
-      const paddle = paddleRef.current;
-      if (canvas && paddle) {
+      if (canvas) {
         const relativeX = e.clientX - canvas.getBoundingClientRect().left;
         if (relativeX > 0 && relativeX < canvas.width) {
-            paddle.x = Math.max(0, Math.min(relativeX - paddle.width / 2, canvas.width - paddle.width));
+            paddleRef.current.x = Math.max(0, Math.min(relativeX - PADDLE_WIDTH / 2, canvas.width - PADDLE_WIDTH));
         }
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
-    document.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    canvasRef.current?.addEventListener("mousemove", handleMouseMove);
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("keyup", handleKeyUp);
-      document.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      canvasRef.current?.removeEventListener("mousemove", handleMouseMove);
     };
   }, []);
 
@@ -264,6 +270,7 @@ export default function BreakoutPage() {
                     <>
                       <h2 className="text-4xl font-bold font-headline mb-4">벽돌깨기</h2>
                       <Button size="lg" onClick={resetGame}>
+                        <Play className="mr-2"/>
                         게임 시작
                       </Button>
                     </>
