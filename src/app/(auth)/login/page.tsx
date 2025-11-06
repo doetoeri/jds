@@ -39,6 +39,11 @@ const FADE_IN_VARIANTS = {
   }
 };
 
+export const metadata: Metadata = {
+    title: '로그인',
+    description: '종달샘 허브에 로그인하여 포인트를 확인하고 커뮤니티 활동에 참여하세요.',
+};
+
 
 export default function LoginPage() {
   const [studentId, setStudentId] = useState('');
