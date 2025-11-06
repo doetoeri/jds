@@ -26,7 +26,7 @@ export default function BreakoutPage() {
   
   const [gameState, setGameState] = useState<'start' | 'playing' | 'over'>('start');
   const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(3);
+  const [level, setLevel] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [primaryColor, setPrimaryColor] = useState('18, 100%, 50%');
@@ -55,31 +55,36 @@ export default function BreakoutPage() {
     setGameState('playing');
     let currentScore = 0;
     setScore(currentScore);
-    let currentLives = 3;
-    setLives(currentLives);
+    let currentLevel = 1;
+    setLevel(currentLevel);
 
     const initialBallX = canvas.width / 2 + (Math.random() - 0.5) * 80;
-    let ball = { x: initialBallX, y: canvas.height - 30, dx: 4, dy: -4, radius: 8 };
+    let ball = { x: initialBallX, y: canvas.height - 30, dx: 3, dy: -3, radius: 8 };
     let paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
     const paddleSpeed = 7;
     
-    const brickRowCount = 5;
-    const brickColumnCount = 8;
-    const brickWidth = 70;
-    const brickHeight = 20;
-    const brickPadding = 10;
-    const brickOffsetTop = 30;
-    const brickOffsetLeft = (canvas.width - (brickColumnCount * (brickWidth + brickPadding) - brickPadding)) / 2;
-    const brickRadius = 4;
-    
     let bricks: { x: number, y: number, status: number }[][] = [];
-    for (let c = 0; c < brickColumnCount; c++) {
-      bricks[c] = [];
-      for (let r = 0; r < brickRowCount; r++) {
-        const status = Math.random() > 0.2 ? 1 : 0; // 80% chance of a brick appearing
-        bricks[c][r] = { x: 0, y: 0, status: status };
-      }
+    const createBricks = (level: number) => {
+        const brickRowCount = 7 + Math.floor(level / 2);
+        const brickColumnCount = 8;
+        const brickWidth = 70;
+        const brickHeight = 20;
+        const brickPadding = 10;
+        const brickOffsetTop = 30;
+        const brickOffsetLeft = (canvas.width - (brickColumnCount * (brickWidth + brickPadding) - brickPadding)) / 2;
+        const brickRadius = 4;
+        
+        bricks = [];
+        for (let c = 0; c < brickColumnCount; c++) {
+          bricks[c] = [];
+          for (let r = 0; r < brickRowCount; r++) {
+            const status = Math.random() > 0.1 ? 1 : 0; 
+            bricks[c][r] = { x: 0, y: 0, status: status };
+          }
+        }
     }
+    
+    createBricks(currentLevel);
 
     const drawBall = () => {
         const gradient = context.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.radius);
@@ -115,6 +120,14 @@ export default function BreakoutPage() {
     };
     
     const drawBricks = () => {
+        const brickRowCount = bricks[0]?.length || 0;
+        const brickColumnCount = bricks.length || 0;
+        const brickWidth = 70;
+        const brickHeight = 20;
+        const brickPadding = 10;
+        const brickOffsetTop = 30;
+        const brickOffsetLeft = (canvas.width - (brickColumnCount * (brickWidth + brickPadding) - brickPadding)) / 2;
+
         for (let c = 0; c < brickColumnCount; c++) {
             for (let r = 0; r < brickRowCount; r++) {
                 if (bricks[c][r].status === 1) {
@@ -123,11 +136,11 @@ export default function BreakoutPage() {
                     bricks[c][r].x = brickX;
                     bricks[c][r].y = brickY;
                     
-                    const saturation = 100 - (r * 10);
-                    const lightness = 60 + (r * 5);
+                    const saturation = 100 - (r * 5);
+                    const lightness = 60 + (r * 4);
                     context.fillStyle = `hsl(${primaryHue}, ${saturation}%, ${lightness}%)`;
                     
-                    roundRect(context, brickX, brickY, brickWidth, brickHeight, brickRadius);
+                    roundRect(context, brickX, brickY, brickWidth, brickHeight, 4);
                     context.fill();
                 }
             }
@@ -135,19 +148,21 @@ export default function BreakoutPage() {
     };
 
     const resetAfterLifeLost = () => {
+        currentScore = Math.max(0, currentScore - 10);
+        setScore(currentScore);
         const newBallX = canvas.width / 2 + (Math.random() - 0.5) * 80;
-        ball = { x: newBallX, y: canvas.height - 30, dx: 4 * (Math.random() > 0.5 ? 1 : -1), dy: -4, radius: 8 };
+        ball = { x: newBallX, y: canvas.height - 30, dx: 3 * (Math.random() > 0.5 ? 1 : -1), dy: -3, radius: 8 };
         paddle = { x: canvas.width / 2 - 50, width: 100, height: 10, radius: 5 };
     };
     
     const collisionDetection = () => {
         let allBricksBroken = true;
-        for (let c = 0; c < brickColumnCount; c++) {
-            for (let r = 0; r < brickRowCount; r++) {
+        for (let c = 0; c < bricks.length; c++) {
+            for (let r = 0; r < bricks[c].length; r++) {
                 const b = bricks[c][r];
                 if (b.status === 1) {
                     allBricksBroken = false;
-                    if (ball.x > b.x && ball.x < b.x + brickWidth && ball.y > b.y && ball.y < b.y + brickHeight) {
+                    if (ball.x > b.x && ball.x < b.x + 70 && ball.y > b.y && ball.y < b.y + 20) {
                         ball.dy = -ball.dy;
                         b.status = 0;
                         currentScore += 1;
@@ -157,19 +172,18 @@ export default function BreakoutPage() {
             }
         }
         if(allBricksBroken) {
-            endGame(true);
+            currentLevel++;
+            setLevel(currentLevel);
+            createBricks(currentLevel);
+            ball.dy += 0.2; // Speed up slightly each level
+            ball.dx += (ball.dx > 0 ? 0.2 : -0.2);
+            toast({ title: `레벨 ${currentLevel} 시작!`, description: '벽돌이 다시 생성되었습니다.'});
         }
     };
 
-    const endGame = async (won: boolean) => {
+    const endGame = async () => {
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         setGameState('over');
-
-        if(won) {
-            toast({ title: "승리!", description: "모든 벽돌을 부쉈습니다!" });
-        } else {
-             toast({ title: "게임 오버", description: "다시 시도해보세요." });
-        }
 
         if (user && currentScore > 0) {
             setIsSubmitting(true);
@@ -209,14 +223,7 @@ export default function BreakoutPage() {
             if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
                 ball.dy = -ball.dy;
             } else {
-                currentLives--;
-                setLives(currentLives);
-                if (currentLives <= 0) {
-                    endGame(false);
-                    return;
-                } else {
-                    resetAfterLifeLost();
-                }
+                resetAfterLifeLost();
             }
         }
 
@@ -279,16 +286,14 @@ export default function BreakoutPage() {
       <Card>
         <CardContent className="p-2">
             <div className="relative rounded-lg overflow-hidden">
-                <canvas ref={canvasRef} width="800" height="500" className="bg-background" />
+                <canvas ref={canvasRef} width="800" height="600" className="bg-background" />
                 
                 <div className="absolute top-4 left-4 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
                 SCORE: {score}
                 </div>
 
                 <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 text-white font-bold text-xl px-4 py-2 rounded-lg">
-                    {Array.from({ length: lives }).map((_, i) => (
-                        <Heart key={i} className="h-6 w-6 text-red-500 fill-current" />
-                    ))}
+                    Level: {level}
                 </div>
                 
                 {gameState !== 'playing' && (
