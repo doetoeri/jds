@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState } from 'react';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Loader2, TrendingUp, Zap, Sparkles, HandCoins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, awardUpgradeWin } from '@/lib/firebase';
+import { auth, awardUpgradeWin, attemptUpgrade } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -61,23 +62,29 @@ export default function UpgradeGamePage() {
     setIsProcessing(true);
     setLastAction('upgrade');
 
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate upgrade time
+    try {
+        // The attemptUpgrade function will throw an error if points are insufficient, which will be caught.
+        const result = await attemptUpgrade(user.uid, currentLevel);
+        
+        // Add a delay to create suspense
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (result.success) {
+            setCurrentLevel(result.newLevel!);
+            toast({
+                title: `강화 성공!`,
+                description: `${result.newLevel!}단계 종달새가 되었습니다!`,
+            });
+        } else {
+            resetGame();
+            toast({ title: '강화 실패...', description: '종달새가 0단계로 초기화되었습니다.', variant: 'destructive'});
+        }
 
-    const isSuccess = Math.random() * 100 < currentUpgradeInfo.chance;
-
-    if (isSuccess) {
-      const nextLevel = currentLevel + 1;
-      setCurrentLevel(nextLevel);
-       toast({
-          title: `강화 성공!`,
-          description: `${nextLevel}단계 종달새가 되었습니다!`,
-      });
-    } else {
-      resetGame();
-      toast({ title: '강화 실패...', description: '종달새가 0단계로 초기화되었습니다.', variant: 'destructive'});
+    } catch (error: any) {
+        toast({ title: "강화 시도 실패", description: error.message, variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
     }
-    
-    setIsProcessing(false);
   };
   
   const handleHarvest = async () => {
@@ -104,8 +111,9 @@ export default function UpgradeGamePage() {
       }
   };
   
-  const canUpgrade = currentLevel < levels.length;
+  const canUpgrade = currentLevel < levels.length - 1; // Corrected to prevent upgrading at max level
   const upgradeInfo = canUpgrade ? levels[currentLevel] : null;
+  const upgradeCost = upgradeInfo ? Math.floor(upgradeInfo.reward / 2) : 0;
 
   return (
     <div className="flex flex-col items-center gap-4 text-center">
@@ -140,11 +148,14 @@ export default function UpgradeGamePage() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           {upgradeInfo && (
-            <div className="text-sm w-full">
-              <div className="flex justify-between">
-                <span>성공 확률: <strong className="text-primary">{upgradeInfo.chance}%</strong></span>
-                <span>성공 보상: <strong className="text-primary">{upgradeInfo.reward.toFixed(2)} P</strong></span>
-              </div>
+            <div className="text-sm w-full space-y-1">
+                <div className="flex justify-between">
+                    <span>성공 확률: <strong className="text-primary">{upgradeInfo.chance}%</strong></span>
+                    <span>성공 시 보상: <strong className="text-primary">{upgradeInfo.reward.toFixed(2)} P</strong></span>
+                </div>
+                 <div className="flex justify-between">
+                    <span>강화 비용: <strong className="text-destructive">{upgradeCost} P</strong></span>
+                </div>
             </div>
           )}
           {canUpgrade ? (
@@ -170,6 +181,7 @@ export default function UpgradeGamePage() {
             <div className="text-center font-bold text-amber-500 flex flex-col items-center">
                 <Sparkles className="h-8 w-8 mb-2"/>
                 최고 레벨에 도달했습니다!
+                <Button className="mt-4" onClick={handleHarvest}>수확하기</Button>
             </div>
           )}
         </CardFooter>

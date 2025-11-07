@@ -1699,35 +1699,84 @@ export const revertUserDataMigration = async () => {
 };
 
 export const pressTheButton = async (userId: string) => {
-  const gameRef = doc(db, 'games', 'the-button');
-  
-  return await runTransaction(db, async (transaction) => {
-    // Perform all reads first
-    const userDoc = await transaction.get(doc(db, 'users', userId));
-    const gameDoc = await transaction.get(gameRef);
+    const gameRef = doc(db, 'games', 'the-button');
+    
+    return await runTransaction(db, async (transaction) => {
+        // Perform all reads first
+        const userDoc = await transaction.get(doc(db, 'users', userId));
+        const gameDoc = await transaction.get(gameRef);
 
-    if (!userDoc.exists()) {
-        throw new Error("사용자 정보를 찾을 수 없습니다.");
-    }
+        if (!userDoc.exists()) {
+            throw new Error("사용자 정보를 찾을 수 없습니다.");
+        }
 
-    if (gameDoc.exists() && gameDoc.data()?.isFinished) {
-      throw new Error("이미 게임이 종료되었습니다.");
-    }
-    
-    // Now, perform writes
-    const userData = userDoc.data();
-    
-    const updateData = {
-      lastPressedBy: userId,
-      lastPressedByDisplayName: userData.displayName,
-      lastPresserAvatar: userData.avatarGradient,
-      timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000), // 30 minutes
-      isFinished: false,
-    };
-    
-    transaction.set(gameRef, updateData, { merge: true });
-  });
+        if (gameDoc.exists() && gameDoc.data()?.isFinished) {
+            throw new Error("이미 게임이 종료되었습니다.");
+        }
+        
+        // Now, perform writes
+        const userData = userDoc.data();
+        
+        const updateData = {
+            lastPressedBy: userId,
+            lastPressedByDisplayName: userData.displayName,
+            lastPresserAvatar: userData.avatarGradient,
+            timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000), // 30 minutes
+            isFinished: false,
+        };
+        
+        transaction.set(gameRef, updateData, { merge: true });
+    });
 };
+
+export const attemptUpgrade = async (userId: string, currentLevel: number): Promise<{ success: boolean; newLevel?: number }> => {
+    const levels = [
+        { level: 0, chance: 90, reward: 0.4 }, { level: 1, chance: 80, reward: 1.13 },
+        { level: 2, chance: 70, reward: 2.08 }, { level: 3, chance: 60, reward: 3.2 },
+        { level: 4, chance: 50, reward: 4.47 }, { level: 5, chance: 40, reward: 5.88 },
+        { level: 6, chance: 30, reward: 7.4 }, { level: 7, chance: 20, reward: 9.02 },
+        { level: 8, chance: 10, reward: 10.73 }, { level: 9, chance: 5, reward: 12.65 },
+        { level: 10, chance: 0, reward: 15.0 },
+    ];
+    
+    const upgradeInfo = levels[currentLevel];
+    if (!upgradeInfo) {
+        throw new Error("최고 레벨입니다.");
+    }
+    const cost = Math.floor(upgradeInfo.reward / 2);
+
+    return await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+
+        if (!userDoc.exists()) {
+            throw new Error("사용자를 찾을 수 없습니다.");
+        }
+
+        const userData = userDoc.data();
+        if (userData.lak < cost) {
+            throw new Error(`포인트가 부족합니다. (필요: ${cost}P, 보유: ${userData.lak}P)`);
+        }
+
+        // Deduct cost
+        transaction.update(userRef, { lak: increment(-cost) });
+        transaction.set(doc(collection(userRef, 'transactions')), {
+            date: Timestamp.now(),
+            description: `${currentLevel + 1}단계 강화 시도`,
+            amount: -cost,
+            type: 'debit',
+        });
+
+        // Determine success
+        const isSuccess = Math.random() * 100 < upgradeInfo.chance;
+        if (isSuccess) {
+            return { success: true, newLevel: currentLevel + 1 };
+        } else {
+            return { success: false };
+        }
+    });
+};
+
 
 export const awardUpgradeWin = async (userId: string, level: number) => {
     if (level <= 0) return { success: true, message: "0단계에서는 보상을 수확할 수 없습니다.", pointsToPiggy: 0 };
