@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -40,6 +39,7 @@ import {
   Wrench,
   Radio,
   TrendingUp,
+  Croissant,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -78,6 +78,7 @@ const adminLinks = [
   { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
   { name: '더 버튼 관리', href: '/admin/the-button', icon: Radio },
   { name: '종달새 강화 관리', href: '/admin/upgrade-game', icon: TrendingUp },
+  { name: '스네이크 관리', href: '/admin/snake', icon: Croissant },
   { name: '코드 관리', href: '/admin/codes', icon: QrCode },
   { name: '키오스크 기록', href: '/admin/kiosk-logs', icon: Server },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },

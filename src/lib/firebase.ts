@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1107,6 +1105,50 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
     const points = Math.floor(score / 10);
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
 };
+
+export const awardSnakeScore = async (userId: string, score: number) => {
+    if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다.", pointsToPiggy: 0};
+    const userRef = doc(db, 'users', userId);
+    
+    let pointsToPiggy = 0;
+    await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
+
+        const userData = userDoc.data();
+        
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
+        const pointsToAdd = score;
+        if (pointsToAdd > 0) {
+            const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+            let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
+            let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
+            pointsToPiggy = pointsToAdd - pointsForLak;
+
+            if (pointsForLak > 0) {
+                transaction.update(userRef, { lak: increment(pointsForLak) });
+                if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                  date: Timestamp.now(), description: `스네이크 플레이 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
+                });
+            }
+            if (pointsToPiggy > 0) {
+                transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                  date: Timestamp.now(), description: `포인트 적립: 스네이크`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+                });
+            }
+        }
+    });
+    
+    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${score > 0 ? ` ${score}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
+};
+
 
 export const setMaintenanceMode = async (isMaintenance: boolean) => {
     const settingsRef = doc(db, 'system_settings', 'main');
