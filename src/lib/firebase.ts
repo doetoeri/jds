@@ -1747,10 +1747,21 @@ export const attemptUpgrade = async (userId: string, currentLevel: number): Prom
 
     return await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
+        const today = new Date().toISOString().split('T')[0];
+        const dailyActivityRef = doc(db, `users/${userId}/daily_activity/${today}`);
+
+        const [userDoc, dailyActivityDoc] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(dailyActivityRef)
+        ]);
 
         if (!userDoc.exists()) {
             throw new Error("사용자를 찾을 수 없습니다.");
+        }
+        
+        const dailyAttempts = dailyActivityDoc.exists() ? dailyActivityDoc.data().upgradeAttempts || 0 : 0;
+        if (dailyAttempts >= 200) {
+            throw new Error("하루 강화 횟수(200회)를 모두 사용했습니다. 내일 다시 시도해주세요.");
         }
 
         const userData = userDoc.data();
@@ -1758,8 +1769,9 @@ export const attemptUpgrade = async (userId: string, currentLevel: number): Prom
             throw new Error(`포인트가 부족합니다. (필요: ${cost}P, 보유: ${userData.lak}P)`);
         }
 
-        // Deduct cost
+        // Deduct cost and increment attempt count
         transaction.update(userRef, { lak: increment(-cost) });
+        transaction.set(dailyActivityRef, { upgradeAttempts: increment(1) }, { merge: true });
         transaction.set(doc(collection(userRef, 'transactions')), {
             date: Timestamp.now(),
             description: `${currentLevel + 1}단계 강화 시도`,
@@ -1800,6 +1812,12 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        
+        const userData = userDoc.data();
+        const harvestedLevels = userData.harvestedLevels || {};
+        if ((harvestedLevels[level] || 0) >= 5) {
+            throw new Error(`${level}단계 보상은 이미 5번 모두 수확했습니다.`);
+        }
 
         const today = new Date().toISOString().split('T')[0];
         const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
@@ -1808,7 +1826,6 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
         const settingsDoc = await transaction.get(settingsRef);
 
         const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
-        const userData = userDoc.data();
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
         let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
         let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
@@ -1827,6 +1844,11 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
                 date: Timestamp.now(), description: `포인트 적립: 종달새 강화`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
             });
         }
+        
+        // Update harvest count
+        const newHarvestCount = (harvestedLevels[level] || 0) + 1;
+        transaction.update(userRef, { [`harvestedLevels.${level}`]: newHarvestCount });
+
         const logRef = doc(collection(db, 'games/upgrade-game/logs'));
         transaction.set(logRef, {
             userId,
