@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bomb, Flag, Loader2, Smile, Frown, Trophy } from 'lucide-react';
+import { Bomb, Flag, Loader2, Smile, Frown, Trophy, Sailboat, Shovel } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -19,6 +19,7 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -63,6 +64,7 @@ export default function MinesweeperPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [time, setTime] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
+  const [actionCell, setActionCell] = useState<{r: number, c: number} | null>(null);
   
   const { toast } = useToast();
   const [user] = useAuthState(auth);
@@ -180,10 +182,16 @@ export default function MinesweeperPage() {
     }
   };
   
-  const handleClick = (r: number, c: number) => {
-    if (gameOver || gameWon || board[r][c].isRevealed || board[r][c].isFlagged) {
-      return;
-    }
+  const handleCellClick = (r: number, c: number) => {
+      if (gameOver || gameWon || board[r][c].isRevealed || board[r][c].isFlagged) {
+        return;
+      }
+      setActionCell({r, c});
+  }
+
+  const performOpenCell = () => {
+    if (!actionCell) return;
+    const {r, c} = actionCell;
 
     let currentBoard = board;
     if (isFirstClick) {
@@ -198,25 +206,30 @@ export default function MinesweeperPage() {
     if (cell.isMine) {
       setGameOver(true);
       setTimerActive(false);
-      newBoard.forEach((row: Cell[]) => row.forEach(c => {
-        if(c.isMine) c.isRevealed = true;
+      newBoard.forEach((row: Cell[]) => row.forEach(cellToReveal => {
+        if(cellToReveal.isMine) cellToReveal.isRevealed = true;
       }));
       setBoard(newBoard);
-      return;
+    } else {
+      revealCellRecursive(r, c, newBoard);
+      setBoard(newBoard);
     }
-    
-    revealCellRecursive(r, c, newBoard);
-    setBoard(newBoard);
+    setActionCell(null);
   };
 
 
-  const toggleFlag = (e: React.MouseEvent, r: number, c: number) => {
-    e.preventDefault();
+  const performToggleFlag = (r: number, c: number) => {
     if (gameOver || gameWon || board[r][c].isRevealed || isFirstClick) return;
     const newBoard = JSON.parse(JSON.stringify(board));
     newBoard[r][c].isFlagged = !newBoard[r][c].isFlagged;
     setBoard(newBoard);
+    setActionCell(null);
   };
+  
+  const handleRightClick = (e: React.MouseEvent, r: number, c: number) => {
+      e.preventDefault();
+      performToggleFlag(r, c);
+  }
 
   const { rows, cols, mines } = difficulties[difficulty];
   const remainingMines = mines - board.flat().filter(c => c.isFlagged).length;
@@ -272,8 +285,8 @@ export default function MinesweeperPage() {
                 <button
                   key={`${r}-${c}`}
                   disabled={gameOver || gameWon}
-                  onClick={() => handleClick(r, c)}
-                  onContextMenu={(e) => toggleFlag(e, r, c)}
+                  onClick={() => handleCellClick(r, c)}
+                  onContextMenu={(e) => handleRightClick(e, r, c)}
                   className={cn(
                     'aspect-square flex items-center justify-center font-bold text-lg rounded-sm',
                     !cell.isRevealed ? 'bg-background hover:bg-accent shadow-md' : 'bg-muted border border-secondary',
@@ -313,6 +326,28 @@ export default function MinesweeperPage() {
           </div>
         </CardContent>
       </Card>
+      
+       <AlertDialog open={!!actionCell} onOpenChange={() => setActionCell(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>어떤 작업을 하시겠어요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              선택한 칸에 대해 실행할 작업을 골라주세요.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-2">
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <Button variant="secondary" onClick={() => actionCell && performToggleFlag(actionCell.r, actionCell.c)}>
+              <Flag className="mr-2 h-4 w-4"/>
+              깃발 꽂기
+            </Button>
+            <AlertDialogAction onClick={performOpenCell}>
+              <Shovel className="mr-2 h-4 w-4" />
+              깨뜨리기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
        <AlertDialog open={gameWon && !isProcessing}>
           <AlertDialogContent>
