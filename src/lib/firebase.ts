@@ -1814,9 +1814,18 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
         
         const userData = userDoc.data();
-        const harvestedLevels = userData.harvestedLevels || {};
-        if ((harvestedLevels[level] || 0) >= 5) {
-            throw new Error(`${level}단계 보상은 이미 5번 모두 수확했습니다.`);
+        
+        // Consecutive harvest check logic
+        const lastHarvestedLevel = userData.lastHarvestedLevel || 0;
+        let consecutiveHarvestCount = userData.consecutiveHarvestCount || 0;
+
+        if (level === lastHarvestedLevel) {
+            if (consecutiveHarvestCount >= 5) {
+                throw new Error(`이 레벨에서는 연속으로 5번만 수확할 수 있습니다. 다른 레벨을 먼저 수확해주세요.`);
+            }
+            consecutiveHarvestCount++;
+        } else {
+            consecutiveHarvestCount = 1; // Reset count for new level
         }
 
         const today = new Date().toISOString().split('T')[0];
@@ -1845,9 +1854,11 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
             });
         }
         
-        // Update harvest count
-        const newHarvestCount = (harvestedLevels[level] || 0) + 1;
-        transaction.update(userRef, { [`harvestedLevels.${level}`]: newHarvestCount });
+        // Update consecutive harvest tracking
+        transaction.update(userRef, { 
+            lastHarvestedLevel: level,
+            consecutiveHarvestCount: consecutiveHarvestCount
+        });
 
         const logRef = doc(collection(db, 'games/upgrade-game/logs'));
         transaction.set(logRef, {

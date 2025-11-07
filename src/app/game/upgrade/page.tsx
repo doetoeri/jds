@@ -103,10 +103,10 @@ export default function UpgradeGamePage() {
               router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
             }
         }
+        resetGame(); // Reset after successful harvest
       } catch (e: any) {
         toast({ title: '오류', description: e.message, variant: 'destructive'});
       } finally {
-        resetGame();
         setIsProcessing(false);
       }
   };
@@ -114,6 +114,7 @@ export default function UpgradeGamePage() {
   const canUpgrade = currentLevel < levels.length - 1; // Corrected to prevent upgrading at max level
   const upgradeInfo = canUpgrade ? levels[currentLevel] : null;
   const upgradeCost = upgradeInfo ? Math.floor(upgradeInfo.reward / 2) : 0;
+  const harvestReward = currentLevel > 0 ? levels[currentLevel - 1].reward : 0;
 
   return (
     <div className="flex flex-col items-center gap-4 text-center">
@@ -166,7 +167,7 @@ export default function UpgradeGamePage() {
                   ) : (
                     <HandCoins className="mr-2 h-4 w-4" />
                   )}
-                  수확하고 끝내기
+                  수확 ({harvestReward.toFixed(2)}P)
                 </Button>
                 <Button className="w-full font-bold" onClick={handleUpgrade} disabled={isProcessing}>
                   {isProcessing && lastAction === 'upgrade' ? (
@@ -181,7 +182,7 @@ export default function UpgradeGamePage() {
             <div className="text-center font-bold text-amber-500 flex flex-col items-center">
                 <Sparkles className="h-8 w-8 mb-2"/>
                 최고 레벨에 도달했습니다!
-                <Button className="mt-4" onClick={handleHarvest}>수확하기</Button>
+                <Button className="mt-4" onClick={handleHarvest}>수확하기 ({harvestReward.toFixed(2)}P)</Button>
             </div>
           )}
         </CardFooter>

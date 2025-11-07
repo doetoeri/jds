@@ -83,7 +83,7 @@ export default function AdminUpgradeGamePage() {
                                         <TableCell>{log.timestamp?.toDate().toLocaleString()}</TableCell>
                                         <TableCell>{log.displayName} ({log.studentId})</TableCell>
                                         <TableCell><span className="font-bold">{log.level}</span> 단계</TableCell>
-                                        <TableCell className="text-right font-semibold">{log.pointsAwarded} P</TableCell>
+                                        <TableCell className="text-right font-semibold">{log.pointsAwarded.toFixed(2)} P</TableCell>
                                     </TableRow>
                                 ))
                             )}
