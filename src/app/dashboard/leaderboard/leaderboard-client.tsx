@@ -1,17 +1,17 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { collection, query, orderBy, limit, getDocs, getDoc, where, doc,getCountFromServer } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Crown, Trophy, Users, Coins } from 'lucide-react';
+import { Crown, Trophy, Users, Coins, User as UserIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuthState } from 'react-firebase-hooks/auth';
 
 interface LeaderboardUser {
   id: string;
@@ -21,11 +21,67 @@ interface LeaderboardUser {
   avatarGradient?: string;
 }
 
+const MyRank = ({ leaderboardId, order, unit, userId }: { leaderboardId: string, order: 'desc' | 'asc', userId: string, unit: string }) => {
+    const [myRank, setMyRank] = useState<{ rank: number; score: number } | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMyRank = async () => {
+            setIsLoading(true);
+            try {
+                const userScoreRef = doc(db, leaderboardId, userId);
+                const userScoreSnap = await getDoc(userScoreRef);
+
+                if (userScoreSnap.exists()) {
+                    const userScore = userScoreSnap.data().score;
+                    const comparison = order === 'desc' ? '>' : '<';
+                    const rankQuery = query(collection(db, leaderboardId), where('score', comparison, userScore));
+                    const rankSnapshot = await getCountFromServer(rankQuery);
+                    const rank = rankSnapshot.data().count + 1;
+                    setMyRank({ rank, score: userScore });
+                } else {
+                    setMyRank(null);
+                }
+            } catch (error) {
+                console.error("Error fetching my rank", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchMyRank();
+    }, [leaderboardId, userId, order]);
+
+    if (isLoading) {
+        return <Skeleton className="h-10 w-full" />
+    }
+
+    return (
+        <Card className="mt-4 bg-primary/5">
+            <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <UserIcon className="h-5 w-5 text-primary"/>
+                        <span className="font-bold">내 순위</span>
+                    </div>
+                    {myRank ? (
+                        <div className="text-right">
+                            <p className="font-bold text-lg">{myRank.rank}위</p>
+                            <p className="text-sm text-muted-foreground">{myRank.score.toLocaleString()} {unit}</p>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">아직 기록이 없습니다.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
 
 const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string, order: 'desc' | 'asc', unit: string }) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [user] = useAuthState(auth);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -66,62 +122,65 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[80px] text-center">순위</TableHead>
-          <TableHead>사용자</TableHead>
-          <TableHead className="text-right">점수</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {isLoading ? (
-          Array.from({ length: 10 }).map((_, index) => (
-            <TableRow key={index}>
-              <TableCell className="text-center"><Skeleton className="h-5 w-5 mx-auto" /></TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 rounded-full"/>
-                  <div className="space-y-1">
-                    <Skeleton className="h-4 w-24"/>
-                    <Skeleton className="h-3 w-16"/>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-            </TableRow>
-          ))
-        ) : leaderboard.length === 0 ? (
+    <>
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={3} className="text-center h-24">
-              리더보드 정보가 없습니다.
-            </TableCell>
+            <TableHead className="w-[80px] text-center">순위</TableHead>
+            <TableHead>사용자</TableHead>
+            <TableHead className="text-right">점수</TableHead>
           </TableRow>
-        ) : (
-          leaderboard.map((user, index) => (
-            <TableRow key={user.id}>
-              <TableCell className={cn("text-center font-bold text-lg", getRankColor(index))}>
-                {index < 3 ? <Crown className="h-6 w-6 mx-auto fill-current"/> : index + 1}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar className={cn('h-10 w-10', `gradient-${user.avatarGradient}`)}>
-                    <AvatarFallback className="text-white bg-transparent font-bold">
-                      {getInitials(user)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">{user.displayName}</div>
-                    <div className="text-sm text-muted-foreground">{user.studentId}</div>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 10 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell className="text-center"><Skeleton className="h-5 w-5 mx-auto" /></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full"/>
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-24"/>
+                      <Skeleton className="h-3 w-16"/>
+                    </div>
                   </div>
-                </div>
+                </TableCell>
+                <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+              </TableRow>
+            ))
+          ) : leaderboard.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center h-24">
+                리더보드 정보가 없습니다.
               </TableCell>
-              <TableCell className="text-right font-bold">{user.score?.toLocaleString() ?? 0} {unit}</TableCell>
             </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+          ) : (
+            leaderboard.map((player, index) => (
+              <TableRow key={player.id}>
+                <TableCell className={cn("text-center font-bold text-lg", getRankColor(index))}>
+                  {index < 3 ? <Crown className="h-6 w-6 mx-auto fill-current"/> : index + 1}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar className={cn('h-10 w-10', `gradient-${player.avatarGradient}`)}>
+                      <AvatarFallback className="text-white bg-transparent font-bold">
+                        {getInitials(player)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium">{player.displayName}</div>
+                      <div className="text-sm text-muted-foreground">{player.studentId}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-bold">{player.score?.toLocaleString() ?? 0} {unit}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+       {user && <div className="p-4"><MyRank leaderboardId={leaderboardId} userId={user.uid} order={order} unit={unit} /></div>}
+    </>
   );
 };
 
@@ -129,6 +188,8 @@ const PointLeaderboardTab = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [user] = useAuthState(auth);
+  const [myRank, setMyRank] = useState<{ rank: number; score: number } | null>(null);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -145,8 +206,19 @@ const PointLeaderboardTab = () => {
           studentId: doc.data().studentId,
           avatarGradient: doc.data().avatarGradient || 'orange',
         } as LeaderboardUser));
-
         setLeaderboard(userList);
+
+        if (user) {
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                const userLak = userSnap.data().lak;
+                const rankQuery = query(collection(db, 'users'), where('lak', '>', userLak));
+                const rankSnapshot = await getCountFromServer(rankQuery);
+                setMyRank({ rank: rankSnapshot.data().count + 1, score: userLak });
+            }
+        }
+
       } catch (error) {
         console.error(`Error fetching point leaderboard: `, error);
         toast({ title: "오류", description: "포인트 랭킹을 불러오는 데 실패했습니다.", variant: "destructive" });
@@ -155,7 +227,7 @@ const PointLeaderboardTab = () => {
       }
     };
     fetchLeaderboard();
-  }, [toast]);
+  }, [toast, user]);
 
   const getRankColor = (rank: number) => {
     if (rank === 0) return 'text-amber-400';
@@ -169,62 +241,86 @@ const PointLeaderboardTab = () => {
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[80px] text-center">순위</TableHead>
-          <TableHead>사용자</TableHead>
-          <TableHead className="text-right">보유 포인트</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {isLoading ? (
-          Array.from({ length: 10 }).map((_, index) => (
-            <TableRow key={index}>
-              <TableCell className="text-center"><Skeleton className="h-5 w-5 mx-auto" /></TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 rounded-full"/>
-                  <div className="space-y-1">
-                    <Skeleton className="h-4 w-24"/>
-                    <Skeleton className="h-3 w-16"/>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-            </TableRow>
-          ))
-        ) : leaderboard.length === 0 ? (
+    <>
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={3} className="text-center h-24">
-              랭킹 정보가 없습니다.
-            </TableCell>
+            <TableHead className="w-[80px] text-center">순위</TableHead>
+            <TableHead>사용자</TableHead>
+            <TableHead className="text-right">보유 포인트</TableHead>
           </TableRow>
-        ) : (
-          leaderboard.map((user, index) => (
-            <TableRow key={user.id}>
-              <TableCell className={cn("text-center font-bold text-lg", getRankColor(index))}>
-                {index < 3 ? <Crown className="h-6 w-6 mx-auto fill-current"/> : index + 1}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar className={cn('h-10 w-10', `gradient-${user.avatarGradient}`)}>
-                    <AvatarFallback className="text-white bg-transparent font-bold">
-                      {getInitials(user)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">{user.displayName}</div>
-                    <div className="text-sm text-muted-foreground">{user.studentId}</div>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 10 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell className="text-center"><Skeleton className="h-5 w-5 mx-auto" /></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full"/>
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-24"/>
+                      <Skeleton className="h-3 w-16"/>
+                    </div>
                   </div>
-                </div>
+                </TableCell>
+                <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+              </TableRow>
+            ))
+          ) : leaderboard.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center h-24">
+                랭킹 정보가 없습니다.
               </TableCell>
-              <TableCell className="text-right font-bold">{user.score?.toLocaleString() ?? 0} P</TableCell>
             </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+          ) : (
+            leaderboard.map((player, index) => (
+              <TableRow key={player.id}>
+                <TableCell className={cn("text-center font-bold text-lg", getRankColor(index))}>
+                  {index < 3 ? <Crown className="h-6 w-6 mx-auto fill-current"/> : index + 1}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar className={cn('h-10 w-10', `gradient-${player.avatarGradient}`)}>
+                      <AvatarFallback className="text-white bg-transparent font-bold">
+                        {getInitials(player)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium">{player.displayName}</div>
+                      <div className="text-sm text-muted-foreground">{player.studentId}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-bold">{player.score?.toLocaleString() ?? 0} P</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+       {user && !isLoading && (
+            <div className="p-4">
+                <Card className="bg-primary/5">
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <UserIcon className="h-5 w-5 text-primary"/>
+                                <span className="font-bold">내 순위</span>
+                            </div>
+                            {myRank ? (
+                                <div className="text-right">
+                                    <p className="font-bold text-lg">{myRank.rank}위</p>
+                                    <p className="text-sm text-muted-foreground">{myRank.score.toLocaleString()} P</p>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">아직 기록이 없습니다.</p>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+       )}
+    </>
   );
 };
 
