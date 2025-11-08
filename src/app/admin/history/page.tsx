@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label';
 interface Transaction {
   id: string;
   studentId: string; 
+  userRole: string;
   date: Timestamp;
   description: string;
   amount: number;
@@ -53,16 +54,20 @@ export default function AdminHistoryPage() {
           const userDocRef = doc.ref.parent.parent; 
           
           let studentId = '알 수 없음';
+          let userRole = 'unknown';
           if(userDocRef) {
             const userDoc = await getDoc(userDocRef);
             if (userDoc.exists()) {
-              studentId = userDoc.data().studentId || '학번 없음';
+              const userData = userDoc.data();
+              studentId = userData.studentId || userData.name || '정보 없음';
+              userRole = userData.role || 'unknown';
             }
           }
           
           return {
             id: doc.id,
             studentId: studentId,
+            userRole: userRole,
             ...data
           } as Transaction;
         }));
@@ -123,7 +128,7 @@ export default function AdminHistoryPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>사용자 학번</TableHead>
+                <TableHead>사용자 학번/이름</TableHead>
                 <TableHead>날짜</TableHead>
                 <TableHead>내용</TableHead>
                 <TableHead className="text-right">금액</TableHead>
@@ -148,7 +153,12 @@ export default function AdminHistoryPage() {
               ) : (
                 filteredTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
-                    <TableCell className="font-medium">{transaction.studentId}</TableCell>
+                    <TableCell className="font-medium">
+                      {transaction.studentId}
+                      {transaction.userRole === 'admin' && (
+                        <Badge variant="destructive" className="ml-2">관리자</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{transaction.date?.toDate ? transaction.date.toDate().toLocaleString() : '날짜 없음'}</TableCell>
                     <TableCell>{transaction.description}</TableCell>
                     <TableCell className="text-right">
@@ -169,5 +179,3 @@ export default function AdminHistoryPage() {
     </div>
   );
 }
-
-    
