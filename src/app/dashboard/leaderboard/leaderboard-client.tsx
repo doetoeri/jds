@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -21,12 +22,16 @@ interface LeaderboardUser {
   avatarGradient?: string;
 }
 
-const MyRank = ({ leaderboardId, order, unit, userId }: { leaderboardId: string, order: 'desc' | 'asc', userId: string, unit: string }) => {
+const MyRank = ({ leaderboardId, order, userId, unit }: { leaderboardId: string, order: 'desc' | 'asc', userId: string, unit: string }) => {
     const [myRank, setMyRank] = useState<{ rank: number; score: number } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchMyRank = async () => {
+            if (!userId) {
+              setIsLoading(false);
+              return;
+            }
             setIsLoading(true);
             try {
                 const userScoreRef = doc(db, leaderboardId, userId);
@@ -190,6 +195,7 @@ const PointLeaderboardTab = () => {
   const { toast } = useToast();
   const [user] = useAuthState(auth);
   const [myRank, setMyRank] = useState<{ rank: number; score: number } | null>(null);
+  const [myRankIsLoading, setMyRankIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -208,17 +214,6 @@ const PointLeaderboardTab = () => {
         } as LeaderboardUser));
         setLeaderboard(userList);
 
-        if (user) {
-            const userRef = doc(db, 'users', user.uid);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                const userLak = userSnap.data().lak;
-                const rankQuery = query(collection(db, 'users'), where('lak', '>', userLak));
-                const rankSnapshot = await getCountFromServer(rankQuery);
-                setMyRank({ rank: rankSnapshot.data().count + 1, score: userLak });
-            }
-        }
-
       } catch (error) {
         console.error(`Error fetching point leaderboard: `, error);
         toast({ title: "오류", description: "포인트 랭킹을 불러오는 데 실패했습니다.", variant: "destructive" });
@@ -226,7 +221,31 @@ const PointLeaderboardTab = () => {
         setIsLoading(false);
       }
     };
+
+    const fetchMyRank = async () => {
+      if (!user) {
+        setMyRankIsLoading(false);
+        return;
+      }
+      setMyRankIsLoading(true);
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+            const userLak = userSnap.data().lak;
+            const rankQuery = query(collection(db, 'users'), where('lak', '>', userLak));
+            const rankSnapshot = await getCountFromServer(rankQuery);
+            setMyRank({ rank: rankSnapshot.data().count + 1, score: userLak });
+        }
+      } catch (error) {
+        console.error("Failed to fetch user rank", error);
+      } finally {
+        setMyRankIsLoading(false);
+      }
+    };
+    
     fetchLeaderboard();
+    fetchMyRank();
   }, [toast, user]);
 
   const getRankColor = (rank: number) => {
@@ -298,8 +317,9 @@ const PointLeaderboardTab = () => {
           )}
         </TableBody>
       </Table>
-       {user && !isLoading && (
+       {user && (
             <div className="p-4">
+              {myRankIsLoading ? <Skeleton className="h-10 w-full" /> : (
                 <Card className="bg-primary/5">
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between">
@@ -318,6 +338,7 @@ const PointLeaderboardTab = () => {
                         </div>
                     </CardContent>
                 </Card>
+              )}
             </div>
        )}
     </>
@@ -364,3 +385,4 @@ export default function LeaderboardPageClient() {
     </div>
   );
 }
+
