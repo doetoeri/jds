@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1762,7 +1763,7 @@ export const pressTheButton = async (userId: string) => {
         const updateData = {
             lastPressedBy: userId,
             lastPressedByDisplayName: userData.displayName,
-            lastPresserAvatar: userData.avatarGradient,
+            lastPresserAvatar: userData.avatarGradient || 'orange', // Provide a default value
             timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000), // 30 minutes
             isFinished: false,
         };
@@ -1862,10 +1863,10 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
         let consecutiveHarvestCount = userData.consecutiveHarvestCount || 0;
 
         if (level === lastHarvestedLevel) {
-            if (consecutiveHarvestCount >= 5) {
-                throw new Error(`이 레벨에서는 연속으로 5번만 수확할 수 있습니다. 다른 레벨을 먼저 수확해주세요.`);
-            }
             consecutiveHarvestCount++;
+            if (consecutiveHarvestCount > 5) {
+              throw new Error(`이 레벨에서는 연속으로 5번만 수확할 수 있습니다. 다른 레벨을 먼저 수확해주세요.`);
+            }
         } else {
             consecutiveHarvestCount = 1; // Reset count for new level
         }
