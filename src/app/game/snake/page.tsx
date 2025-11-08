@@ -156,17 +156,17 @@ const SnakePage: React.FC = () => {
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     
-    ctx.fillStyle = 'hsl(var(--card))';
+    ctx.fillStyle = '#111827'; // equivalent to dark gray/slate-900
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    ctx.fillStyle = 'hsl(var(--primary))';
+    ctx.fillStyle = '#FF5500'; // primary color
     ctx.beginPath();
     ctx.roundRect(food.x * BLOCK_SIZE, food.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, [8]);
     ctx.fill();
     
     snake.forEach((segment, index) => {
-      ctx.fillStyle = index === 0 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--primary))';
-      ctx.strokeStyle = 'hsl(var(--background))';
+      ctx.fillStyle = index === 0 ? 'white' : '#FF5500'; // primary color for body, white for head
+      ctx.strokeStyle = '#111827'; // background color for border
       ctx.lineWidth = 2;
 
       ctx.beginPath();

@@ -176,9 +176,10 @@ const TetrisPage: React.FC = () => {
     
         const drawSidePiece = (canvasRef: React.RefObject<HTMLCanvasElement>, piece: Piece | null) => {
             const ctx = canvasRef.current?.getContext('2d');
-            if (!ctx || !piece) return;
-
+            if (!ctx) return;
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            if (!piece) return;
+
             const { shape, color } = SHAPES[piece.shapeName];
             const centeredX = (NEXT_COLS * BLOCK_SIZE - shape[0].length * BLOCK_SIZE) / 2 / BLOCK_SIZE;
             const centeredY = (NEXT_ROWS * BLOCK_SIZE - shape.length * BLOCK_SIZE) / 2 / BLOCK_SIZE;
@@ -219,6 +220,27 @@ const TetrisPage: React.FC = () => {
             setGameState('over');
         }
     }, [createPiece, getFromBag]);
+    
+    const handleGameOver = useCallback(async () => {
+        setGameState('over');
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        if (user && score > 0) {
+            setIsSubmitting(true);
+            try {
+                const result = await awardTetrisScore(user.uid, score);
+                if (result.success) {
+                    toast({ title: '점수 기록!', description: result.message });
+                    if (result.pointsToPiggy > 0) {
+                        router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+                    }
+                }
+            } catch (e: any) {
+                toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
+            } finally {
+                setIsSubmitting(false);
+            }
+        }
+    }, [score, user, toast, router]);
 
     const lockPieceAndContinue = useCallback(() => {
         const currentPiece = currentPieceRef.current;
@@ -397,31 +419,6 @@ const TetrisPage: React.FC = () => {
             if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         }
     }, [gameState, gameLoop]);
-    
-    useEffect(() => {
-        const endGameAndSubmit = async () => {
-            if (gameState === 'over') {
-                if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-                if (user && score > 0) {
-                    setIsSubmitting(true);
-                    try {
-                        const result = await awardTetrisScore(user.uid, score);
-                        if (result.success) {
-                            toast({ title: '점수 기록!', description: result.message });
-                            if (result.pointsToPiggy > 0) {
-                                router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-                            }
-                        }
-                    } catch (e: any) {
-                        toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
-                    } finally {
-                        setIsSubmitting(false);
-                    }
-                }
-            }
-        };
-        endGameAndSubmit();
-    }, [gameState, score, user, toast, router]);
 
     return (
         <>
@@ -472,15 +469,15 @@ const TetrisPage: React.FC = () => {
           </div>
             <div className="md:hidden flex flex-col items-center gap-2 mt-4 w-full max-w-sm">
                 <div className="flex justify-between w-full">
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => holdPiece()}>
+                    <Button size="lg" className="w-20 h-20" onClick={() => holdPiece()}>
                        <Forward className="h-8 w-8 rotate-90" />
                     </Button>
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerRotate()}><RotateCw /></Button>
+                    <Button size="lg" className="w-20 h-20" onClick={() => playerRotate()}><RotateCw /></Button>
                 </div>
                  <div className="flex justify-center w-full gap-2">
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerMove(-1)}><ArrowLeft /></Button>
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerDrop(true)}><ChevronsDown /></Button>
-                    <Button size="lg" className="w-20 h-20" onTouchStart={() => playerMove(1)}><ArrowRight /></Button>
+                    <Button size="lg" className="w-20 h-20" onClick={() => playerMove(-1)}><ArrowLeft /></Button>
+                    <Button size="lg" className="w-20 h-20" onClick={() => playerDrop(true)}><ChevronsDown /></Button>
+                    <Button size="lg" className="w-20 h-20" onClick={() => playerMove(1)}><ArrowRight /></Button>
                 </div>
             </div>
           <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키: 회전 | 스페이스: 하드 드롭 | Shift: 홀드</p>
@@ -504,5 +501,3 @@ const TetrisPage: React.FC = () => {
 };
 
 export default TetrisPage;
-
-    
