@@ -165,8 +165,8 @@ export default function AdminHistoryPage() {
                       <Badge
                         variant={transaction.type === 'credit' ? 'default' : 'destructive'}
                       >
-                        {transaction.type === 'credit' ? '+' : '-'}
-                        {Math.abs(transaction.amount)} 포인트
+                        {transaction.type === 'credit' ? '+' : ''}
+                        {transaction.amount} 포인트
                       </Badge>
                     </TableCell>
                   </TableRow>
