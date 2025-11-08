@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bomb, Flag, Loader2, Smile, Frown, Trophy } from 'lucide-react';
+import { Bomb, Flag, Loader2, Smile, Frown, Trophy, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -63,6 +63,7 @@ export default function MinesweeperPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [time, setTime] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
+  const [clickMode, setClickMode] = useState<'reveal' | 'flag'>('reveal');
   
   const { toast } = useToast();
   const [user] = useAuthState(auth);
@@ -75,6 +76,7 @@ export default function MinesweeperPage() {
     setIsFirstClick(true);
     setTime(0);
     setTimerActive(false);
+    setClickMode('reveal');
   }, [difficulty]);
   
   useEffect(restartGame, [difficulty]);
@@ -180,10 +182,15 @@ export default function MinesweeperPage() {
   };
   
   const handleCellClick = (r: number, c: number) => {
-    if (gameOver || gameWon || board[r][c].isRevealed || board[r][c].isFlagged) {
+    if (gameOver || gameWon || board[r][c].isRevealed) {
       return;
     }
-    
+
+    if (clickMode === 'flag') {
+        toggleFlag(r, c);
+        return;
+    }
+
     let currentBoard = board;
     if (isFirstClick) {
       currentBoard = generateBoardWithMines(r, c);
@@ -193,6 +200,8 @@ export default function MinesweeperPage() {
     
     const newBoard = JSON.parse(JSON.stringify(currentBoard));
     const cell = newBoard[r][c];
+    
+    if (cell.isFlagged) return;
 
     if (cell.isMine) {
       setGameOver(true);
@@ -206,14 +215,18 @@ export default function MinesweeperPage() {
       setBoard(newBoard);
     }
   };
-
-  const handleRightClick = (e: React.MouseEvent, r: number, c: number) => {
-    e.preventDefault();
+  
+  const toggleFlag = (r: number, c: number) => {
     if (gameOver || gameWon || board[r][c].isRevealed || isFirstClick) return;
     
     const newBoard = JSON.parse(JSON.stringify(board));
     newBoard[r][c].isFlagged = !newBoard[r][c].isFlagged;
     setBoard(newBoard);
+  }
+
+  const handleRightClick = (e: React.MouseEvent, r: number, c: number) => {
+    e.preventDefault();
+    toggleFlag(r,c);
   }
 
   const { rows, cols, mines } = difficulties[difficulty];
@@ -309,6 +322,21 @@ export default function MinesweeperPage() {
               ))
             )}
           </div>
+            <div className="mt-4 flex flex-col items-center gap-2">
+                 <Button
+                    onClick={() => setClickMode(prev => prev === 'reveal' ? 'flag' : 'reveal')}
+                    variant="outline"
+                    className="md:hidden w-full"
+                >
+                    {clickMode === 'reveal' ? 
+                        <><MousePointerClick className="mr-2 h-4 w-4"/> 현재 모드: 칸 열기</> :
+                        <><Flag className="mr-2 h-4 w-4"/> 현재 모드: 깃발 꽂기</>
+                    }
+                </Button>
+                <p className="text-sm text-muted-foreground text-center">
+                    PC에서는 좌클릭으로 칸을 열고 우클릭으로 깃발을 표시하세요.<br/>모바일에서는 모드 전환 버튼을 사용하세요.
+                </p>
+            </div>
         </CardContent>
       </Card>
       

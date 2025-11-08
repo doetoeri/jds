@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Croissant, Loader2, Play } from 'lucide-react';
+import { Croissant, Loader2, Play, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardSnakeScore } from '@/lib/firebase';
@@ -116,20 +116,30 @@ const SnakePage: React.FC = () => {
       return newSnake;
     });
   }, [direction, food.x, food.y, gameState, score, handleGameOver]);
+  
+  const changeDirection = (newDirection: Direction) => {
+      if (gameState !== 'playing') return;
+      const oppositeDirections: Record<Direction, Direction> = {
+          'UP': 'DOWN', 'DOWN': 'UP', 'LEFT': 'RIGHT', 'RIGHT': 'LEFT'
+      };
+      if (direction !== oppositeDirections[newDirection]) {
+          setDirection(newDirection);
+      }
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       switch (e.key) {
-        case 'ArrowUp': if (direction !== 'DOWN') setDirection('UP'); break;
-        case 'ArrowDown': if (direction !== 'UP') setDirection('DOWN'); break;
-        case 'ArrowLeft': if (direction !== 'RIGHT') setDirection('LEFT'); break;
-        case 'ArrowRight': if (direction !== 'LEFT') setDirection('RIGHT'); break;
+        case 'ArrowUp': changeDirection('UP'); break;
+        case 'ArrowDown': changeDirection('DOWN'); break;
+        case 'ArrowLeft': changeDirection('LEFT'); break;
+        case 'ArrowRight': changeDirection('RIGHT'); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [direction]);
+  }, [direction, gameState]);
 
   useEffect(() => {
     if (gameState === 'playing') {
@@ -209,7 +219,15 @@ const SnakePage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-         <p className="text-sm text-muted-foreground">키보드 방향키로 뱀을 조종하세요.</p>
+        <div className="md:hidden flex flex-col items-center gap-1 mt-4">
+            <Button size="lg" className="w-20 h-20" onClick={() => changeDirection('UP')}><ArrowUp className="h-10 w-10"/></Button>
+            <div className="flex gap-1">
+                <Button size="lg" className="w-20 h-20" onClick={() => changeDirection('LEFT')}><ArrowLeft className="h-10 w-10"/></Button>
+                <Button size="lg" className="w-20 h-20" onClick={() => changeDirection('DOWN')}><ArrowDown className="h-10 w-10"/></Button>
+                <Button size="lg" className="w-20 h-20" onClick={() => changeDirection('RIGHT')}><ArrowRight className="h-10 w-10"/></Button>
+            </div>
+        </div>
+         <p className="text-sm text-muted-foreground">키보드 방향키 또는 화면의 컨트롤러로 뱀을 조종하세요.</p>
       </div>
 
        <AlertDialog open={gameState === 'over' && !isSubmitting}>
