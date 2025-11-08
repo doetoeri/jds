@@ -30,7 +30,7 @@ type Difficulty = 'easy' | 'medium' | 'hard';
 
 const difficulties: Record<Difficulty, { rows: number; cols: number; mines: number; points: number }> = {
   easy: { rows: 9, cols: 9, mines: 10, points: 3 },
-  medium: { rows: 16, cols: 16, mines: 40, points: 5 }, // Points are awarded via backend logic
+  medium: { rows: 16, cols: 16, mines: 40, points: 5 },
   hard: { rows: 16, cols: 30, mines: 99, points: 10 },
 };
 

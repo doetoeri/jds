@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -17,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 
 const GRID_SIZE = 20;
 const CANVAS_SIZE = 600;
@@ -90,13 +92,11 @@ const SnakePage: React.FC = () => {
         case 'RIGHT': head.x += 1; break;
       }
 
-      // Wall collision
       if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
         handleGameOver(score);
         return prevSnake;
       }
 
-      // Self collision
       for (let i = 1; i < newSnake.length; i++) {
         if (head.x === newSnake[i].x && head.y === newSnake[i].y) {
           handleGameOver(score);
@@ -106,7 +106,6 @@ const SnakePage: React.FC = () => {
 
       newSnake.unshift(head);
 
-      // Food collision
       if (head.x === food.x && head.y === food.y) {
         setScore(s => s + 1);
         generateFood(newSnake);
@@ -146,15 +145,24 @@ const SnakePage: React.FC = () => {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-
-    // Draw food
-    ctx.fillStyle = 'hsl(var(--primary))';
-    ctx.fillRect(food.x * BLOCK_SIZE, food.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
     
-    // Draw snake
+    ctx.fillStyle = 'hsl(var(--card))';
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    ctx.fillStyle = 'hsl(var(--primary))';
+    ctx.beginPath();
+    ctx.roundRect(food.x * BLOCK_SIZE, food.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, [8]);
+    ctx.fill();
+    
     snake.forEach((segment, index) => {
-      ctx.fillStyle = `hsl(var(--primary), ${100 - index * 2}%)`;
-      ctx.fillRect(segment.x * BLOCK_SIZE, segment.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+      ctx.fillStyle = index === 0 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--primary))';
+      ctx.strokeStyle = 'hsl(var(--background))';
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.roundRect(segment.x * BLOCK_SIZE, segment.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, [8]);
+      ctx.fill();
+      ctx.stroke();
     });
 
   }, [snake, food]);
@@ -165,7 +173,7 @@ const SnakePage: React.FC = () => {
         <h1 className="text-2xl font-bold tracking-tight font-headline flex items-center">
           <Croissant className="mr-2 h-6 w-6" /> 스네이크
         </h1>
-        <Card className="w-full max-w-xl">
+        <Card className="w-full max-w-xl shadow-lg">
           <CardContent className="p-2">
             <div className="relative rounded-lg overflow-hidden aspect-square">
               <canvas
@@ -178,14 +186,25 @@ const SnakePage: React.FC = () => {
                 SCORE: {score}
               </div>
               {gameState !== 'playing' && (
-                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
-                  <h2 className="text-4xl font-bold font-headline mb-4">스네이크</h2>
+                <motion.div 
+                  className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <motion.h2 
+                    className="text-5xl font-bold font-headline mb-4"
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2, type: 'spring' }}
+                  >
+                    스네이크
+                  </motion.h2>
                   {gameState === 'over' && <p className="mb-2 text-lg">GAME OVER</p>}
                   <Button size="lg" onClick={resetGame}>
                     <Play className="mr-2"/>
                     {gameState === 'start' ? '게임 시작' : '다시 시작'}
                   </Button>
-                </div>
+                </motion.div>
               )}
             </div>
           </CardContent>
