@@ -1196,7 +1196,8 @@ export const resetLeaderboard = async (leaderboardName: string) => {
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
         'tetris': 'leaderboards/tetris/users',
-        'the-button': 'games/the-button/winners'
+        'the-button': 'games/the-button/winners',
+        'snake': 'leaderboards/snake/users'
     };
     const collectionPath = pathMap[leaderboardName];
     if (!collectionPath) throw new Error("유효하지 않은 리더보드입니다.");
@@ -1439,62 +1440,97 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
-    if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다.", pointsToPiggy: 0 };
-    const userRef = doc(db, 'users', userId);
+  if (score <= 0) {
+    return { success: true, message: "점수가 0점이하는 기록되지 않습니다.", pointsToPiggy: 0 };
+  }
 
-    let pointsToPiggy = 0;
-    await runTransaction(db, async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-        const today = new Date().toISOString().split('T')[0];
-        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
-        const dailyEarningDoc = await transaction.get(dailyEarningRef);
-        const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
-        const settingsRef = doc(db, 'system_settings', 'main');
-        const settingsDoc = await transaction.get(settingsRef);
+  const userRef = doc(db, 'users', userId);
+  let pointsToPiggy = 0;
 
-        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
-        const userData = userDoc.data();
+  await runTransaction(db, async (transaction) => {
+    // 1. READS
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+    const userData = userDoc.data();
 
-        const pointsToAdd = Math.floor(score / 100);
-        if (pointsToAdd > 0) {
-            const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-            let pointsForLak = 0;
-            if (isPointLimitEnabled) {
-              const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
-              const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
-              pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
-              pointsToPiggy = pointsToAdd - pointsForLak;
-            } else {
-                pointsForLak = pointsToAdd;
-                pointsToPiggy = 0;
-            }
+    const today = new Date().toISOString().split('T')[0];
+    const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+    const dailyEarningDoc = await transaction.get(dailyEarningRef);
+    
+    const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
+    const leaderboardDoc = await transaction.get(leaderboardRef);
+    
+    const settingsRef = doc(db, 'system_settings', 'main');
+    const settingsDoc = await transaction.get(settingsRef);
 
-            if (pointsForLak > 0) {
-                transaction.update(userRef, { lak: increment(pointsForLak) });
-                if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
-                transaction.set(doc(collection(userRef, 'transactions')), {
-                    date: Timestamp.now(), description: `테트리스 플레이 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
-                });
-            }
-            if (pointsToPiggy > 0) {
-                transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
-                transaction.set(doc(collection(userRef, 'transactions')), {
-                    date: Timestamp.now(), description: `포인트 적립: 테트리스`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
-                });
-            }
+    // 2. LOGIC & CALCULATIONS
+    const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
+    const pointsToAdd = Math.floor(score / 100);
+
+    if (pointsToAdd > 0) {
+      let pointsForLak = 0;
+      let pointsForBank = 0;
+
+      if (isPointLimitEnabled) {
+        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+        const dailyCapRoom = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+        const lakCapRoom = Math.max(0, POINT_LIMIT - userData.lak);
+        
+        // Amount that can go to LAK is limited by both daily and total caps
+        pointsForLak = Math.min(pointsToAdd, dailyCapRoom, lakCapRoom);
+        
+        // The rest goes to the piggy bank
+        pointsForBank = pointsToAdd - pointsForLak;
+
+      } else {
+        // Limits disabled, all points go to lak
+        pointsForLak = pointsToAdd;
+      }
+      pointsToPiggy = pointsForBank;
+
+      // 3. WRITES
+      if (pointsForLak > 0) {
+        transaction.update(userRef, { lak: increment(pointsForLak) });
+        if (isPointLimitEnabled) {
+          transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
         }
+        transaction.set(doc(collection(userRef, 'transactions')), {
+          date: Timestamp.now(),
+          description: `테트리스 플레이 보상 (${score}점)`,
+          amount: pointsForLak,
+          type: 'credit',
+        });
+      }
+      if (pointsForBank > 0) {
+        transaction.update(userRef, { piggyBank: increment(pointsForBank) });
+        transaction.set(doc(collection(userRef, 'transactions')), {
+          date: Timestamp.now(),
+          description: `포인트 적립: 테트리스`,
+          amount: pointsForBank,
+          type: 'credit',
+          isPiggyBank: true,
+        });
+      }
+    }
+    
+    // Update leaderboard score
+    if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
+        transaction.set(leaderboardRef, {
+            score,
+            displayName: userData.displayName,
+            studentId: userData.studentId,
+            avatarGradient: userData.avatarGradient,
+            lastUpdated: Timestamp.now(),
+        }, { merge: true });
+    }
+  });
 
-        if (!leaderboardDoc.exists() || score > (leaderboardDoc.data().score || 0)) {
-            transaction.set(leaderboardRef, {
-                score: score, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
-            }, { merge: true });
-        }
-    });
-
-    const points = Math.floor(score / 100);
-    return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
+  const points = Math.floor(score / 100);
+  return {
+    success: true,
+    message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`,
+    pointsToPiggy,
+  };
 };
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
