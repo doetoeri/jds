@@ -27,9 +27,11 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle as Dial
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function AdminSettingsPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
+  const [maintenanceReason, setMaintenanceReason] = useState("");
   const [isShopEnabled, setIsShopEnabled] = useState<boolean>(true);
   const [isPointLimitEnabled, setIsPointLimitEnabled] = useState<boolean>(true);
   const [isTogglingSystem, setIsTogglingSystem] = useState(true);
@@ -60,11 +62,13 @@ export default function AdminSettingsPage() {
         if (doc.exists()) {
             const data = doc.data();
             setIsMaintenanceMode(data?.isMaintenanceMode ?? false);
+            setMaintenanceReason(data?.maintenanceReason ?? "");
             setIsShopEnabled(data?.isShopEnabled ?? true);
             setGlobalDiscount(data?.globalDiscount ?? 0);
             setIsPointLimitEnabled(data?.isPointLimitEnabled ?? true);
         } else {
             setIsMaintenanceMode(false);
+            setMaintenanceReason("");
             setIsShopEnabled(true);
             setGlobalDiscount(0);
             setIsPointLimitEnabled(true);
@@ -116,16 +120,10 @@ export default function AdminSettingsPage() {
     };
   }, []);
 
-  const handleSystemToggle = async (type: 'maintenance' | 'shop' | 'pointLimit', checked: boolean) => {
+  const handleSystemToggle = async (type: 'shop' | 'pointLimit', checked: boolean) => {
       setIsTogglingSystem(true);
       try {
-          if (type === 'maintenance') {
-              await setMaintenanceMode(checked);
-              toast({
-                  title: "성공",
-                  description: `시스템 점검 모드가 ${checked ? '활성화' : '비활성화'}되었습니다.`
-              });
-          } else if (type === 'shop') {
+          if (type === 'shop') {
               await setShopStatus(checked);
               toast({
                   title: "성공",
@@ -147,6 +145,25 @@ export default function AdminSettingsPage() {
       } finally {
         setIsTogglingSystem(false);
       }
+  }
+
+  const handleMaintenanceToggle = async () => {
+    setIsTogglingSystem(true);
+    try {
+      await setMaintenanceMode(!isMaintenanceMode, maintenanceReason);
+      toast({
+        title: "성공",
+        description: `시스템 점검 모드가 ${!isMaintenanceMode ? '활성화' : '비활성화'}되었습니다.`
+      });
+    } catch (error) {
+      toast({
+        title: "오류",
+        description: "설정 변경 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTogglingSystem(false);
+    }
   }
   
   const handleDiscountSave = async () => {
@@ -255,16 +272,23 @@ export default function AdminSettingsPage() {
                 <CardDescription>시스템의 주요 기능을 제어합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="maintenance-mode" className="text-base">시스템 점검 모드</Label>
-                        <p className="text-sm text-muted-foreground">활성화 시 관리자를 제외한 모든 사용자가 점검 페이지를 보게 됩니다.</p>
+                <div className="rounded-lg border p-3 shadow-sm space-y-3">
+                    <div className="flex items-start justify-between">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="maintenance-mode" className="text-base">시스템 점검 모드</Label>
+                            <p className="text-sm text-muted-foreground">활성화 시 관리자를 제외한 모든 사용자가 점검 페이지를 보게 됩니다.</p>
+                        </div>
+                        <Button onClick={handleMaintenanceToggle} disabled={isTogglingSystem} variant={isMaintenanceMode ? 'default' : 'destructive'}>
+                           {isTogglingSystem && <Loader2 className="h-4 w-4 animate-spin mr-2"/>}
+                           {isMaintenanceMode ? '점검 모드 종료' : '점검 모드 시작'}
+                        </Button>
                     </div>
-                    <Switch
-                        id="maintenance-mode"
-                        checked={isMaintenanceMode}
-                        onCheckedChange={(checked) => handleSystemToggle('maintenance', checked)}
-                        disabled={isTogglingSystem}
+                    <Textarea 
+                      id="maintenance-reason"
+                      placeholder="점검 사유를 입력하세요. (예: 2.0 업데이트 준비 중)"
+                      value={maintenanceReason}
+                      onChange={(e) => setMaintenanceReason(e.target.value)}
+                      disabled={isTogglingSystem}
                     />
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">

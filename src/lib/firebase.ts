@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -1175,9 +1174,9 @@ export const awardSnakeScore = async (userId: string, score: number) => {
 };
 
 
-export const setMaintenanceMode = async (isMaintenance: boolean) => {
+export const setMaintenanceMode = async (isMaintenance: boolean, reason: string) => {
     const settingsRef = doc(db, 'system_settings', 'main');
-    await setDoc(settingsRef, { isMaintenanceMode: isMaintenance }, { merge: true });
+    await setDoc(settingsRef, { isMaintenanceMode: isMaintenance, maintenanceReason: reason }, { merge: true });
 };
 
 export const setShopStatus = async (isEnabled: boolean) => {
@@ -1475,13 +1474,9 @@ export const awardTetrisScore = async (userId: string, score: number) => {
                 const dailyCapRoom = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
                 const lakCapRoom = Math.max(0, POINT_LIMIT - userData.lak);
                 
-                // The amount that can go to LAK is the minimum of what's to add, what's left for the day, and what's left for the wallet cap.
                 pointsForLak = Math.min(pointsToAdd, dailyCapRoom, lakCapRoom);
-                
-                // The rest goes to the piggy bank
                 pointsToPiggy = pointsToAdd - pointsForLak;
             } else {
-                // Limits disabled, all points go to lak
                 pointsForLak = pointsToAdd;
                 pointsToPiggy = 0;
             }
