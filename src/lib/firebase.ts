@@ -493,7 +493,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 사용 (파트너: ${partnerStudentId})`, amount: pointsForLak, type: 'credit'});
-              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -509,7 +509,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (partnerPointsForLak > 0) {
               transaction.update(partnerRef, { lak: increment(partnerPointsForLak) });
               transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 파트너 보상 (사용자: ${userStudentId})`, amount: partnerPointsForLak, type: 'credit'});
-              if (!isExempt && isPointLimitEnabled) transaction.set(partnerDailyEarningRef, { totalEarned: increment(partnerPointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(partnerDailyEarningRef, { totalEarned: increment(partnerPointsForLak), id: today }, { merge: true });
             }
             if(partnerPointsForPiggyBank > 0) {
               transaction.update(partnerRef, { piggyBank: increment(partnerPointsForPiggyBank) });
@@ -527,7 +527,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
-              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             }
             if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -545,7 +545,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (pointsForLak > 0) {
               transaction.update(userRef, { lak: increment(pointsForLak) });
               transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: pointsForLak, type: 'credit'});
-              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsToDistribute), id: today }, { merge: true });
+              if (!isExempt && isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
             }
              if (pointsToPiggy > 0) {
               transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
@@ -616,7 +616,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = cart[i];
+      const item = items[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
@@ -1038,9 +1038,17 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const pointsToAdd = 3;
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userDoc.data().lak)) : pointsToDistribute;
-        pointsToPiggy = pointsToAdd - pointsForLak;
+        let pointsForLak = 0;
+
+        if (isPointLimitEnabled) {
+          const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+          const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+          pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userDoc.data().lak));
+          pointsToPiggy = pointsToAdd - pointsForLak;
+        } else {
+            pointsForLak = pointsToAdd;
+            pointsToPiggy = 0;
+        }
 
         if (pointsForLak > 0) {
             transaction.update(userRef, { lak: increment(pointsForLak) });
@@ -1083,9 +1091,17 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
         const pointsToAdd = Math.floor(score / 10);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-            let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-            let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
-            pointsToPiggy = pointsToAdd - pointsForLak;
+            let pointsForLak = 0;
+            if (isPointLimitEnabled) {
+              const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+              const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+              pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+              pointsToPiggy = pointsToAdd - pointsForLak;
+            } else {
+                pointsForLak = pointsToAdd;
+                pointsToPiggy = 0;
+            }
+
 
             if (pointsForLak > 0) {
                 transaction.update(userRef, { lak: increment(pointsForLak) });
@@ -1127,9 +1143,16 @@ export const awardSnakeScore = async (userId: string, score: number) => {
         const pointsToAdd = score;
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-            let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-            let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
-            pointsToPiggy = pointsToAdd - pointsForLak;
+            let pointsForLak = 0;
+            if (isPointLimitEnabled) {
+              const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+              const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+              pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+              pointsToPiggy = pointsToAdd - pointsForLak;
+            } else {
+                pointsForLak = pointsToAdd;
+                pointsToPiggy = 0;
+            }
 
             if (pointsForLak > 0) {
                 transaction.update(userRef, { lak: increment(pointsForLak) });
@@ -1310,9 +1333,17 @@ export const givePointsToMultipleStudentsAtBooth = async (
         
         const studentData = freshStudentDoc.data();
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        let pointsToDistribute = isPointLimitEnabled ? Math.min(value, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : value;
-        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak)) : pointsToDistribute;
-        pointsToPiggy = value - pointsForLak;
+        let pointsForLak = 0;
+
+        if (isPointLimitEnabled) {
+          const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+          const pointsToDistribute = Math.min(value, Math.max(0, remainingDaily));
+          pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak));
+          pointsToPiggy = value - pointsForLak;
+        } else {
+            pointsForLak = value;
+            pointsToPiggy = 0;
+        }
 
         if (pointsForLak > 0) {
             transaction.update(studentRef, { lak: increment(pointsForLak) });
@@ -1428,9 +1459,16 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         const pointsToAdd = Math.floor(score / 100);
         if (pointsToAdd > 0) {
             const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-            let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-            let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
-            pointsToPiggy = pointsToAdd - pointsForLak;
+            let pointsForLak = 0;
+            if (isPointLimitEnabled) {
+              const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+              const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+              pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+              pointsToPiggy = pointsToAdd - pointsForLak;
+            } else {
+                pointsForLak = pointsToAdd;
+                pointsToPiggy = 0;
+            }
 
             if (pointsForLak > 0) {
                 transaction.update(userRef, { lak: increment(pointsForLak) });
@@ -1457,6 +1495,58 @@ export const awardTetrisScore = async (userId: string, score: number) => {
     const points = Math.floor(score / 100);
     return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
 };
+
+export const awardBlockBlastScore = async (userId: string, score: number) => {
+    if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다.", pointsToPiggy: 0 };
+    const userRef = doc(db, 'users', userId);
+
+    let pointsToPiggy = 0;
+    await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
+
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
+        const userData = userDoc.data();
+
+        const pointsToAdd = Math.floor(score / 50);
+        if (pointsToAdd > 0) {
+            const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+            let pointsForLak = 0;
+            if (isPointLimitEnabled) {
+              const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+              const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+              pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+              pointsToPiggy = pointsToAdd - pointsForLak;
+            } else {
+                pointsForLak = pointsToAdd;
+                pointsToPiggy = 0;
+            }
+
+            if (pointsForLak > 0) {
+                transaction.update(userRef, { lak: increment(pointsForLak) });
+                if (isPointLimitEnabled) transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                    date: Timestamp.now(), description: `블록 블라스트 플레이 보상 (${score}점)`, amount: pointsForLak, type: 'credit',
+                });
+            }
+            if (pointsToPiggy > 0) {
+                transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                    date: Timestamp.now(), description: `포인트 적립: 블록 블라스트`, amount: pointsToPiggy, type: 'credit', isPiggyBank: true
+                });
+            }
+        }
+    });
+
+    const points = Math.floor(score / 50);
+    return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`, pointsToPiggy };
+};
+
 
 
 export const voteOnPoll = async (userId: string, pollId: string, option: string) => {
@@ -1536,9 +1626,17 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     const pointsToAdd = 5;
     const studentData = userDoc.data();
     const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-    let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-    let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak)) : pointsToDistribute;
-    pointsToPiggy = pointsToAdd - pointsForLak;
+    let pointsForLak = 0;
+
+    if (isPointLimitEnabled) {
+      const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+      const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+      pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak));
+      pointsToPiggy = pointsToAdd - pointsForLak;
+    } else {
+        pointsForLak = pointsToAdd;
+        pointsToPiggy = 0;
+    }
 
     if (pointsForLak > 0) {
         transaction.update(userRef, { lak: increment(pointsForLak) });
@@ -1584,9 +1682,18 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         const pointsToAdd = 5;
         const studentData = senderDoc.data();
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak)) : pointsToDistribute;
-        pointsToPiggy = pointsToAdd - pointsForLak;
+        let pointsForLak = 0;
+        
+        if (isPointLimitEnabled) {
+          const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+          const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+          pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - studentData.lak));
+          pointsToPiggy = pointsToAdd - pointsForLak;
+        } else {
+            pointsForLak = pointsToAdd;
+            pointsToPiggy = 0;
+        }
+
 
         if (pointsForLak > 0) {
             transaction.update(senderRef, { lak: increment(pointsForLak) });
@@ -1879,9 +1986,17 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
 
         const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
         const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        let pointsToDistribute = isPointLimitEnabled ? Math.min(pointsToAdd, Math.max(0, DAILY_POINT_LIMIT - todayEarned)) : pointsToAdd;
-        let pointsForLak = isPointLimitEnabled ? Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak)) : pointsToDistribute;
-        pointsToPiggy = pointsToAdd - pointsForLak;
+        let pointsForLak = 0;
+        
+        if (isPointLimitEnabled) {
+          const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
+          const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
+          pointsForLak = Math.min(pointsToDistribute, Math.max(0, POINT_LIMIT - userData.lak));
+          pointsToPiggy = pointsToAdd - pointsForLak;
+        } else {
+            pointsForLak = pointsToAdd;
+            pointsToPiggy = 0;
+        }
 
         if (pointsForLak > 0) {
             transaction.update(userRef, { lak: increment(pointsForLak) });

@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio, TrendingUp, Croissant } from 'lucide-react';
+import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio, TrendingUp, Croissant, Blocks } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -32,6 +33,13 @@ const games = [
     description: "먹이를 먹고 길어지는 뱀을 조종하는 고전 게임입니다.",
     href: "/game/snake",
     icon: Croissant,
+    status: "active"
+  },
+   {
+    title: "Block Blast",
+    description: "블록을 터뜨려 점수를 얻는 짜릿한 퍼즐 게임입니다.",
+    href: "/game/block-blast",
+    icon: Blocks,
     status: "active"
   },
    {
