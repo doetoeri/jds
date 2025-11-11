@@ -1440,97 +1440,95 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
-  if (score <= 0) {
-    return { success: true, message: "점수가 0점이하는 기록되지 않습니다.", pointsToPiggy: 0 };
-  }
+    if (score <= 0) {
+        return { success: true, message: "점수가 0점 이하는 기록되지 않습니다.", pointsToPiggy: 0 };
+    }
 
-  const userRef = doc(db, 'users', userId);
-  let pointsToPiggy = 0;
+    const userRef = doc(db, 'users', userId);
+    let pointsToPiggy = 0;
 
-  await runTransaction(db, async (transaction) => {
-    // 1. READS
-    const userDoc = await transaction.get(userRef);
-    if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-    const userData = userDoc.data();
+    await runTransaction(db, async (transaction) => {
+        // 1. READS
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        const userData = userDoc.data();
 
-    const today = new Date().toISOString().split('T')[0];
-    const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
-    const dailyEarningDoc = await transaction.get(dailyEarningRef);
-    
-    const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-    const leaderboardDoc = await transaction.get(leaderboardRef);
-    
-    const settingsRef = doc(db, 'system_settings', 'main');
-    const settingsDoc = await transaction.get(settingsRef);
+        const today = new Date().toISOString().split('T')[0];
+        const dailyEarningRef = doc(db, `users/${userId}/daily_earnings`, today);
+        const dailyEarningDoc = await transaction.get(dailyEarningRef);
 
-    // 2. LOGIC & CALCULATIONS
-    const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
-    const pointsToAdd = Math.floor(score / 100);
+        const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
+        const leaderboardDoc = await transaction.get(leaderboardRef);
 
-    if (pointsToAdd > 0) {
-      let pointsForLak = 0;
-      let pointsForBank = 0;
+        const settingsRef = doc(db, 'system_settings', 'main');
+        const settingsDoc = await transaction.get(settingsRef);
 
-      if (isPointLimitEnabled) {
-        const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
-        const dailyCapRoom = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
-        const lakCapRoom = Math.max(0, POINT_LIMIT - userData.lak);
-        
-        // Amount that can go to LAK is limited by both daily and total caps
-        pointsForLak = Math.min(pointsToAdd, dailyCapRoom, lakCapRoom);
-        
-        // The rest goes to the piggy bank
-        pointsForBank = pointsToAdd - pointsForLak;
+        // 2. LOGIC & CALCULATIONS
+        const isPointLimitEnabled = settingsDoc.exists() ? settingsDoc.data().isPointLimitEnabled ?? true : true;
+        const pointsToAdd = Math.floor(score / 1000);
 
-      } else {
-        // Limits disabled, all points go to lak
-        pointsForLak = pointsToAdd;
-      }
-      pointsToPiggy = pointsForBank;
-
-      // 3. WRITES
-      if (pointsForLak > 0) {
-        transaction.update(userRef, { lak: increment(pointsForLak) });
-        if (isPointLimitEnabled) {
-          transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+        if (pointsToAdd > 0) {
+            let pointsForLak = 0;
+            
+            if (isPointLimitEnabled) {
+                const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
+                const dailyCapRoom = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+                const lakCapRoom = Math.max(0, POINT_LIMIT - userData.lak);
+                
+                // The amount that can go to LAK is the minimum of what's to add, what's left for the day, and what's left for the wallet cap.
+                pointsForLak = Math.min(pointsToAdd, dailyCapRoom, lakCapRoom);
+                
+                // The rest goes to the piggy bank
+                pointsToPiggy = pointsToAdd - pointsForLak;
+            } else {
+                // Limits disabled, all points go to lak
+                pointsForLak = pointsToAdd;
+                pointsToPiggy = 0;
+            }
+            
+            // 3. WRITES
+            if (pointsForLak > 0) {
+                transaction.update(userRef, { lak: increment(pointsForLak) });
+                if (isPointLimitEnabled) {
+                    transaction.set(dailyEarningRef, { totalEarned: increment(pointsForLak), id: today }, { merge: true });
+                }
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                    date: Timestamp.now(),
+                    description: `테트리스 플레이 보상 (${score}점)`,
+                    amount: pointsForLak,
+                    type: 'credit',
+                });
+            }
+            if (pointsToPiggy > 0) {
+                transaction.update(userRef, { piggyBank: increment(pointsToPiggy) });
+                transaction.set(doc(collection(userRef, 'transactions')), {
+                    date: Timestamp.now(),
+                    description: `포인트 적립: 테트리스`,
+                    amount: pointsToPiggy,
+                    type: 'credit',
+                    isPiggyBank: true,
+                });
+            }
         }
-        transaction.set(doc(collection(userRef, 'transactions')), {
-          date: Timestamp.now(),
-          description: `테트리스 플레이 보상 (${score}점)`,
-          amount: pointsForLak,
-          type: 'credit',
-        });
-      }
-      if (pointsForBank > 0) {
-        transaction.update(userRef, { piggyBank: increment(pointsForBank) });
-        transaction.set(doc(collection(userRef, 'transactions')), {
-          date: Timestamp.now(),
-          description: `포인트 적립: 테트리스`,
-          amount: pointsForBank,
-          type: 'credit',
-          isPiggyBank: true,
-        });
-      }
-    }
-    
-    // Update leaderboard score
-    if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
-        transaction.set(leaderboardRef, {
-            score,
-            displayName: userData.displayName,
-            studentId: userData.studentId,
-            avatarGradient: userData.avatarGradient,
-            lastUpdated: Timestamp.now(),
-        }, { merge: true });
-    }
-  });
 
-  const points = Math.floor(score / 100);
-  return {
-    success: true,
-    message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`,
-    pointsToPiggy,
-  };
+        // Update leaderboard score
+        if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
+            transaction.set(leaderboardRef, {
+                score,
+                displayName: userData.displayName,
+                studentId: userData.studentId,
+                avatarGradient: userData.avatarGradient,
+                lastUpdated: Timestamp.now(),
+            }, { merge: true });
+        }
+    });
+    
+    const points = Math.floor(score / 1000);
+    return {
+        success: true,
+        message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}`,
+        pointsToPiggy,
+    };
 };
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
@@ -1907,7 +1905,7 @@ export const pressTheButton = async (userId: string) => {
         const updateData = {
             lastPressedBy: userId,
             lastPressedByDisplayName: userData.displayName,
-            lastPresserAvatar: userData.avatarGradient || 'orange', // Provide a default value
+            lastPresserAvatar: userData.avatarGradient || 'orange',
             timerEndsAt: Timestamp.fromMillis(Date.now() + 30 * 60 * 1000), // 30 minutes
             isFinished: false,
         };
