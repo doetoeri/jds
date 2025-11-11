@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Bird, HardHat } from "lucide-react";
@@ -30,14 +31,7 @@ export default function MaintenancePage() {
 
     const animationFrame = requestAnimationFrame(animate);
 
-    return () => {
-      unsubscribe();
-      cancelAnimationFrame(animationFrame);
-    };
-  }, []);
-
-  useEffect(() => {
-    const animate = () => {
+    function animate() {
       if (containerRef.current) {
         setPosition(prevPos => {
           let newX = prevPos.x + velocity.x;
@@ -64,10 +58,15 @@ export default function MaintenancePage() {
         });
       }
       requestAnimationFrame(animate);
+    }
+    
+    return () => {
+      unsubscribe();
+      cancelAnimationFrame(animationFrame);
     };
-    const frameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frameId);
-  }, [velocity]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
 
   return (

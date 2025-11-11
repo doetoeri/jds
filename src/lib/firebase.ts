@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -402,7 +403,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         if(pointsToFriendPiggy > 0) {
             transaction.update(friendRef, { piggyBank: increment(pointsToFriendPiggy) });
             transaction.set(doc(collection(friendRef, 'transactions')), {
-              date: Timestamp.now(), description: `포인트 적립: 친구 초대 보상`, amount: pointsToFriendPiggy, type: 'credit', isPiggyBank: true,
+              date: Timestamp.now(), description: `포인트 적립: 친구 초대 보상`, amount: pointsToFriendPiggy, type: 'credit', isPiggyBank: true
             });
         }
         transaction.update(friendRef, { usedMyId: arrayUnion(userStudentId) });
@@ -1472,9 +1473,10 @@ export const awardTetrisScore = async (userId: string, score: number) => {
             if (isPointLimitEnabled) {
                 const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
                 const dailyCapRoom = Math.max(0, DAILY_POINT_LIMIT - todayEarned);
+                const pointsToDistribute = Math.min(pointsToAdd, dailyCapRoom);
+
                 const lakCapRoom = Math.max(0, POINT_LIMIT - userData.lak);
-                
-                pointsForLak = Math.min(pointsToAdd, dailyCapRoom, lakCapRoom);
+                pointsForLak = Math.min(pointsToDistribute, lakCapRoom);
                 pointsToPiggy = pointsToAdd - pointsForLak;
             } else {
                 pointsForLak = pointsToAdd;
