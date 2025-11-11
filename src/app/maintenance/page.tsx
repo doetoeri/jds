@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Bird, HardHat } from "lucide-react";
@@ -8,6 +7,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const colors = [
     "text-red-500", "text-orange-500", "text-yellow-500", "text-green-500", 
@@ -20,6 +20,7 @@ export default function MaintenancePage() {
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const [velocity, setVelocity] = useState({ x: 0.5, y: 0.3 });
   const [colorIndex, setColorIndex] = useState(0);
+  const [showAnimation, setShowAnimation] = useState(false);
 
   useEffect(() => {
     const settingsRef = doc(db, 'system_settings', 'main');
@@ -29,7 +30,13 @@ export default function MaintenancePage() {
       }
     });
 
-    const animationFrame = requestAnimationFrame(animate);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!showAnimation) return;
+
+    let animationFrameId: number;
 
     function animate() {
       if (containerRef.current) {
@@ -57,42 +64,60 @@ export default function MaintenancePage() {
           };
         });
       }
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     }
     
+    animationFrameId = requestAnimationFrame(animate);
+    
     return () => {
-      unsubscribe();
-      cancelAnimationFrame(animationFrame);
+      cancelAnimationFrame(animationFrameId);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-
+  }, [showAnimation, velocity.x, velocity.y]);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-gray-900"
+      className="relative w-screen h-screen overflow-hidden bg-gray-900 flex items-center justify-center"
     >
-      <motion.div
-        className="absolute"
-        animate={{ x: `${position.x}%`, y: `${position.y}%` }}
-        style={{ translateX: "-50%", translateY: "-50%" }}
-        transition={{ type: "tween", ease: "linear" }}
-      >
-        <div className="flex flex-col items-center p-6 text-center">
+      {!showAnimation ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center p-6 text-center"
+        >
             <div className="flex items-center gap-4 mb-4">
-                <HardHat className={cn("h-10 w-10", colors[colorIndex])} />
-                <Bird className={cn("h-12 w-12", colors[colorIndex])} />
+                <HardHat className="h-10 w-10 text-yellow-400" />
             </div>
             <h1 className="text-2xl font-bold font-headline text-gray-100 mb-2">
                 시스템 점검 중
             </h1>
-            <p className="text-md text-gray-400 max-w-sm">
+            <p className="text-md text-gray-400 max-w-sm mb-6">
                 {reason}
             </p>
-        </div>
-      </motion.div>
+            <Button onClick={() => setShowAnimation(true)}>
+                확인하기
+            </Button>
+        </motion.div>
+      ) : (
+        <motion.div
+            className="absolute"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+                top: `${position.y}%`,
+                left: `${position.x}%`,
+                transform: "translate(-50%, -50%)"
+            }}
+            transition={{ type: "tween", ease: "linear" }}
+        >
+            <div className="flex items-center gap-2">
+                <Bird className={cn("h-12 w-12", colors[colorIndex])} />
+                <span className={cn("text-2xl font-bold font-headline text-gray-100", colors[colorIndex])}>
+                    종달샘 허브
+                </span>
+            </div>
+        </motion.div>
+      )}
     </div>
   );
 };
