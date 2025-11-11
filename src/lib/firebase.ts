@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -447,7 +448,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
     const [freshCodeDoc, userDoc, dailyEarningDoc, settingsDoc] = await Promise.all([
       transaction.get(codeRef),
       transaction.get(userRef),
-      transaction.get(dailyEarningDoc),
+      transaction.get(dailyEarningRef),
       transaction.get(settingsRef)
     ]);
 
@@ -616,7 +617,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = items[i];
+      const item = cart[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
@@ -1627,7 +1628,7 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     const studentData = userDoc.data();
     const todayEarned = dailyEarningDoc.exists() ? dailyEarningDoc.data().totalEarned : 0;
     let pointsForLak = 0;
-
+    
     if (isPointLimitEnabled) {
       const remainingDaily = DAILY_POINT_LIMIT - todayEarned;
       const pointsToDistribute = Math.min(pointsToAdd, Math.max(0, remainingDaily));
