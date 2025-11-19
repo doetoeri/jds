@@ -99,7 +99,7 @@ export default function AdminSettingsPage() {
             const transactionsSnapshot = await getDocs(collection(userDoc.ref, 'transactions'));
             transactionsSnapshot.forEach(transDoc => {
                 const transaction = transDoc.data();
-                if (transaction.type === 'credit' && !transaction.isPiggyBank) {
+                if (transaction.type === 'credit') {
                     credits += transaction.amount;
                 } else if (transaction.type === 'debit') {
                     debits += Math.abs(transaction.amount);
@@ -300,18 +300,6 @@ export default function AdminSettingsPage() {
                         id="shop-enabled"
                         checked={isShopEnabled}
                         onCheckedChange={(checked) => handleSystemToggle('shop', checked)}
-                        disabled={isTogglingSystem}
-                    />
-                </div>
-                 <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="point-limit" className="text-base">포인트 제한 활성화</Label>
-                        <p className="text-sm text-muted-foreground">일일 획득(15P) 및 보유(25P) 한도를 설정합니다. 비활성화 시 모든 포인트가 즉시 지급됩니다.</p>
-                    </div>
-                    <Switch
-                        id="point-limit"
-                        checked={isPointLimitEnabled}
-                        onCheckedChange={(checked) => handleSystemToggle('pointLimit', checked)}
                         disabled={isTogglingSystem}
                     />
                 </div>

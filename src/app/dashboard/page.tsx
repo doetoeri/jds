@@ -30,7 +30,7 @@ const POINT_THRESHOLDS = [
 
 export default function DashboardPage() {
   const [user] = useAuthState(auth);
-  const [userData, setUserData] = useState<{ lak?: number; studentId?: string; displayName?: string; avatarGradient?: string; piggyBank?: number } | null>(null);
+  const [userData, setUserData] = useState<{ lak?: number; studentId?: string; displayName?: string; avatarGradient?: string; } | null>(null);
   const [newUpdate, setNewUpdate] = useState<NewUpdate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [unusedHiddenCodeCount, setUnusedHiddenCodeCount] = useState<number | null>(null);
@@ -54,7 +54,6 @@ export default function DashboardPage() {
             studentId: data.studentId,
             displayName: data.displayName,
             avatarGradient: data.avatarGradient,
-            piggyBank: data.piggyBank ?? 0,
         });
       } else {
         setUserData({ lak: 0, studentId: undefined });

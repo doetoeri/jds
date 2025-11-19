@@ -77,9 +77,6 @@ export default function CodesPage() {
                   title: "성공!",
                   description: result.message,
               });
-              if (result.pointsToPiggy > 0) {
-                  router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-              }
               setCode('');
               setPartnerStudentId('');
               closeScanner();

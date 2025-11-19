@@ -124,9 +124,6 @@ export default function LettersView() {
 
       if (result.success) {
         toast({ title: '전송 완료!', description: result.message });
-        if (result.pointsToPiggy > 0) {
-            router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-        }
         setReceiverIdentifier('');
         setContent('');
       } else {
