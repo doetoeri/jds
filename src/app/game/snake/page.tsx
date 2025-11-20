@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -66,9 +67,6 @@ const SnakePage: React.FC = () => {
         const result = await awardSnakeScore(user.uid, finalScore);
         if (result.success) {
           toast({ title: '점수 기록!', description: result.message });
-           if (result.pointsToPiggy > 0) {
-              router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-            }
         }
       } catch (e: any) {
         toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
@@ -76,7 +74,7 @@ const SnakePage: React.FC = () => {
         setIsSubmitting(false);
       }
     }
-  }, [user, toast, router]);
+  }, [user, toast]);
 
   const gameLoop = useCallback(() => {
     if (gameState !== 'playing') return;

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -59,9 +60,8 @@ const BlockBlastPage: React.FC = () => {
       setIsSubmitting(true);
       try {
         const result = await awardBlockBlastScore(user.uid, finalScore);
-        toast({ title: '점수 기록!', description: result.message });
-        if (result.pointsToPiggy > 0) {
-          router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
+        if(result.success) {
+            toast({ title: '점수 기록!', description: result.message });
         }
       } catch (e: any) {
         toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
@@ -69,7 +69,7 @@ const BlockBlastPage: React.FC = () => {
         setIsSubmitting(false);
       }
     }
-  }, [user, toast, router]);
+  }, [user, toast]);
 
   const fallBlocks = (currentGrid: Grid): Grid => {
     const newGrid = createEmptyGrid();

@@ -96,12 +96,9 @@ export default function UpgradeGamePage() {
         const result = await awardUpgradeWin(user.uid, currentLevel);
         if (result.success) {
             toast({
-                title: `수확 완료! (+${result.pointsToPiggy > 0 ? `${levels[currentLevel -1].reward.toFixed(2)}P 저금통` : `${levels[currentLevel - 1].reward.toFixed(2)}P`})`,
+                title: `수확 완료! (+${levels[currentLevel - 1].reward.toFixed(2)}P)`,
                 description: `${currentLevel}단계 보상을 획득했습니다.`,
             });
-            if (result.pointsToPiggy > 0) {
-              router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-            }
         }
         resetGame(); // Reset after successful harvest
       } catch (e: any) {

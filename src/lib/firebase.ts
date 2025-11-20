@@ -32,9 +32,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-const POINT_LIMIT = 25;
-const DAILY_POINT_LIMIT = 15;
-
 // --- Utility Functions ---
 
 const generatePaymentCode = (type: 'ONL' | 'POS') => {
@@ -903,7 +900,7 @@ const handleGameWin = async (
     pointsToAdd: number,
     description: string
 ) => {
-    if (pointsToAdd <= 0) return 0;
+    if (pointsToAdd <= 0) return;
 
     const userRef = doc(db, 'users', userId);
     transaction.update(userRef, { lak: increment(pointsToAdd) });
@@ -913,15 +910,15 @@ const handleGameWin = async (
         amount: pointsToAdd,
         type: 'credit',
     });
-
-    return 0; // No more piggy bank
 };
 
 export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard', time: number) => {
+    const pointsToAdd = difficulties[difficulty].points;
     await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        
         const leaderboardRef = doc(db, `leaderboards/minesweeper-${difficulty}/users`, userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
         
@@ -931,14 +928,14 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
             }, { merge: true });
         }
         
-        const pointsToAdd = 3;
         await handleGameWin(transaction, userId, pointsToAdd, `지뢰찾기 (${difficulty}) 승리 보상`);
     });
     return { success: true, message: `기록이 저장되었습니다. 최종 시간: ${time}초` };
 };
 
 export const awardBreakoutScore = async (userId: string, score: number) => {
-    if (score <= 0) return { success: false, message: "점수가 0점 이하는 기록되지 않습니다."};
+    const pointsToAdd = Math.floor(score / 10);
+    if (pointsToAdd <= 0) return { success: true, message: `점수 ${score}점이 기록되었습니다!` };
     
     await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -950,16 +947,15 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
             score: increment(score), displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
         }, { merge: true });
         
-        const pointsToAdd = Math.floor(score / 10);
         await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
     });
 
-    const points = Math.floor(score / 10);
-    return { success: true, message: `점수 ${score}점이 기록되었습니다!${points > 0 ? ` ${points}포인트를 획득했습니다!` : ''}` };
+    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd}포인트를 획득했습니다!` };
 };
 
 export const awardSnakeScore = async (userId: string, score: number) => {
-    if (score <= 0) return { success: true, message: "점수가 0점 이하는 기록되지 않습니다."};
+    const pointsToAdd = score;
+    if (pointsToAdd <= 0) return { success: true, message: "점수가 0점 이하는 기록되지 않습니다." };
 
     await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -979,11 +975,10 @@ export const awardSnakeScore = async (userId: string, score: number) => {
             }, { merge: true });
         }
 
-        const pointsToAdd = score;
         await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
     });
     
-    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${score > 0 ? ` ${score}포인트를 획득했습니다!` : ''}` };
+    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? ` ${pointsToAdd}포인트를 획득했습니다!` : ''}` };
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
@@ -1020,14 +1015,9 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 };
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
-    if (score <= 0) return { success: true, message: "점수가 0점 이하는 기록되지 않습니다."};
-    
     const pointsToAdd = Math.floor(score / 50);
-
-    if (pointsToAdd <= 0) {
-      return { success: true, message: `점수 ${score}점이 기록되었습니다!` };
-    }
-
+    if (pointsToAdd <= 0) return { success: true, message: `점수 ${score}점이 기록되었습니다!` };
+    
     await runTransaction(db, async (transaction) => {
         await handleGameWin(transaction, userId, pointsToAdd, `블록 블라스트 플레이 보상 (${score}점)`);
     });

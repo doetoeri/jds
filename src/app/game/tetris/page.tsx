@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -230,9 +231,6 @@ const TetrisPage: React.FC = () => {
                 const result = await awardTetrisScore(user.uid, score);
                 if (result.success) {
                     toast({ title: '점수 기록!', description: result.message });
-                    if (result.pointsToPiggy > 0) {
-                        router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-                    }
                 }
             } catch (e: any) {
                 toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
@@ -240,7 +238,7 @@ const TetrisPage: React.FC = () => {
                 setIsSubmitting(false);
             }
         }
-    }, [score, user, toast, router]);
+    }, [score, user, toast]);
 
     const lockPieceAndContinue = useCallback(() => {
         const currentPiece = currentPieceRef.current;
@@ -408,17 +406,21 @@ const TetrisPage: React.FC = () => {
     useEffect(() => {
         draw(); // Initial draw
     }, [draw, gameState]);
-
+    
+    // This is the main game loop trigger
     useEffect(() => {
         if (gameState === 'playing') {
             gameLoopRef.current = requestAnimationFrame(gameLoop);
         } else {
             if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+            if (gameState === 'over') {
+                 handleGameOver();
+            }
         }
         return () => {
             if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         }
-    }, [gameState, gameLoop]);
+    }, [gameState, gameLoop, handleGameOver]);
 
     return (
         <>

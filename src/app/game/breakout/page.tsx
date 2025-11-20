@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -154,9 +155,6 @@ export default function BreakoutPage() {
         const result = await awardBreakoutScore(user.uid, finalScore);
         if (result.success) {
           toast({ title: '점수 기록!', description: result.message });
-          if (result.pointsToPiggy > 0) {
-            router.push(`/dashboard/piggy-bank?amount=${result.pointsToPiggy}`);
-          }
         }
       } catch (e) {
         toast({ title: '오류', description: '점수 기록에 실패했습니다.', variant: 'destructive' });
@@ -164,7 +162,7 @@ export default function BreakoutPage() {
         setIsSubmitting(false);
       }
     }
-  }, [user, toast, router]);
+  }, [user, toast]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
