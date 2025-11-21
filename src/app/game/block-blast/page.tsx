@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Blocks, Loader2, Play, Trophy, RefreshCw } from 'lucide-react';
+import { Blocks, Loader2, Play, Trophy, RefreshCw, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardBlockBlastScore } from '@/lib/firebase';
@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 
 // --- Game Constants & Types ---
 const GRID_SIZE = 8;
-const BLOCK_SIZE = 40; // This will be handled by Tailwind's w-10 h-10 for responsiveness
 
 const SHAPES = {
   '1x1': { shape: [[1]], color: 'bg-red-500' },
@@ -30,14 +29,16 @@ const SHAPES = {
   '1x2': { shape: [[1], [1]], color: 'bg-orange-500' },
   '3x1': { shape: [[1, 1, 1]], color: 'bg-yellow-400' },
   '1x3': { shape: [[1], [1], [1]], color: 'bg-yellow-400' },
-  '2x2': { shape: [[1, 1], [1, 1]], color: 'bg-green-500' },
-  'L2-1': { shape: [[1, 0], [1, 1]], color: 'bg-cyan-500' },
-  'L2-2': { shape: [[0, 1], [1, 1]], color: 'bg-cyan-500' },
-  'L2-3': { shape: [[1, 1], [1, 0]], color: 'bg-cyan-500' },
-  'L2-4': { shape: [[1, 1], [0, 1]], color: 'bg-cyan-500' },
-  'T': { shape: [[1,1,1],[0,1,0]], color: 'bg-purple-500'},
-  'Z': { shape: [[1,1,0],[0,1,1]], color: 'bg-pink-500' },
-  'S': { shape: [[0,1,1],[1,1,0]], color: 'bg-lime-500' },
+  '4x1': { shape: [[1, 1, 1, 1]], color: 'bg-cyan-400' },
+  '1x4': { shape: [[1], [1], [1], [1]], color: 'bg-cyan-400' },
+  '2x2': { shape: [[1, 1], [1, 1]], color: 'bg-lime-500' },
+  'L-1': { shape: [[1, 0], [1, 0], [1, 1]], color: 'bg-blue-500' },
+  'L-2': { shape: [[0, 1], [0, 1], [1, 1]], color: 'bg-blue-500' },
+  'L-3': { shape: [[1, 1, 1], [1, 0, 0]], color: 'bg-blue-500' },
+  'L-4': { shape: [[1, 1, 1], [0, 0, 1]], color: 'bg-blue-500' },
+  'T': { shape: [[1, 1, 1], [0, 1, 0]], color: 'bg-purple-500' },
+  'Z-1': { shape: [[1, 1, 0], [0, 1, 1]], color: 'bg-pink-500' },
+  'Z-2': { shape: [[0, 1], [1, 1], [1, 0]], color: 'bg-pink-500' },
 };
 
 type ShapeKey = keyof typeof SHAPES;
@@ -52,10 +53,10 @@ const BlockBlastGame: React.FC = () => {
     const [gameState, setGameState] = useState<GameStatus>('start');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // Drag and Drop State
     const [draggedPieceIndex, setDraggedPieceIndex] = useState<number | null>(null);
     const [ghostGrid, setGhostGrid] = useState<Grid>(createEmptyGrid());
     const [isDragging, setIsDragging] = useState(false);
+    const [clearingCells, setClearingCells] = useState<Set<string>>(new Set());
 
     const { toast } = useToast();
     const [user] = useAuthState(auth);
@@ -77,6 +78,7 @@ const BlockBlastGame: React.FC = () => {
         setCurrentPieces(getRandomPieces());
         setScore(0);
         setGameState('playing');
+        setClearingCells(new Set());
     }, [getRandomPieces]);
     
     const canPlacePiece = useCallback((piece: Piece, row: number, col: number, currentGrid: Grid): boolean => {
@@ -85,7 +87,7 @@ const BlockBlastGame: React.FC = () => {
                 if (piece.shape[r][c]) {
                     const newRow = row + r;
                     const newCol = col + c;
-                    if (newRow >= GRID_SIZE || newCol >= GRID_SIZE || currentGrid[newRow]?.[newCol]) {
+                    if (newRow >= GRID_SIZE || newCol >= GRID_SIZE || newRow < 0 || newCol < 0 || currentGrid[newRow]?.[newCol]) {
                         return false;
                     }
                 }
@@ -93,14 +95,14 @@ const BlockBlastGame: React.FC = () => {
         }
         return true;
     }, []);
-
+    
     const isGameOver = useCallback((pieces: (Piece | null)[], currentGrid: Grid): boolean => {
         for (const piece of pieces) {
             if (!piece) continue;
             for (let r = 0; r <= GRID_SIZE - piece.shape.length; r++) {
                 for (let c = 0; c <= GRID_SIZE - piece.shape[0].length; c++) {
                     if (canPlacePiece(piece, r, c, currentGrid)) {
-                        return false; // Found a valid move
+                        return false;
                     }
                 }
             }
@@ -124,6 +126,35 @@ const BlockBlastGame: React.FC = () => {
             }
         }
     }, [user, toast]);
+    
+    const clearLines = useCallback((currentGrid: Grid) => {
+        const rowsToClear = new Set<number>();
+        const colsToClear = new Set<number>();
+        for (let i = 0; i < GRID_SIZE; i++) {
+            if (currentGrid[i].every(cell => cell !== null)) rowsToClear.add(i);
+            if (currentGrid.every(row => row[i] !== null)) colsToClear.add(i);
+        }
+
+        if (rowsToClear.size === 0 && colsToClear.size === 0) {
+            return { clearedGrid: currentGrid, clearedLinesCount: 0 };
+        }
+        
+        const newClearingCells = new Set<string>();
+        rowsToClear.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) newClearingCells.add(`${r}-${c}`); });
+        colsToClear.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) newClearingCells.add(`${r}-${c}`); });
+
+        setClearingCells(newClearingCells);
+
+        const clearedGrid = createEmptyGrid();
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (!rowsToClear.has(r) && !colsToClear.has(c)) {
+                    clearedGrid[r][c] = currentGrid[r][c];
+                }
+            }
+        }
+        return { clearedGrid, clearedLinesCount: rowsToClear.size + colsToClear.size };
+    }, []);
 
     const handleDrop = (row: number, col: number) => {
         setIsDragging(false);
@@ -135,8 +166,8 @@ const BlockBlastGame: React.FC = () => {
             return;
         }
 
-        const newGrid = grid.map(r => [...r]);
         let pieceScore = 0;
+        const newGrid = grid.map(r => [...r]);
         for (let r = 0; r < piece.shape.length; r++) {
             for (let c = 0; c < piece.shape[r].length; c++) {
                 if (piece.shape[r][c]) {
@@ -145,51 +176,33 @@ const BlockBlastGame: React.FC = () => {
                 }
             }
         }
-        
+
         const { clearedGrid, clearedLinesCount } = clearLines(newGrid);
-        let comboScore = clearedLinesCount > 0 ? (clearedLinesCount * 10) * clearedLinesCount : 0;
-        setScore(s => s + pieceScore + comboScore);
-
-        const newPieces = [...currentPieces];
-        newPieces[draggedPieceIndex] = null;
         
-        const remainingPieces = newPieces.filter(p => p !== null);
-        if (remainingPieces.length === 0) {
-            const nextPieces = getRandomPieces();
-            setCurrentPieces(nextPieces);
-            if (isGameOver(nextPieces, clearedGrid)) {
-                handleGameOver(score + pieceScore + comboScore);
-            }
-        } else {
-            setCurrentPieces(newPieces);
-            if (isGameOver(remainingPieces, clearedGrid)) {
-                handleGameOver(score + pieceScore + comboScore);
-            }
-        }
-        setGrid(clearedGrid);
-    };
-
-    const clearLines = (currentGrid: Grid) => {
-        const rowsToClear = new Set<number>();
-        const colsToClear = new Set<number>();
-        for (let i = 0; i < GRID_SIZE; i++) {
-            if (currentGrid[i].every(cell => cell !== null)) rowsToClear.add(i);
-            if (currentGrid.every(row => row[i] !== null)) colsToClear.add(i);
-        }
-
-        if (rowsToClear.size === 0 && colsToClear.size === 0) {
-            return { clearedGrid: currentGrid, clearedLinesCount: 0 };
-        }
-
-        const clearedGrid = createEmptyGrid();
-        for (let r = 0; r < GRID_SIZE; r++) {
-            for (let c = 0; c < GRID_SIZE; c++) {
-                if (!rowsToClear.has(r) && !colsToClear.has(c)) {
-                    clearedGrid[r][c] = currentGrid[r][c];
+        setTimeout(() => {
+            setGrid(clearedGrid);
+            setClearingCells(new Set());
+            const comboScore = clearedLinesCount > 0 ? (10 * clearedLinesCount) * clearedLinesCount : 0;
+            const newTotalScore = score + pieceScore + comboScore;
+            setScore(newTotalScore);
+            
+            const newPieces = [...currentPieces];
+            newPieces[draggedPieceIndex] = null;
+            
+            const remainingPieces = newPieces.filter(p => p !== null);
+            if (remainingPieces.length === 0) {
+                const nextPieces = getRandomPieces();
+                setCurrentPieces(nextPieces);
+                if (isGameOver(nextPieces, clearedGrid)) {
+                    handleGameOver(newTotalScore);
+                }
+            } else {
+                setCurrentPieces(newPieces);
+                if (isGameOver(remainingPieces, clearedGrid)) {
+                    handleGameOver(newTotalScore);
                 }
             }
-        }
-        return { clearedGrid, clearedLinesCount: rowsToClear.size + colsToClear.size };
+        }, 300); // Animation duration
     };
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -197,26 +210,61 @@ const BlockBlastGame: React.FC = () => {
             e.preventDefault();
             return;
         }
+        e.dataTransfer.effectAllowed = 'move';
         setDraggedPieceIndex(index);
         setIsDragging(true);
     };
-
-    const handleDragOver = (e: React.DragEvent, row: number, col: number) => {
+    
+    const handleCellDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-        if (draggedPieceIndex === null) return;
-        
-        const piece = currentPieces[draggedPieceIndex];
+        const draggedPiece = draggedPieceIndex !== null ? currentPieces[draggedPieceIndex] : null;
+        if (!draggedPiece) return;
+
+        const cellElement = e.currentTarget;
+        const gridElement = cellElement.parentElement;
+        if (!gridElement) return;
+
+        const rect = gridElement.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const col = Math.floor(x / cellElement.offsetWidth);
+        const row = Math.floor(y / cellElement.offsetHeight);
+
         const newGhostGrid = createEmptyGrid();
-        if (piece && canPlacePiece(piece, row, col, grid)) {
-            for (let r = 0; r < piece.shape.length; r++) {
-                for (let c = 0; c < piece.shape[r].length; c++) {
-                    if (piece.shape[r][c]) {
-                        newGhostGrid[row + r][col + c] = 'ghost';
+        if (canPlacePiece(draggedPiece, row, col, grid)) {
+            for (let r = 0; r < draggedPiece.shape.length; r++) {
+                for (let c = 0; c < draggedPiece.shape[r].length; c++) {
+                    if (draggedPiece.shape[r][c]) {
+                        const newRow = row + r;
+                        const newCol = col + c;
+                        if(newRow < GRID_SIZE && newCol < GRID_SIZE) {
+                            newGhostGrid[newRow][newCol] = 'ghost';
+                        }
                     }
                 }
             }
         }
         setGhostGrid(newGhostGrid);
+    };
+
+    const handleGridDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const draggedPiece = draggedPieceIndex !== null ? currentPieces[draggedPieceIndex] : null;
+        if (!draggedPiece) return;
+    
+        const gridElement = e.currentTarget;
+        const rect = gridElement.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const cellWidth = gridElement.offsetWidth / GRID_SIZE;
+        const cellHeight = gridElement.offsetHeight / GRID_SIZE;
+    
+        const col = Math.floor(x / cellWidth);
+        const row = Math.floor(y / cellHeight);
+
+        handleDrop(row, col);
     };
 
     const DraggablePiece = ({ piece, index }: { piece: Piece | null, index: number }) => {
@@ -232,7 +280,7 @@ const BlockBlastGame: React.FC = () => {
                   setDraggedPieceIndex(null);
                 }}
                 className={cn(
-                    "p-2 rounded-lg cursor-grab active:cursor-grabbing",
+                    "p-2 cursor-grab active:cursor-grabbing flex items-center justify-center touch-none",
                     isDragging && draggedPieceIndex === index && 'opacity-30'
                 )}
             >
@@ -240,7 +288,7 @@ const BlockBlastGame: React.FC = () => {
                     {piece.shape.map((row, r) => (
                         <div key={r} className="flex">
                             {row.map((cell, c) => (
-                                <div key={c} className={cn("w-5 h-5", cell ? `${piece.color} border-black/20 border` : "")} />
+                                <div key={c} className={cn("w-5 h-5 transition-transform duration-100", cell ? `${piece.color} border-black/20 border` : "")} />
                             ))}
                         </div>
                     ))}
@@ -258,21 +306,35 @@ const BlockBlastGame: React.FC = () => {
             <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
                 <Card className="w-full max-w-sm shadow-xl bg-muted/30">
                     <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle>Score: {score}</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Star className="text-yellow-400 fill-yellow-400"/> {score}</CardTitle>
                         <Button variant="outline" size="icon" onClick={startGame}><RefreshCw className="h-4 w-4"/></Button>
                     </CardHeader>
                     <CardContent className="p-2 relative flex justify-center">
-                        <div className="grid border border-secondary" style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}>
+                        <div
+                          className="grid bg-background/50 border border-secondary"
+                          style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}
+                          onDragOver={handleCellDragOver}
+                          onDrop={handleGridDrop}
+                        >
                             {grid.map((row, r) => row.map((cellColor, c) => (
                                 <div
                                     key={`${r}-${c}`}
-                                    onDragOver={(e) => handleDragOver(e, r, c)}
-                                    onDrop={() => handleDrop(r, c)}
-                                    className="w-10 h-10 border border-secondary/50"
+                                    className="w-10 h-10 border border-secondary/20 relative"
                                 >
-                                    <div className={cn(
-                                        "w-full h-full transition-colors",
-                                        cellColor ? `${cellColor} shadow-inner` : 'bg-background',
+                                    <AnimatePresence>
+                                    {cellColor && !clearingCells.has(`${r}-${c}`) && (
+                                        <motion.div
+                                            layoutId={`cell-${r}-${c}`}
+                                            className={cn("w-full h-full shadow-inner", cellColor)}
+                                            initial={{ scale: 0, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            exit={{ scale: 0.5, opacity: 0, transition: { duration: 0.2 } }}
+                                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                        />
+                                    )}
+                                    </AnimatePresence>
+                                     <div className={cn(
+                                        "absolute inset-0 transition-colors",
                                         ghostGrid[r][c] === 'ghost' && 'bg-primary/20'
                                     )} />
                                 </div>
@@ -299,7 +361,7 @@ const BlockBlastGame: React.FC = () => {
                         )}
                     </CardContent>
                 </Card>
-                <div className="w-full max-w-sm lg:w-32 flex lg:flex-col items-center justify-around gap-4 p-4 rounded-lg bg-muted/30">
+                <div className="w-full max-w-sm lg:w-32 flex lg:flex-col items-center justify-around gap-4 p-2 rounded-lg bg-muted/30">
                     {currentPieces.map((p, i) => <DraggablePiece key={i} piece={p} index={i} />)}
                 </div>
             </div>
@@ -328,3 +390,4 @@ const BlockBlastGame: React.FC = () => {
 };
 
 export default BlockBlastGame;
+
