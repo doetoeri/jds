@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -56,6 +55,7 @@ const BlockBlastGame: React.FC = () => {
     const [dragState, setDragState] = useState<{
         piece: Piece;
         index: number;
+        element: HTMLDivElement;
     } | null>(null);
     const [ghostPosition, setGhostPosition] = useState<{row: number, col: number} | null>(null);
 
@@ -163,13 +163,13 @@ const BlockBlastGame: React.FC = () => {
 
     // --- Drag and Drop Handlers ---
 
-    const handlePointerDown = (e: React.PointerEvent, index: number) => {
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
         const piece = currentPieces[index];
         if (!piece || gameState !== 'playing') return;
 
-        e.currentTarget.setPointerCapture(e.pointerId);
+        (e.target as HTMLDivElement).setPointerCapture(e.pointerId);
         
-        setDragState({ piece, index });
+        setDragState({ piece, index, element: e.currentTarget });
     };
     
     const handlePointerMove = (e: React.PointerEvent) => {
@@ -184,26 +184,26 @@ const BlockBlastGame: React.FC = () => {
         const offsetY = e.clientY - gridRect.top;
         
         const piece = dragState.piece;
-        const row = Math.floor(offsetY / cellWidth - piece.shape.length / 2);
-        const col = Math.floor(offsetX / cellWidth - piece.shape[0].length / 2);
-
+        // Center the piece on the cursor
+        const row = Math.round(offsetY / cellWidth - piece.shape.length / 2);
+        const col = Math.round(offsetX / cellWidth - piece.shape[0].length / 2);
+        
         if (canPlacePiece(piece, row, col, grid)) {
             setGhostPosition({ row, col });
         } else {
              if (ghostPosition && !canPlacePiece(piece, ghostPosition.row, ghostPosition.col, grid)) {
-                 // Do not hide if the pointer is just outside the last valid position
-             } else if (ghostPosition) {
-                 // stay at last valid position
+                // If current ghost position is invalid (can happen with fast moves), try to find a valid one nearby or hide
+                setGhostPosition(null);
              }
         }
     };
     
     const handlePointerUp = (e: React.PointerEvent) => {
-        if (dragState) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-        }
+        if (!dragState) return;
         
-        if (!dragState || !ghostPosition) {
+        dragState.element.releasePointerCapture(e.pointerId);
+
+        if (!ghostPosition) {
             setDragState(null);
             return;
         }
@@ -258,12 +258,13 @@ const BlockBlastGame: React.FC = () => {
     // --- Rendering ---
     
     const renderPiece = (piece: Piece) => {
+        const cellSize = 24; // Fixed size for piece display
         return (
             <div className="flex flex-col items-center justify-center pointer-events-none p-1">
                 {piece.shape.map((row, r) => (
-                    <div key={r} className="flex" style={{ height: 24 }}>
+                    <div key={r} className="flex" style={{ height: cellSize }}>
                         {row.map((cell, c) => (
-                            <div key={c} style={{ width: 24, height: 24 }}>
+                            <div key={c} style={{ width: cellSize, height: cellSize, padding: '2px' }}>
                                {cell ? (
                                    <div 
                                        className="w-full h-full rounded-sm" 
@@ -320,22 +321,23 @@ const BlockBlastGame: React.FC = () => {
                                                         className="w-full h-full rounded-sm"
                                                         style={{ backgroundColor: cellColor || undefined }}
                                                         initial={{ scale: 1, opacity: 1 }}
-                                                        animate={{ scale: 1.5, opacity: 0 }}
+                                                        animate={{ scale: 0, opacity: 0 }}
                                                         transition={{ duration: 0.3 }}
                                                     />
                                                 ) : cellColor ? (
                                                     <motion.div
                                                         key={`cell-${r}-${c}`}
-                                                        className="w-full h-full rounded-sm"
-                                                        style={{ 
-                                                          backgroundColor: cellColor,
-                                                          boxShadow: 'inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.3)',
-                                                          border: '1px solid rgba(0,0,0,0.2)'
-                                                        }}
+                                                        className="w-full h-full rounded-sm p-0.5"
                                                         initial={{ scale: 0.5, opacity: 0 }}
                                                         animate={{ scale: 1, opacity: 1 }}
                                                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                                    />
+                                                    >
+                                                      <div className="w-full h-full rounded-sm"
+                                                        style={{ 
+                                                          backgroundColor: cellColor,
+                                                          boxShadow: 'inset 1px 1px 2px rgba(255,255,255,0.4), inset -1px -1px 2px rgba(0,0,0,0.3)',
+                                                        }}/>
+                                                    </motion.div>
                                                 ) : isGhost ? (
                                                      <div className="w-full h-full rounded-sm bg-primary/20" />
                                                 ) : null}
@@ -371,8 +373,8 @@ const BlockBlastGame: React.FC = () => {
                              key={i}
                              onPointerDown={e => handlePointerDown(e, i)}
                              className={cn(
-                                "p-2 touch-none transition-opacity",
-                                p ? 'cursor-grab active:cursor-grabbing' : 'opacity-0 pointer-events-none',
+                                "p-2 touch-none transition-transform duration-100 ease-out",
+                                p ? 'cursor-grab active:cursor-grabbing active:scale-110' : 'opacity-0 pointer-events-none',
                                 dragState?.index === i && 'opacity-0'
                               )}
                            >
