@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Blocks, Loader2, Play, Trophy, RefreshCw, Star } from 'lucide-react';
+import { Blocks, Loader2, Play, Trophy, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, awardBlockBlastScore } from '@/lib/firebase';
@@ -22,24 +22,24 @@ import { cn } from '@/lib/utils';
 
 // --- Game Constants & Types ---
 const GRID_SIZE = 8;
+const CELL_SIZE = 40; // For grid calculation
 
 const SHAPES = {
-  '1x1': { shape: [[1]], color: 'bg-red-500' },
-  '2x1': { shape: [[1, 1]], color: 'bg-orange-500' },
-  '1x2': { shape: [[1], [1]], color: 'bg-orange-500' },
-  '3x1': { shape: [[1, 1, 1]], color: 'bg-yellow-400' },
-  '1x3': { shape: [[1], [1], [1]], color: 'bg-yellow-400' },
-  '4x1': { shape: [[1, 1, 1, 1]], color: 'bg-cyan-400' },
-  '1x4': { shape: [[1], [1], [1], [1]], color: 'bg-cyan-400' },
-  '2x2': { shape: [[1, 1], [1, 1]], color: 'bg-lime-500' },
-  'L-1': { shape: [[1, 0], [1, 0], [1, 1]], color: 'bg-blue-500' },
-  'L-2': { shape: [[0, 1], [0, 1], [1, 1]], color: 'bg-blue-500' },
-  'L-3': { shape: [[1, 1, 1], [1, 0, 0]], color: 'bg-blue-500' },
-  'L-4': { shape: [[1, 1, 1], [0, 0, 1]], color: 'bg-blue-500' },
-  'T': { shape: [[1, 1, 1], [0, 1, 0]], color: 'bg-purple-500' },
-  'Z-1': { shape: [[1, 1, 0], [0, 1, 1]], color: 'bg-pink-500' },
-  'Z-2': { shape: [[0, 1], [1, 1], [1, 0]], color: 'bg-pink-500' },
+  '1x1': { shape: [[1]], color: 'hsl(0, 72%, 50%)' }, // red
+  '2x1': { shape: [[1, 1]], color: 'hsl(25, 84%, 50%)' }, // orange
+  '1x2': { shape: [[1], [1]], color: 'hsl(25, 84%, 50%)' },
+  '3x1': { shape: [[1, 1, 1]], color: 'hsl(45, 93%, 47%)' }, // yellow
+  '1x3': { shape: [[1], [1], [1]], color: 'hsl(45, 93%, 47%)' },
+  '2x2': { shape: [[1, 1], [1, 1]], color: 'hsl(100, 78%, 45%)' }, // lime
+  'L-1': { shape: [[1, 0], [1, 0], [1, 1]], color: 'hsl(210, 89%, 56%)' }, // blue
+  'L-2': { shape: [[0, 1], [0, 1], [1, 1]], color: 'hsl(210, 89%, 56%)' },
+  'L-3': { shape: [[1, 1, 1], [1, 0, 0]], color: 'hsl(210, 89%, 56%)' },
+  'L-4': { shape: [[1, 1, 1], [0, 0, 1]], color: 'hsl(210, 89%, 56%)' },
+  'T': { shape: [[1, 1, 1], [0, 1, 0]], color: 'hsl(260, 84%, 60%)' }, // purple
+  'Z-1': { shape: [[1, 1, 0], [0, 1, 1]], color: 'hsl(330, 74%, 55%)' }, // pink
+  'Z-2': { shape: [[0, 1], [1, 1], [1, 0]], color: 'hsl(330, 74%, 55%)' },
 };
+
 
 type ShapeKey = keyof typeof SHAPES;
 type Grid = (string | null)[][];
@@ -53,17 +53,29 @@ const BlockBlastGame: React.FC = () => {
     const [gameState, setGameState] = useState<GameStatus>('start');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [draggedPieceIndex, setDraggedPieceIndex] = useState<number | null>(null);
+    const [draggedPiece, setDraggedPiece] = useState<{ index: number; piece: Piece } | null>(null);
     const [ghostGrid, setGhostGrid] = useState<Grid>(createEmptyGrid());
-    const [isDragging, setIsDragging] = useState(false);
     const [clearingCells, setClearingCells] = useState<Set<string>>(new Set());
 
     const { toast } = useToast();
     const [user] = useAuthState(auth);
+    const gridRef = useRef<HTMLDivElement>(null);
 
     function createEmptyGrid(): Grid {
         return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
     }
+    
+    const drawBlock = (color: string, isGhost = false) => {
+        const style: React.CSSProperties = isGhost 
+            ? { backgroundColor: 'hsla(210, 100%, 80%, 0.2)', border: '1px dashed hsla(210, 100%, 80%, 0.5)' }
+            : { backgroundColor: color, border: '2px solid rgba(0,0,0,0.2)' };
+        
+        return (
+            <div className="aspect-square w-full h-full" style={style}>
+                 {!isGhost && <div className="w-full h-full" style={{ background: 'linear-gradient(45deg, rgba(255,255,255,0.3), rgba(255,255,255,0.0))' }} />}
+            </div>
+        );
+    };
 
     const getRandomPieces = useCallback((): Piece[] => {
         const keys = Object.keys(SHAPES) as ShapeKey[];
@@ -157,12 +169,11 @@ const BlockBlastGame: React.FC = () => {
     }, []);
 
     const handleDrop = (row: number, col: number) => {
-        setIsDragging(false);
         setGhostGrid(createEmptyGrid());
-        if (draggedPieceIndex === null) return;
+        if (!draggedPiece) return;
 
-        const piece = currentPieces[draggedPieceIndex];
-        if (!piece || !canPlacePiece(piece, row, col, grid)) {
+        const { piece, index } = draggedPiece;
+        if (!canPlacePiece(piece, row, col, grid)) {
             return;
         }
 
@@ -187,7 +198,7 @@ const BlockBlastGame: React.FC = () => {
             setScore(newTotalScore);
             
             const newPieces = [...currentPieces];
-            newPieces[draggedPieceIndex] = null;
+            newPieces[index] = null;
             
             const remainingPieces = newPieces.filter(p => p !== null);
             if (remainingPieces.length === 0) {
@@ -204,38 +215,33 @@ const BlockBlastGame: React.FC = () => {
             }
         }, 300); // Animation duration
     };
-
-    const handleDragStart = (e: React.DragEvent, index: number) => {
-        if (!currentPieces[index]) {
-            e.preventDefault();
-            return;
-        }
-        e.dataTransfer.effectAllowed = 'move';
-        setDraggedPieceIndex(index);
-        setIsDragging(true);
-    };
     
-    const handleCellDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        const draggedPiece = draggedPieceIndex !== null ? currentPieces[draggedPieceIndex] : null;
+    const handleDragStart = (index: number, piece: Piece) => {
+        if (!piece) return;
+        setDraggedPiece({ index, piece });
+    };
+
+    const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
         if (!draggedPiece) return;
 
-        const cellElement = e.currentTarget;
-        const gridElement = cellElement.parentElement;
-        if (!gridElement) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-        const rect = gridElement.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const gridEl = gridRef.current;
+        if (!gridEl) return;
 
-        const col = Math.floor(x / cellElement.offsetWidth);
-        const row = Math.floor(y / cellElement.offsetHeight);
+        const rect = gridEl.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
 
+        const col = Math.floor(x / (rect.width / GRID_SIZE));
+        const row = Math.floor(y / (rect.height / GRID_SIZE));
+        
         const newGhostGrid = createEmptyGrid();
-        if (canPlacePiece(draggedPiece, row, col, grid)) {
-            for (let r = 0; r < draggedPiece.shape.length; r++) {
-                for (let c = 0; c < draggedPiece.shape[r].length; c++) {
-                    if (draggedPiece.shape[r][c]) {
+        if (canPlacePiece(draggedPiece.piece, row, col, grid)) {
+            for (let r = 0; r < draggedPiece.piece.shape.length; r++) {
+                for (let c = 0; c < draggedPiece.piece.shape[r].length; c++) {
+                    if (draggedPiece.piece.shape[r][c]) {
                         const newRow = row + r;
                         const newCol = col + c;
                         if(newRow < GRID_SIZE && newCol < GRID_SIZE) {
@@ -248,47 +254,64 @@ const BlockBlastGame: React.FC = () => {
         setGhostGrid(newGhostGrid);
     };
 
-    const handleGridDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        const draggedPiece = draggedPieceIndex !== null ? currentPieces[draggedPieceIndex] : null;
+    const handleDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
         if (!draggedPiece) return;
-    
-        const gridElement = e.currentTarget;
-        const rect = gridElement.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
 
-        const cellWidth = gridElement.offsetWidth / GRID_SIZE;
-        const cellHeight = gridElement.offsetHeight / GRID_SIZE;
-    
-        const col = Math.floor(x / cellWidth);
-        const row = Math.floor(y / cellHeight);
+        const gridEl = gridRef.current;
+        if (!gridEl) return;
+        
+        const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : e.clientX;
+        const clientY = 'changedTouches' in e ? e.changedTouches[0].clientY : e.clientY;
 
-        handleDrop(row, col);
+        const rect = gridEl.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        const col = Math.floor(x / (rect.width / GRID_SIZE));
+        const row = Math.floor(y / (rect.height / GRID_SIZE));
+        
+        if (row >= 0 && col >= 0 && row < GRID_SIZE && col < GRID_SIZE) {
+            handleDrop(row, col);
+        }
+        
+        setDraggedPiece(null);
+        setGhostGrid(createEmptyGrid());
     };
+    
+    useEffect(() => {
+        window.addEventListener('mousemove', handleDragMove as any);
+        window.addEventListener('touchmove', handleDragMove as any);
+        window.addEventListener('mouseup', handleDragEnd as any);
+        window.addEventListener('touchend', handleDragEnd as any);
+
+        return () => {
+            window.removeEventListener('mousemove', handleDragMove as any);
+            window.removeEventListener('touchmove', handleDragMove as any);
+            window.removeEventListener('mouseup', handleDragEnd as any);
+            window.removeEventListener('touchend', handleDragEnd as any);
+        };
+    }, [draggedPiece]);
+
 
     const DraggablePiece = ({ piece, index }: { piece: Piece | null, index: number }) => {
         if (!piece) return <div className="h-24 w-24" />;
 
         return (
             <div
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragEnd={() => {
-                  setIsDragging(false);
-                  setGhostGrid(createEmptyGrid());
-                  setDraggedPieceIndex(null);
-                }}
+                onMouseDown={() => handleDragStart(index, piece)}
+                onTouchStart={() => handleDragStart(index, piece)}
                 className={cn(
-                    "p-2 cursor-grab active:cursor-grabbing flex items-center justify-center touch-none",
-                    isDragging && draggedPieceIndex === index && 'opacity-30'
+                    "p-2 flex items-center justify-center touch-none",
+                    draggedPiece?.index === index ? 'cursor-grabbing' : 'cursor-grab',
                 )}
             >
                 <div className="flex flex-col items-center">
                     {piece.shape.map((row, r) => (
                         <div key={r} className="flex">
                             {row.map((cell, c) => (
-                                <div key={c} className={cn("w-5 h-5 transition-transform duration-100", cell ? `${piece.color} border-black/20 border` : "")} />
+                                <div key={c} className="w-5 h-5 transition-transform duration-100">
+                                  {cell ? drawBlock(piece.color) : null}
+                                </div>
                             ))}
                         </div>
                     ))}
@@ -298,7 +321,7 @@ const BlockBlastGame: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4" onMouseUp={handleDragEnd} onTouchEnd={handleDragEnd}>
             <h1 className="text-3xl font-bold tracking-tight font-headline flex items-center">
                 <Blocks className="mr-2 h-7 w-7" /> Block Blast
             </h1>
@@ -307,38 +330,47 @@ const BlockBlastGame: React.FC = () => {
                 <Card className="w-full max-w-sm shadow-xl bg-muted/30">
                     <CardHeader className="flex-row items-center justify-between">
                         <CardTitle className="flex items-center gap-2"><Star className="text-yellow-400 fill-yellow-400"/> {score}</CardTitle>
-                        <Button variant="outline" size="icon" onClick={startGame}><RefreshCw className="h-4 w-4"/></Button>
                     </CardHeader>
                     <CardContent className="p-2 relative flex justify-center">
                         <div
+                          ref={gridRef}
                           className="grid bg-background/50 border border-secondary"
-                          style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}
-                          onDragOver={handleCellDragOver}
-                          onDrop={handleGridDrop}
+                          style={{ 
+                            gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+                            width: `${GRID_SIZE * (CELL_SIZE + 1)}px`, 
+                            height: `${GRID_SIZE * (CELL_SIZE + 1)}px`
+                          }}
                         >
-                            {grid.map((row, r) => row.map((cellColor, c) => (
-                                <div
-                                    key={`${r}-${c}`}
-                                    className="w-10 h-10 border border-secondary/20 relative"
-                                >
-                                    <AnimatePresence>
-                                    {cellColor && !clearingCells.has(`${r}-${c}`) && (
-                                        <motion.div
-                                            layoutId={`cell-${r}-${c}`}
-                                            className={cn("w-full h-full shadow-inner", cellColor)}
-                                            initial={{ scale: 0, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            exit={{ scale: 0.5, opacity: 0, transition: { duration: 0.2 } }}
-                                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                        />
-                                    )}
-                                    </AnimatePresence>
-                                     <div className={cn(
-                                        "absolute inset-0 transition-colors",
-                                        ghostGrid[r][c] === 'ghost' && 'bg-primary/20'
-                                    )} />
-                                </div>
-                            )))}
+                            {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
+                                const r = Math.floor(i / GRID_SIZE);
+                                const c = i % GRID_SIZE;
+                                const cellColor = grid[r][c];
+                                const isGhost = ghostGrid[r][c] === 'ghost';
+                                const isClearing = clearingCells.has(`${r}-${c}`);
+                                
+                                return (
+                                    <div
+                                        key={i}
+                                        className="border border-secondary/20 relative"
+                                    >
+                                        <AnimatePresence>
+                                        {cellColor && (
+                                            <motion.div
+                                                layoutId={`cell-${r}-${c}`}
+                                                className="w-full h-full"
+                                                initial={{ scale: 0.5, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
+                                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                            >
+                                               {drawBlock(cellColor)}
+                                            </motion.div>
+                                        )}
+                                        {isGhost && !cellColor && <div className="w-full h-full">{drawBlock('', true)}</div>}
+                                        </AnimatePresence>
+                                    </div>
+                                );
+                            })}
                         </div>
                         {gameState !== 'playing' && (
                              <AnimatePresence>
@@ -361,10 +393,42 @@ const BlockBlastGame: React.FC = () => {
                         )}
                     </CardContent>
                 </Card>
-                <div className="w-full max-w-sm lg:w-32 flex lg:flex-col items-center justify-around gap-4 p-2 rounded-lg bg-muted/30">
+                <div className="w-full max-w-sm lg:w-auto flex lg:flex-col items-center justify-around gap-4 p-2 rounded-lg bg-muted/30">
                     {currentPieces.map((p, i) => <DraggablePiece key={i} piece={p} index={i} />)}
                 </div>
             </div>
+            
+            {draggedPiece && (
+                <div className="pointer-events-none fixed z-50" style={{ transform: 'translate(-50%, -50%)' }} ref={(el) => {
+                    if (el && draggedPiece) {
+                        const moveHandler = (e: MouseEvent | TouchEvent) => {
+                             const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+                             const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+                             el.style.left = `${clientX}px`;
+                             el.style.top = `${clientY}px`;
+                        };
+                        window.addEventListener('mousemove', moveHandler);
+                        window.addEventListener('touchmove', moveHandler);
+                        return () => {
+                             window.removeEventListener('mousemove', moveHandler);
+                             window.removeEventListener('touchmove', moveHandler);
+                        }
+                    }
+                }}>
+                    <div className="flex flex-col items-center">
+                        {draggedPiece.piece.shape.map((row, r) => (
+                            <div key={r} className="flex">
+                                {row.map((cell, c) => (
+                                    <div key={c} className="w-8 h-8">
+                                    {cell ? drawBlock(draggedPiece.piece.color) : null}
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
 
             <AlertDialog open={gameState === 'over' && !isSubmitting}>
               <AlertDialogContent>
@@ -390,4 +454,3 @@ const BlockBlastGame: React.FC = () => {
 };
 
 export default BlockBlastGame;
-
