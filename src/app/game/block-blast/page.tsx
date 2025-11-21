@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -55,15 +56,12 @@ const BlockBlastGame: React.FC = () => {
     const [dragState, setDragState] = useState<{
         piece: Piece;
         index: number;
-        pointerStart: { x: number, y: number };
-        pieceStart: { x: number, y: number };
     } | null>(null);
     const [ghostPosition, setGhostPosition] = useState<{row: number, col: number} | null>(null);
 
     const { toast } = useToast();
     const [user] = useAuthState(auth);
     const gridRef = useRef<HTMLDivElement>(null);
-    const pieceRefs = useRef<(HTMLDivElement | null)[]>([]);
 
 
     // --- Game Logic ---
@@ -106,16 +104,15 @@ const BlockBlastGame: React.FC = () => {
     const isGameOver = useCallback((pieces: (Piece | null)[], currentGrid: Grid): boolean => {
         for (const piece of pieces) {
             if (!piece) continue;
-            // Check if there is any valid position for this piece on the board
             for (let r = 0; r <= GRID_SIZE - piece.shape.length; r++) {
                 for (let c = 0; c <= GRID_SIZE - piece.shape[0].length; c++) {
                     if (canPlacePiece(piece, r, c, currentGrid)) {
-                        return false; // Found a valid move
+                        return false;
                     }
                 }
             }
         }
-        return true; // No valid moves for any available piece
+        return true;
     }, [canPlacePiece]);
 
     const handleGameOver = useCallback(async (finalScore: number) => {
@@ -168,17 +165,11 @@ const BlockBlastGame: React.FC = () => {
 
     const handlePointerDown = (e: React.PointerEvent, index: number) => {
         const piece = currentPieces[index];
-        if (!piece || gameState !== 'playing' || !pieceRefs.current[index]) return;
+        if (!piece || gameState !== 'playing') return;
 
         e.currentTarget.setPointerCapture(e.pointerId);
-        const rect = pieceRefs.current[index]!.getBoundingClientRect();
         
-        setDragState({
-            piece,
-            index,
-            pointerStart: { x: e.clientX, y: e.clientY },
-            pieceStart: { x: rect.left, y: rect.top }
-        });
+        setDragState({ piece, index });
     };
     
     const handlePointerMove = (e: React.PointerEvent) => {
@@ -189,36 +180,31 @@ const BlockBlastGame: React.FC = () => {
         
         const gridRect = gridEl.getBoundingClientRect();
         const cellWidth = gridRect.width / GRID_SIZE;
-
-        // Position the floating piece to follow the cursor/finger
-        const dx = e.clientX - dragState.pointerStart.x;
-        const dy = e.clientY - dragState.pointerStart.y;
-        const floatingPieceEl = document.getElementById('floating-piece');
-        if (floatingPieceEl) {
-             floatingPieceEl.style.transform = `translate(
-                ${dragState.pieceStart.x + dx}px, 
-                ${dragState.pieceStart.y + dy}px
-             )`;
-        }
-
-
-        // Calculate grid position for ghost
-        const relativeX = e.clientX - gridRect.left;
-        const relativeY = e.clientY - gridRect.top;
-        const col = Math.floor(relativeX / cellWidth);
-        const row = Math.floor(relativeY / cellWidth);
+        const offsetX = e.clientX - gridRect.left;
+        const offsetY = e.clientY - gridRect.top;
         
-        if (canPlacePiece(dragState.piece, row, col, grid)) {
+        const piece = dragState.piece;
+        const row = Math.floor(offsetY / cellWidth - piece.shape.length / 2);
+        const col = Math.floor(offsetX / cellWidth - piece.shape[0].length / 2);
+
+        if (canPlacePiece(piece, row, col, grid)) {
             setGhostPosition({ row, col });
+        } else {
+             if (ghostPosition && !canPlacePiece(piece, ghostPosition.row, ghostPosition.col, grid)) {
+                 // Do not hide if the pointer is just outside the last valid position
+             } else if (ghostPosition) {
+                 // stay at last valid position
+             }
         }
     };
     
     const handlePointerUp = (e: React.PointerEvent) => {
+        if (dragState) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+        
         if (!dragState || !ghostPosition) {
             setDragState(null);
-            setGhostPosition(null);
-            const floatingPieceEl = document.getElementById('floating-piece');
-             if (floatingPieceEl) floatingPieceEl.style.display = 'none';
             return;
         }
 
@@ -263,40 +249,21 @@ const BlockBlastGame: React.FC = () => {
                     handleGameOver(newTotalScore);
                 }
             }
-        }, 300); // Animation duration
+        }, 300);
         
         setDragState(null);
         setGhostPosition(null);
-        const floatingPieceEl = document.getElementById('floating-piece');
-        if (floatingPieceEl) floatingPieceEl.style.display = 'none';
     };
     
     // --- Rendering ---
     
-    useEffect(() => {
-      const floatingPieceEl = document.getElementById('floating-piece');
-      if (dragState) {
-        if (floatingPieceEl) {
-          floatingPieceEl.style.display = 'block';
-          floatingPieceEl.style.left = `0px`;
-          floatingPieceEl.style.top = `0px`;
-          floatingPieceEl.style.transform = `translate(${dragState.pieceStart.x}px, ${dragState.pieceStart.y}px)`;
-        }
-      } else {
-        if (floatingPieceEl) floatingPieceEl.style.display = 'none';
-      }
-    }, [dragState]);
-
-
-    const renderPiece = (piece: Piece, isFloating = false) => {
-        const cellSize = isFloating ? (gridRef.current?.clientWidth ?? 0) / GRID_SIZE : 24;
-        
+    const renderPiece = (piece: Piece) => {
         return (
-            <div className="flex flex-col items-center justify-center pointer-events-none">
+            <div className="flex flex-col items-center justify-center pointer-events-none p-1">
                 {piece.shape.map((row, r) => (
-                    <div key={r} className="flex" style={{ height: cellSize }}>
+                    <div key={r} className="flex" style={{ height: 24 }}>
                         {row.map((cell, c) => (
-                            <div key={c} style={{ width: cellSize, height: cellSize }}>
+                            <div key={c} style={{ width: 24, height: 24 }}>
                                {cell ? (
                                    <div 
                                        className="w-full h-full rounded-sm" 
@@ -345,7 +312,7 @@ const BlockBlastGame: React.FC = () => {
                                     const isClearing = clearingCells.has(`${r}-${c}`);
 
                                     return (
-                                        <div key={i} className="border border-primary/20 relative">
+                                        <div key={i} className="border border-primary/10 relative">
                                             <AnimatePresence>
                                                 {isClearing ? (
                                                      <motion.div
@@ -402,7 +369,6 @@ const BlockBlastGame: React.FC = () => {
                         {currentPieces.map((p, i) => (
                            <div
                              key={i}
-                             ref={el => pieceRefs.current[i] = el}
                              onPointerDown={e => handlePointerDown(e, i)}
                              className={cn(
                                 "p-2 touch-none transition-opacity",
@@ -416,12 +382,6 @@ const BlockBlastGame: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {dragState && (
-              <div id="floating-piece" className="pointer-events-none fixed z-50 transition-transform duration-75" style={{ display: 'none' }}>
-                {renderPiece(dragState.piece, true)}
-              </div>
-            )}
             
             <AlertDialog open={gameState === 'over' && !isSubmitting}>
               <AlertDialogContent>
