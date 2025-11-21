@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -53,11 +52,11 @@ const BlockBlastGame: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [clearingCells, setClearingCells] = useState<Set<string>>(new Set());
 
-    const [dragState, setDragState] = useState<{ piece: Piece; index: number; element: EventTarget; initialPos: { x: number; y: number } } | null>(null);
+    const [dragState, setDragState] = useState<{ piece: Piece; index: number; element: HTMLElement } | null>(null);
     const [ghostPosition, setGhostPosition] = useState<{row: number, col: number} | null>(null);
-    const [dragPosition, setDragPosition] = useState<{x: number, y: number} | null>(null);
-
-
+    
+    const floatingPieceRef = useRef<HTMLDivElement>(null);
+    
     const { toast } = useToast();
     const [user] = useAuthState(auth);
     const gridRef = useRef<HTMLDivElement>(null);
@@ -165,19 +164,30 @@ const BlockBlastGame: React.FC = () => {
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
         const piece = currentPieces[index];
         if (!piece || gameState !== 'playing') return;
+        
+        const target = e.target as HTMLElement;
+        target.setPointerCapture(e.pointerId);
 
-        (e.target as Element).setPointerCapture(e.pointerId);
-        setDragState({ piece, index, element: e.target, initialPos: { x: e.clientX, y: e.clientY } });
-        setDragPosition({ x: e.clientX, y: e.clientY });
+        setDragState({ piece, index, element: target });
+        
+        if (floatingPieceRef.current) {
+            floatingPieceRef.current.style.display = 'block';
+            floatingPieceRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        }
     };
     
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!dragState) return;
 
-        setDragPosition({ x: e.clientX, y: e.clientY });
+        if (floatingPieceRef.current) {
+            floatingPieceRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        }
 
         const gridEl = gridRef.current;
-        if (!gridEl) return;
+        if (!gridEl) {
+            setGhostPosition(null);
+            return;
+        }
         
         const gridRect = gridEl.getBoundingClientRect();
         const cellWidth = gridRect.width / GRID_SIZE;
@@ -198,6 +208,10 @@ const BlockBlastGame: React.FC = () => {
     const handlePointerUp = (e: React.PointerEvent) => {
         if (!dragState) return;
 
+        if (floatingPieceRef.current) {
+            floatingPieceRef.current.style.display = 'none';
+        }
+
         if (ghostPosition) {
             const { piece, index } = dragState;
             const { row, col } = ghostPosition;
@@ -214,8 +228,6 @@ const BlockBlastGame: React.FC = () => {
             }
             
             const { clearedGrid, clearedLinesCount } = clearLines(newGrid);
-            
-            // Apply placed grid immediately for responsiveness
             setGrid(newGrid);
 
             setTimeout(() => {
@@ -246,7 +258,6 @@ const BlockBlastGame: React.FC = () => {
 
         setDragState(null);
         setGhostPosition(null);
-        setDragPosition(null);
     };
 
     const TetrisBlock = ({ color }: { color: string }) => {
@@ -366,34 +377,24 @@ const BlockBlastGame: React.FC = () => {
                     </Card>
                     <div className="w-full lg:max-w-sm flex flex-row lg:flex-col items-center justify-around gap-4 p-2 rounded-lg bg-muted/30">
                         {currentPieces.map((p, i) => (
-                           <motion.div
+                           <div
                              key={i}
                              onPointerDown={e => handlePointerDown(e, i)}
-                             className={cn("touch-none", p ? 'cursor-grab' : 'opacity-0 pointer-events-none')}
-                             animate={dragState?.index === i ? "dragging" : "idle"}
-                             variants={{
-                                 idle: { scale: 1, opacity: 1 },
-                                 dragging: { scale: 1.1, opacity: 0.5 }
-                             }}
-                             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                             className={cn("touch-none", p ? 'cursor-grab' : 'opacity-0 pointer-events-none', dragState?.index === i && 'opacity-0')}
                            >
                             {p && renderPiece(p, 24)}
-                           </motion.div>
+                           </div>
                         ))}
                     </div>
                 </div>
-                 {dragState && dragPosition && (
-                    <motion.div
-                        className="fixed top-0 left-0 pointer-events-none z-50"
-                        initial={false}
-                        animate={{
-                            x: dragPosition.x - (dragState.piece.shape[0].length * 24) / 2,
-                            y: dragPosition.y - (dragState.piece.shape.length * 24) / 2,
-                        }}
-                        transition={{ type: 'tween', ease: 'backOut', duration: 0.2 }}
+                 {dragState && (
+                    <div
+                        ref={floatingPieceRef}
+                        className="fixed top-0 left-0 pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2"
+                        style={{display: 'none'}}
                     >
                         {renderPiece(dragState.piece, 24)}
-                    </motion.div>
+                    </div>
                  )}
             </div>
             
