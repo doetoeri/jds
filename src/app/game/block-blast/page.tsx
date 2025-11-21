@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 
 // --- Game Constants & Types ---
 const GRID_SIZE = 8;
-const CELL_SIZE = 40; // For grid calculation
 
 const SHAPES = {
   '1x1': { shape: [[1]], color: 'hsl(0, 72%, 50%)' }, // red
@@ -53,7 +52,7 @@ const BlockBlastGame: React.FC = () => {
     const [gameState, setGameState] = useState<GameStatus>('start');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [draggedPiece, setDraggedPiece] = useState<{ index: number; piece: Piece } | null>(null);
+    const [draggedPiece, setDraggedPiece] = useState<{ index: number; piece: Piece, x: number, y: number } | null>(null);
     const [ghostGrid, setGhostGrid] = useState<Grid>(createEmptyGrid());
     const [clearingCells, setClearingCells] = useState<Set<string>>(new Set());
 
@@ -71,8 +70,8 @@ const BlockBlastGame: React.FC = () => {
             : { backgroundColor: color, border: '2px solid rgba(0,0,0,0.2)' };
         
         return (
-            <div className="aspect-square w-full h-full" style={style}>
-                 {!isGhost && <div className="w-full h-full" style={{ background: 'linear-gradient(45deg, rgba(255,255,255,0.3), rgba(255,255,255,0.0))' }} />}
+            <div className="aspect-square w-full h-full rounded-sm" style={style}>
+                 {!isGhost && <div className="w-full h-full rounded-sm" style={{ background: 'linear-gradient(45deg, rgba(255,255,255,0.3), rgba(255,255,255,0.0))' }} />}
             </div>
         );
     };
@@ -187,6 +186,8 @@ const BlockBlastGame: React.FC = () => {
                 }
             }
         }
+        
+        setGrid(newGrid);
 
         const { clearedGrid, clearedLinesCount } = clearLines(newGrid);
         
@@ -216,9 +217,13 @@ const BlockBlastGame: React.FC = () => {
         }, 300); // Animation duration
     };
     
-    const handleDragStart = (index: number, piece: Piece) => {
-        if (!piece) return;
-        setDraggedPiece({ index, piece });
+    const handleDragStart = (e: React.MouseEvent | React.TouchEvent, index: number, piece: Piece) => {
+        if (!piece || gameState !== 'playing') return;
+        
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        setDraggedPiece({ index, piece, x: clientX, y: clientY });
     };
 
     const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
@@ -227,15 +232,20 @@ const BlockBlastGame: React.FC = () => {
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
+        setDraggedPiece(prev => prev ? { ...prev, x: clientX, y: clientY } : null);
+
         const gridEl = gridRef.current;
         if (!gridEl) return;
 
         const rect = gridEl.getBoundingClientRect();
         const x = clientX - rect.left;
         const y = clientY - rect.top;
-
-        const col = Math.floor(x / (rect.width / GRID_SIZE));
-        const row = Math.floor(y / (rect.height / GRID_SIZE));
+        
+        const cellWidth = rect.width / GRID_SIZE;
+        const cellHeight = rect.height / GRID_SIZE;
+        
+        const col = Math.floor(x / cellWidth);
+        const row = Math.floor(y / cellHeight);
         
         const newGhostGrid = createEmptyGrid();
         if (canPlacePiece(draggedPiece.piece, row, col, grid)) {
@@ -258,19 +268,23 @@ const BlockBlastGame: React.FC = () => {
         if (!draggedPiece) return;
 
         const gridEl = gridRef.current;
-        if (!gridEl) return;
+        if (!gridEl) {
+            setDraggedPiece(null);
+            setGhostGrid(createEmptyGrid());
+            return;
+        }
         
         const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : e.clientX;
         const clientY = 'changedTouches' in e ? e.changedTouches[0].clientY : e.clientY;
 
         const rect = gridEl.getBoundingClientRect();
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-
-        const col = Math.floor(x / (rect.width / GRID_SIZE));
-        const row = Math.floor(y / (rect.height / GRID_SIZE));
-        
-        if (row >= 0 && col >= 0 && row < GRID_SIZE && col < GRID_SIZE) {
+        if (clientX > rect.left && clientX < rect.right && clientY > rect.top && clientY < rect.bottom) {
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            const cellWidth = rect.width / GRID_SIZE;
+            const cellHeight = rect.height / GRID_SIZE;
+            const col = Math.floor(x / cellWidth);
+            const row = Math.floor(y / cellHeight);
             handleDrop(row, col);
         }
         
@@ -279,37 +293,44 @@ const BlockBlastGame: React.FC = () => {
     };
     
     useEffect(() => {
-        window.addEventListener('mousemove', handleDragMove as any);
-        window.addEventListener('touchmove', handleDragMove as any);
-        window.addEventListener('mouseup', handleDragEnd as any);
-        window.addEventListener('touchend', handleDragEnd as any);
+        const moveHandler = (e: MouseEvent | TouchEvent) => handleDragMove(e as any);
+        const endHandler = (e: MouseEvent | TouchEvent) => handleDragEnd(e as any);
+        
+        if (draggedPiece) {
+            window.addEventListener('mousemove', moveHandler);
+            window.addEventListener('touchmove', moveHandler);
+            window.addEventListener('mouseup', endHandler);
+            window.addEventListener('touchend', endHandler);
+        }
 
         return () => {
-            window.removeEventListener('mousemove', handleDragMove as any);
-            window.removeEventListener('touchmove', handleDragMove as any);
-            window.removeEventListener('mouseup', handleDragEnd as any);
-            window.removeEventListener('touchend', handleDragEnd as any);
+            window.removeEventListener('mousemove', moveHandler);
+            window.removeEventListener('touchmove', moveHandler);
+            window.removeEventListener('mouseup', endHandler);
+            window.removeEventListener('touchend', endHandler);
         };
-    }, [draggedPiece]);
+    }, [draggedPiece, handleDragMove, handleDragEnd]);
 
 
     const DraggablePiece = ({ piece, index }: { piece: Piece | null, index: number }) => {
         if (!piece) return <div className="h-24 w-24" />;
 
+        const isBeingDragged = draggedPiece?.index === index;
+        
         return (
             <div
-                onMouseDown={() => handleDragStart(index, piece)}
-                onTouchStart={() => handleDragStart(index, piece)}
+                onMouseDown={(e) => handleDragStart(e, index, piece)}
+                onTouchStart={(e) => handleDragStart(e, index, piece)}
                 className={cn(
                     "p-2 flex items-center justify-center touch-none",
-                    draggedPiece?.index === index ? 'cursor-grabbing' : 'cursor-grab',
+                    isBeingDragged ? 'cursor-grabbing opacity-50' : 'cursor-grab',
                 )}
             >
                 <div className="flex flex-col items-center">
                     {piece.shape.map((row, r) => (
                         <div key={r} className="flex">
                             {row.map((cell, c) => (
-                                <div key={c} className="w-5 h-5 transition-transform duration-100">
+                                <div key={c} className="w-6 h-6">
                                   {cell ? drawBlock(piece.color) : null}
                                 </div>
                             ))}
@@ -321,99 +342,90 @@ const BlockBlastGame: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col items-center gap-4" onMouseUp={handleDragEnd} onTouchEnd={handleDragEnd}>
-            <h1 className="text-3xl font-bold tracking-tight font-headline flex items-center">
-                <Blocks className="mr-2 h-7 w-7" /> Block Blast
-            </h1>
-            
-            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
-                <Card className="w-full max-w-sm shadow-xl bg-muted/30">
-                    <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle className="flex items-center gap-2"><Star className="text-yellow-400 fill-yellow-400"/> {score}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2 relative flex justify-center">
-                        <div
-                          ref={gridRef}
-                          className="grid bg-background/50 border border-secondary"
-                          style={{ 
-                            gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-                            width: `${GRID_SIZE * (CELL_SIZE + 1)}px`, 
-                            height: `${GRID_SIZE * (CELL_SIZE + 1)}px`
-                          }}
-                        >
-                            {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
-                                const r = Math.floor(i / GRID_SIZE);
-                                const c = i % GRID_SIZE;
-                                const cellColor = grid[r][c];
-                                const isGhost = ghostGrid[r][c] === 'ghost';
-                                const isClearing = clearingCells.has(`${r}-${c}`);
-                                
-                                return (
-                                    <div
-                                        key={i}
-                                        className="border border-secondary/20 relative"
+        <>
+            <div className="flex flex-col items-center gap-4">
+                <h1 className="text-3xl font-bold tracking-tight font-headline flex items-center">
+                    <Blocks className="mr-2 h-7 w-7" /> Block Blast
+                </h1>
+                
+                <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+                    <Card className="w-full max-w-sm shadow-xl bg-muted/30">
+                        <CardHeader className="flex-row items-center justify-between">
+                            <CardTitle className="flex items-center gap-2"><Star className="text-yellow-400 fill-yellow-400"/> {score}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 relative flex justify-center">
+                            <div
+                              ref={gridRef}
+                              className="grid bg-background/50 border border-secondary"
+                              style={{ 
+                                gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+                                width: `min(calc(100vw - 4rem), 400px)`,
+                                height: `min(calc(100vw - 4rem), 400px)`,
+                              }}
+                            >
+                                {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
+                                    const r = Math.floor(i / GRID_SIZE);
+                                    const c = i % GRID_SIZE;
+                                    const cellColor = grid[r][c];
+                                    const isGhost = ghostGrid[r][c] === 'ghost';
+                                    const isClearing = clearingCells.has(`${r}-${c}`);
+                                    
+                                    return (
+                                        <div
+                                            key={i}
+                                            className="border border-secondary/20 relative"
+                                        >
+                                            <AnimatePresence>
+                                            {cellColor && (
+                                                <motion.div
+                                                    layoutId={`cell-${r}-${c}`}
+                                                    className="w-full h-full"
+                                                    initial={{ scale: isClearing ? 1 : 0.5, opacity: isClearing ? 1 : 0 }}
+                                                    animate={{ scale: 1, opacity: 1 }}
+                                                    exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
+                                                    transition={isClearing ? { duration: 0.3, ease: "easeOut" } : { type: 'spring', stiffness: 300, damping: 20 }}
+                                                >
+                                                   {drawBlock(cellColor)}
+                                                </motion.div>
+                                            )}
+                                            {isGhost && !cellColor && <div className="w-full h-full">{drawBlock('', true)}</div>}
+                                            </AnimatePresence>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {gameState !== 'playing' && (
+                                 <AnimatePresence>
+                                    <motion.div
+                                      className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 rounded-lg"
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      exit={{ opacity: 0}}
                                     >
-                                        <AnimatePresence>
-                                        {cellColor && (
-                                            <motion.div
-                                                layoutId={`cell-${r}-${c}`}
-                                                className="w-full h-full"
-                                                initial={{ scale: 0.5, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
-                                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                            >
-                                               {drawBlock(cellColor)}
-                                            </motion.div>
-                                        )}
-                                        {isGhost && !cellColor && <div className="w-full h-full">{drawBlock('', true)}</div>}
-                                        </AnimatePresence>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {gameState !== 'playing' && (
-                             <AnimatePresence>
-                                <motion.div
-                                  className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 rounded-lg"
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  exit={{ opacity: 0}}
-                                >
-                                  <motion.h2 className="text-4xl font-bold font-headline mb-4" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, type: 'spring' }}>
-                                    Block Blast
-                                  </motion.h2>
-                                  {gameState === 'over' && <p className="mb-2 text-lg">GAME OVER</p>}
-                                  <Button size="lg" onClick={startGame}>
-                                    <Play className="mr-2" />
-                                    {gameState === 'start' ? '게임 시작' : '다시 시작'}
-                                  </Button>
-                                </motion.div>
-                            </AnimatePresence>
-                        )}
-                    </CardContent>
-                </Card>
-                <div className="w-full max-w-sm lg:w-auto flex lg:flex-col items-center justify-around gap-4 p-2 rounded-lg bg-muted/30">
-                    {currentPieces.map((p, i) => <DraggablePiece key={i} piece={p} index={i} />)}
+                                      <motion.h2 className="text-4xl font-bold font-headline mb-4" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, type: 'spring' }}>
+                                        Block Blast
+                                      </motion.h2>
+                                      {gameState === 'over' && <p className="mb-2 text-lg">GAME OVER</p>}
+                                      <Button size="lg" onClick={startGame}>
+                                        <Play className="mr-2" />
+                                        {gameState === 'start' ? '게임 시작' : '다시 시작'}
+                                      </Button>
+                                    </motion.div>
+                                </AnimatePresence>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <div className="w-full lg:max-w-sm flex flex-row lg:flex-col items-center justify-around gap-4 p-2 rounded-lg bg-muted/30">
+                        {currentPieces.map((p, i) => <DraggablePiece key={i} piece={p} index={i} />)}
+                    </div>
                 </div>
             </div>
             
             {draggedPiece && (
-                <div className="pointer-events-none fixed z-50" style={{ transform: 'translate(-50%, -50%)' }} ref={(el) => {
-                    if (el && draggedPiece) {
-                        const moveHandler = (e: MouseEvent | TouchEvent) => {
-                             const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-                             const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-                             el.style.left = `${clientX}px`;
-                             el.style.top = `${clientY}px`;
-                        };
-                        window.addEventListener('mousemove', moveHandler);
-                        window.addEventListener('touchmove', moveHandler);
-                        return () => {
-                             window.removeEventListener('mousemove', moveHandler);
-                             window.removeEventListener('touchmove', moveHandler);
-                        }
-                    }
+                <div className="pointer-events-none fixed z-50" style={{ 
+                    left: `${draggedPiece.x}px`,
+                    top: `${draggedPiece.y}px`,
+                    transform: 'translate(-50%, -50%)',
                 }}>
                     <div className="flex flex-col items-center">
                         {draggedPiece.piece.shape.map((row, r) => (
@@ -428,7 +440,6 @@ const BlockBlastGame: React.FC = () => {
                     </div>
                 </div>
             )}
-
 
             <AlertDialog open={gameState === 'over' && !isSubmitting}>
               <AlertDialogContent>
@@ -449,7 +460,7 @@ const BlockBlastGame: React.FC = () => {
                 </AlertDialogHeader>
               </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </>
     );
 };
 
