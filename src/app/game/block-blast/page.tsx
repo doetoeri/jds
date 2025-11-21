@@ -190,19 +190,26 @@ const BlockBlastGame: React.FC = () => {
         const gridRect = gridEl.getBoundingClientRect();
         const cellWidth = gridRect.width / GRID_SIZE;
 
-        const pointerX = e.clientX;
-        const pointerY = e.clientY;
+        // Position the floating piece to follow the cursor/finger
+        const dx = e.clientX - dragState.pointerStart.x;
+        const dy = e.clientY - dragState.pointerStart.y;
+        const floatingPieceEl = document.getElementById('floating-piece');
+        if (floatingPieceEl) {
+             floatingPieceEl.style.transform = `translate(
+                ${dragState.pieceStart.x + dx}px, 
+                ${dragState.pieceStart.y + dy}px
+             )`;
+        }
 
-        const relativeX = pointerX - gridRect.left;
-        const relativeY = pointerY - gridRect.top;
 
+        // Calculate grid position for ghost
+        const relativeX = e.clientX - gridRect.left;
+        const relativeY = e.clientY - gridRect.top;
         const col = Math.floor(relativeX / cellWidth);
         const row = Math.floor(relativeY / cellWidth);
         
         if (canPlacePiece(dragState.piece, row, col, grid)) {
             setGhostPosition({ row, col });
-        } else {
-            setGhostPosition(null);
         }
     };
     
@@ -210,6 +217,8 @@ const BlockBlastGame: React.FC = () => {
         if (!dragState || !ghostPosition) {
             setDragState(null);
             setGhostPosition(null);
+            const floatingPieceEl = document.getElementById('floating-piece');
+             if (floatingPieceEl) floatingPieceEl.style.display = 'none';
             return;
         }
 
@@ -258,20 +267,46 @@ const BlockBlastGame: React.FC = () => {
         
         setDragState(null);
         setGhostPosition(null);
+        const floatingPieceEl = document.getElementById('floating-piece');
+        if (floatingPieceEl) floatingPieceEl.style.display = 'none';
     };
-
+    
     // --- Rendering ---
+    
+    useEffect(() => {
+      const floatingPieceEl = document.getElementById('floating-piece');
+      if (dragState) {
+        if (floatingPieceEl) {
+          floatingPieceEl.style.display = 'block';
+          floatingPieceEl.style.left = `0px`;
+          floatingPieceEl.style.top = `0px`;
+          floatingPieceEl.style.transform = `translate(${dragState.pieceStart.x}px, ${dragState.pieceStart.y}px)`;
+        }
+      } else {
+        if (floatingPieceEl) floatingPieceEl.style.display = 'none';
+      }
+    }, [dragState]);
+
 
     const renderPiece = (piece: Piece, isFloating = false) => {
         const cellSize = isFloating ? (gridRef.current?.clientWidth ?? 0) / GRID_SIZE : 24;
         
         return (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center pointer-events-none">
                 {piece.shape.map((row, r) => (
                     <div key={r} className="flex" style={{ height: cellSize }}>
                         {row.map((cell, c) => (
                             <div key={c} style={{ width: cellSize, height: cellSize }}>
-                               {cell ? <div className="w-full h-full rounded-sm" style={{ backgroundColor: piece.color, border: '2px solid rgba(0,0,0,0.2)' }} /> : null}
+                               {cell ? (
+                                   <div 
+                                       className="w-full h-full rounded-sm" 
+                                       style={{ 
+                                           backgroundColor: piece.color,
+                                           boxShadow: 'inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.3)',
+                                           border: '1px solid rgba(0,0,0,0.2)'
+                                       }} 
+                                   />
+                               ) : null}
                             </div>
                         ))}
                     </div>
@@ -310,7 +345,7 @@ const BlockBlastGame: React.FC = () => {
                                     const isClearing = clearingCells.has(`${r}-${c}`);
 
                                     return (
-                                        <div key={i} className="border border-secondary/20 relative">
+                                        <div key={i} className="border border-primary/20 relative">
                                             <AnimatePresence>
                                                 {isClearing ? (
                                                      <motion.div
@@ -325,7 +360,11 @@ const BlockBlastGame: React.FC = () => {
                                                     <motion.div
                                                         key={`cell-${r}-${c}`}
                                                         className="w-full h-full rounded-sm"
-                                                        style={{ backgroundColor: cellColor }}
+                                                        style={{ 
+                                                          backgroundColor: cellColor,
+                                                          boxShadow: 'inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.3)',
+                                                          border: '1px solid rgba(0,0,0,0.2)'
+                                                        }}
                                                         initial={{ scale: 0.5, opacity: 0 }}
                                                         animate={{ scale: 1, opacity: 1 }}
                                                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -378,24 +417,10 @@ const BlockBlastGame: React.FC = () => {
                 </div>
             </div>
 
-             {dragState && (
-                <div
-                    className="pointer-events-none fixed z-50"
-                    style={{
-                        left: 0,
-                        top: 0,
-                        transform: `translate(
-                            calc(${dragState.pointerStart.x}px - 50%), 
-                            calc(${dragState.pointerStart.y}px - 50%)
-                        ) translate(
-                            calc(${dragState.x - dragState.pointerStart.x}px),
-                            calc(${dragState.y - dragState.pointerStart.y}px)
-                        )`,
-                        touchAction: 'none'
-                    }}
-                >
-                   {renderPiece(dragState.piece, true)}
-                </div>
+            {dragState && (
+              <div id="floating-piece" className="pointer-events-none fixed z-50 transition-transform duration-75" style={{ display: 'none' }}>
+                {renderPiece(dragState.piece, true)}
+              </div>
             )}
             
             <AlertDialog open={gameState === 'over' && !isSubmitting}>
