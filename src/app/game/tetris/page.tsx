@@ -501,5 +501,3 @@ const TetrisPage: React.FC = () => {
 };
 
 export default TetrisPage;
-
-    
