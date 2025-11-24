@@ -913,6 +913,11 @@ const handleGameWin = async (
 };
 
 export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard', time: number) => {
+    const difficulties = {
+        easy: { points: 3 },
+        medium: { points: 5 },
+        hard: { points: 10 },
+    };
     const pointsToAdd = difficulties[difficulty].points;
     await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -1016,17 +1021,40 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 50);
-    if (pointsToAdd <= 0) return { success: true, message: `점수 ${score}점이 기록되었습니다!` };
     
     await runTransaction(db, async (transaction) => {
-        await handleGameWin(transaction, userId, pointsToAdd, `블록 블라스트 플레이 보상 (${score}점)`);
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        
+        const leaderboardRef = doc(db, 'leaderboards/block-blast/users', userId);
+        const leaderboardDoc = await transaction.get(leaderboardRef);
+        
+        if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
+            transaction.set(leaderboardRef, {
+                score,
+                displayName: userDoc.data().displayName,
+                studentId: userDoc.data().studentId,
+                avatarGradient: userDoc.data().avatarGradient,
+                lastUpdated: Timestamp.now(),
+            }, { merge: true });
+        }
+
+        if (pointsToAdd > 0) {
+             await handleGameWin(transaction, userId, pointsToAdd, `블록 블라스트 플레이 보상 (${score}점)`);
+        }
     });
 
-    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd}포인트를 획득했습니다!` };
+    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다!` : ''}` };
 };
 
 
-export const awardSudokuWin = async (userId: string, difficulty: Difficulty) => {
+export const awardSudokuWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard') => {
+    const difficulties = {
+        easy: { points: 1 },
+        medium: { points: 2 },
+        hard: { points: 3 },
+    };
     const pointsToAdd = difficulties[difficulty].points;
     await runTransaction(db, async (transaction) => {
        await handleGameWin(transaction, userId, pointsToAdd, `스도쿠 (${difficulty}) 완료 보상`);
@@ -1381,7 +1409,7 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
         // Update consecutive harvest tracking
         transaction.update(userRef, { 
             lastHarvestedLevel: level,
-            consecutiveHarvestCount: consecutiveHarvestCount
+            consecutiveHarvestCount: consecutiveHarvestCount,
         });
 
         const logRef = doc(collection(db, 'games/upgrade-game/logs'));
@@ -1389,7 +1417,7 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
             userId,
             studentId: userData.studentId,
             displayName: userData.displayName,
-            level,
+            score: level, // Use score for consistency
             pointsAwarded: pointsToAdd,
             timestamp: Timestamp.now()
         });

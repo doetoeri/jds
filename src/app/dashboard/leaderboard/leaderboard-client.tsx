@@ -5,11 +5,11 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs, getDoc, where, doc,getCountFromServer } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, getDoc, where, doc,getCountFromServer, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Crown, Trophy, Users, Coins, User as UserIcon } from 'lucide-react';
+import { Crown, Trophy, Users, Coins, User as UserIcon, Radio, TrendingUp, Blocks, Croissant } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -20,6 +20,14 @@ interface LeaderboardUser {
   displayName: string;
   score: number;
   avatarGradient?: string;
+  lastUpdated?: Timestamp;
+}
+
+interface Winner {
+    id: string; // userId
+    displayName: string;
+    avatarGradient: string;
+    timestamp: Timestamp;
 }
 
 const MyRank = ({ leaderboardId, order, userId, unit }: { leaderboardId: string, order: 'desc' | 'asc', userId: string, unit: string }) => {
@@ -187,6 +195,59 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
        {user && <div className="p-4"><MyRank leaderboardId={leaderboardId} userId={user.uid} order={order} unit={unit} /></div>}
     </>
   );
+};
+
+const TheButtonLeaderboard = () => {
+    const [winners, setWinners] = useState<Winner[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const winnersRef = collection(db, 'games/the-button/winners');
+        const q = query(winnersRef, orderBy('timestamp', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setWinners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Winner)));
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const getInitials = (name?: string) => name?.substring(0, 1).toUpperCase() || '?';
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>우승자</TableHead>
+                    <TableHead className="text-right">우승 시각</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {isLoading ? (
+                    <TableRow><TableCell colSpan={2} className="h-24 text-center"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
+                ) : winners.length === 0 ? (
+                    <TableRow><TableCell colSpan={2} className="h-24 text-center">아직 우승자가 없습니다.</TableCell></TableRow>
+                ) : (
+                    winners.map((winner, index) => (
+                        <TableRow key={winner.id}>
+                            <TableCell>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-bold w-6 text-center">{index + 1}</span>
+                                    <Avatar className={cn('h-9 w-9', `gradient-${winner.avatarGradient}`)}>
+                                        <AvatarFallback className="text-white bg-transparent font-bold">
+                                            {getInitials(winner.displayName)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium">{winner.displayName}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right">{winner.timestamp.toDate().toLocaleString()}</TableCell>
+                        </TableRow>
+                    ))
+                )}
+            </TableBody>
+        </Table>
+    );
 };
 
 const PointLeaderboardTab = () => {
@@ -360,12 +421,16 @@ export default function LeaderboardPageClient() {
       </div>
       <Card>
         <CardContent className="p-0">
-          <Tabs defaultValue="point-ranking">
-            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
+          <Tabs defaultValue="point-ranking" className="w-full">
+             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto">
                <TabsTrigger value="point-ranking" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Coins className="mr-2 h-4 w-4" />포인트 랭킹</TabsTrigger>
                <TabsTrigger value="minesweeper" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">지뢰찾기</TabsTrigger>
                <TabsTrigger value="breakout" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">벽돌깨기</TabsTrigger>
                <TabsTrigger value="tetris" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">테트리스</TabsTrigger>
+               <TabsTrigger value="snake" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Croissant className="mr-2 h-4 w-4" />스네이크</TabsTrigger>
+               <TabsTrigger value="block-blast" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Blocks className="mr-2 h-4 w-4" />블록 블라스트</TabsTrigger>
+               <TabsTrigger value="the-button" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Radio className="mr-2 h-4 w-4" />더 버튼</TabsTrigger>
+               <TabsTrigger value="upgrade-game" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><TrendingUp className="mr-2 h-4 w-4" />종달새 강화</TabsTrigger>
             </TabsList>
              <TabsContent value="point-ranking" className="p-0">
                 <PointLeaderboardTab />
@@ -379,10 +444,21 @@ export default function LeaderboardPageClient() {
              <TabsContent value="tetris" className="p-0">
                 <LeaderboardTab leaderboardId="leaderboards/tetris/users" order="desc" unit="점" />
             </TabsContent>
+            <TabsContent value="snake" className="p-0">
+                <LeaderboardTab leaderboardId="leaderboards/snake/users" order="desc" unit="점" />
+            </TabsContent>
+            <TabsContent value="block-blast" className="p-0">
+                <LeaderboardTab leaderboardId="leaderboards/block-blast/users" order="desc" unit="점" />
+            </TabsContent>
+            <TabsContent value="the-button" className="p-0">
+                <TheButtonLeaderboard />
+            </TabsContent>
+            <TabsContent value="upgrade-game" className="p-0">
+                <LeaderboardTab leaderboardId="games/upgrade-game/logs" order="desc" unit="레벨" />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
     </div>
   );
 }
-
