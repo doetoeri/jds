@@ -218,10 +218,8 @@ const TetrisPage: React.FC = () => {
         if (user && score > 0) {
             setIsSubmitting(true);
             try {
-                const result = await awardTetrisScore(user.uid, score);
-                if (result.success) {
-                    toast({ title: '점수 기록!', description: result.message });
-                }
+                await awardTetrisScore(user.uid, score);
+                toast({ title: '점수 기록!', description: `최종 점수 ${score}점이 리더보드에 기록되었습니다.` });
             } catch (e: any) {
                 toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
             } finally {
