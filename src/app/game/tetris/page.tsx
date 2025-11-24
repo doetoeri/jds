@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -158,7 +157,7 @@ const TetrisPage: React.FC = () => {
             }));
             
             const currentPiece = currentPieceRef.current;
-            if (currentPiece) {
+            if (currentPiece && gameState === 'playing') {
                 // Draw ghost piece
                 let ghostY = currentPiece.y;
                 while(isValidMove(currentPiece.matrix, currentPiece.x, ghostY + 1)) {
@@ -192,7 +191,7 @@ const TetrisPage: React.FC = () => {
         drawSidePiece(nextCanvasRef, nextPieceRef.current);
         drawSidePiece(holdCanvasRef, holdPieceRef.current);
 
-    }, []);
+    }, [gameState]);
 
     const getFromBag = useCallback((): ShapeName => {
         if (pieceBagRef.current.length === 0) {
@@ -211,20 +210,11 @@ const TetrisPage: React.FC = () => {
         };
     }, []);
     
-    const resetPiece = useCallback(() => {
-        currentPieceRef.current = nextPieceRef.current;
-        const newShape = getFromBag();
-        nextPieceRef.current = createPiece(newShape);
-        hasHeldRef.current = false;
-
-        if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y)) {
-            setGameState('over');
-        }
-    }, [createPiece, getFromBag]);
-    
     const handleGameOver = useCallback(async () => {
+        if (gameState === 'over') return;
         setGameState('over');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+
         if (user && score > 0) {
             setIsSubmitting(true);
             try {
@@ -238,8 +228,19 @@ const TetrisPage: React.FC = () => {
                 setIsSubmitting(false);
             }
         }
-    }, [score, user, toast]);
+    }, [score, user, toast, gameState]);
 
+    const resetPiece = useCallback(() => {
+        currentPieceRef.current = nextPieceRef.current;
+        const newShape = getFromBag();
+        nextPieceRef.current = createPiece(newShape);
+        hasHeldRef.current = false;
+
+        if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y)) {
+            handleGameOver();
+        }
+    }, [createPiece, getFromBag, handleGameOver]);
+    
     const lockPieceAndContinue = useCallback(() => {
         const currentPiece = currentPieceRef.current;
         if (!currentPiece) return;
@@ -413,14 +414,11 @@ const TetrisPage: React.FC = () => {
             gameLoopRef.current = requestAnimationFrame(gameLoop);
         } else {
             if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-            if (gameState === 'over') {
-                 handleGameOver();
-            }
         }
         return () => {
             if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         }
-    }, [gameState, gameLoop, handleGameOver]);
+    }, [gameState, gameLoop]);
 
     return (
         <>
@@ -503,3 +501,5 @@ const TetrisPage: React.FC = () => {
 };
 
 export default TetrisPage;
+
+    
