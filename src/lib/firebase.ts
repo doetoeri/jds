@@ -940,7 +940,6 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
 
 export const awardBreakoutScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 10);
-    if (pointsToAdd <= 0) return { success: true, message: `점수 ${score}점이 기록되었습니다!` };
     
     await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -948,14 +947,21 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
 
         const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
-        transaction.set(leaderboardRef, {
-            score: increment(score), displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
-        }, { merge: true });
+        const leaderboardDoc = await transaction.get(leaderboardRef);
         
-        await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
+        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
+        if (score > currentBest) {
+            transaction.set(leaderboardRef, {
+                score, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
+            }, { merge: true });
+        }
+        
+        if (pointsToAdd > 0) {
+            await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
+        }
     });
 
-    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd}포인트를 획득했습니다!` };
+    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다!` : ''}` };
 };
 
 export const awardSnakeScore = async (userId: string, score: number) => {
@@ -970,7 +976,8 @@ export const awardSnakeScore = async (userId: string, score: number) => {
         const leaderboardRef = doc(db, 'leaderboards/snake/users', userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
 
-        if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
+        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
+        if (score > currentBest) {
             transaction.set(leaderboardRef, {
                 score,
                 displayName: userDoc.data().displayName,
@@ -988,9 +995,6 @@ export const awardSnakeScore = async (userId: string, score: number) => {
 
 export const awardTetrisScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 1000);
-    if (pointsToAdd <= 0) {
-        return { success: true, message: `점수 ${score}점이 기록되었습니다!` };
-    }
 
     await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -1000,7 +1004,8 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
 
-        if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
+        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
+        if (score > currentBest) {
             transaction.set(leaderboardRef, {
                 score,
                 displayName: userDoc.data().displayName,
@@ -1010,12 +1015,14 @@ export const awardTetrisScore = async (userId: string, score: number) => {
             }, { merge: true });
         }
         
-        await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
+        if (pointsToAdd > 0) {
+            await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
+        }
     });
     
     return {
         success: true,
-        message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd}포인트를 획득했습니다!`,
+        message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다!` : ''}`,
     };
 };
 
@@ -1030,7 +1037,8 @@ export const awardBlockBlastScore = async (userId: string, score: number) => {
         const leaderboardRef = doc(db, 'leaderboards/block-blast/users', userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
         
-        if (!leaderboardDoc.exists() || score > (leaderboardDoc.data()?.score || 0)) {
+        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
+        if (score > currentBest) {
             transaction.set(leaderboardRef, {
                 score,
                 displayName: userDoc.data().displayName,
