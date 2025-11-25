@@ -947,14 +947,14 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
 
         const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
         
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
-            }, { merge: true });
-        }
+        transaction.set(leaderboardRef, {
+            score: increment(score),
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now()
+        }, { merge: true });
         
         if (pointsToAdd > 0) {
             await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
@@ -974,18 +974,14 @@ export const awardSnakeScore = async (userId: string, score: number) => {
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
         
         const leaderboardRef = doc(db, 'leaderboards/snake/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
-
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
-            }, { merge: true });
-        }
+        
+        transaction.set(leaderboardRef, {
+            score: increment(score),
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now(),
+        }, { merge: true });
 
         await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
     });
@@ -1002,18 +998,14 @@ export const awardTetrisScore = async (userId: string, score: number) => {
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
 
         const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
-
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
-            }, { merge: true });
-        }
+        
+        transaction.set(leaderboardRef, {
+            score: increment(score),
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now(),
+        }, { merge: true });
         
         if (pointsToAdd > 0) {
             await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
@@ -1035,18 +1027,14 @@ export const awardBlockBlastScore = async (userId: string, score: number) => {
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
         
         const leaderboardRef = doc(db, 'leaderboards/block-blast/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
         
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
-            }, { merge: true });
-        }
+        transaction.set(leaderboardRef, {
+            score: increment(score),
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now(),
+        }, { merge: true });
 
         if (pointsToAdd > 0) {
              await handleGameWin(transaction, userId, pointsToAdd, `블록 블라스트 플레이 보상 (${score}점)`);

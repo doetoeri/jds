@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -58,13 +57,12 @@ const TetrisPage: React.FC = () => {
     const gameLoopRef = useRef<number>();
     const router = useRouter();
     
+    // Use state for React-managed UI updates
     const [score, setScore] = useState(0);
     const [level, setLevel] = useState(1);
     const [linesCleared, setLinesCleared] = useState(0);
     const [gameState, setGameState] = useState<GameState>('start');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [hasSubmitted, setHasSubmitted] = useState(false);
-
 
     // Use refs for game state to avoid re-renders inside game loop
     const boardRef = useRef<Board>(createEmptyBoard());
@@ -211,11 +209,23 @@ const TetrisPage: React.FC = () => {
         };
     }, []);
     
-    const handleGameOver = useCallback(() => {
+    const handleGameOver = useCallback(async () => {
         if (gameState === 'over') return;
         setGameState('over');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-    }, [gameState]);
+
+        if (user && score > 0) {
+            setIsSubmitting(true);
+            try {
+                await awardTetrisScore(user.uid, score);
+                toast({ title: '점수 기록!', description: `최종 점수 ${score}점이 리더보드에 기록되었습니다.` });
+            } catch (e: any) {
+                toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
+            } finally {
+                setIsSubmitting(false);
+            }
+        }
+    }, [score, user, toast, gameState]);
 
     const resetPiece = useCallback(() => {
         currentPieceRef.current = nextPieceRef.current;
@@ -313,7 +323,6 @@ const TetrisPage: React.FC = () => {
         dropIntervalRef.current = 900;
         lastTimeRef.current = 0;
         dropCounterRef.current = 0;
-        setHasSubmitted(false);
         
         setGameState('playing');
         
@@ -326,7 +335,6 @@ const TetrisPage: React.FC = () => {
         if (!currentPiece || gameState !== 'playing') return;
         if (isValidMove(currentPiece.matrix, currentPiece.x + dx, currentPiece.y)) {
             currentPiece.x += dx;
-            draw();
         }
     };
     
@@ -358,7 +366,6 @@ const TetrisPage: React.FC = () => {
         } else {
             pieceDrop();
         }
-        draw();
     };
 
     const holdPiece = () => {
@@ -375,21 +382,6 @@ const TetrisPage: React.FC = () => {
         hasHeldRef.current = true;
     }
 
-    const submitScore = async () => {
-        if (!user || score === 0 || hasSubmitted) return;
-        setIsSubmitting(true);
-        try {
-            await awardTetrisScore(user.uid, score);
-            toast({ title: '점수 기록!', description: `최종 점수 ${score}점이 리더보드에 기록되었습니다.` });
-            setHasSubmitted(true);
-        } catch (e: any) {
-            toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (gameState !== 'playing') return;
@@ -401,19 +393,19 @@ const TetrisPage: React.FC = () => {
                 'ArrowUp': () => playerRotate(),
                 ' ': () => playerDrop(true),
                 'Shift': () => holdPiece(),
-                'c': () => holdPiece(),
             };
             if (keyMap[e.key]) keyMap[e.key]();
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [gameState, playerDrop]);
+    }, [gameState]);
 
     useEffect(() => {
         draw(); // Initial draw
     }, [draw, gameState]);
     
+    // This is the main game loop trigger
     useEffect(() => {
         if (gameState === 'playing') {
             gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -441,17 +433,9 @@ const TetrisPage: React.FC = () => {
                     <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 rounded-md backdrop-blur-sm">
                       <h2 className="text-5xl font-bold font-headline mb-2 text-primary">TETRIS</h2>
                       {gameState === 'over' && <p className="mb-4 text-xl">GAME OVER</p>}
-                      <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                        {gameState === 'over' && score > 0 && (
-                            <Button size="lg" onClick={submitScore} disabled={isSubmitting || hasSubmitted}>
-                                {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : null}
-                                {hasSubmitted ? '기록 완료' : '점수 기록하기'}
-                            </Button>
-                        )}
-                        <Button size="lg" onClick={startGame} className="font-bold text-lg">
-                            <Play className="mr-2"/>{gameState === 'start' ? '게임 시작' : '다시 시작'}
-                        </Button>
-                      </div>
+                      <Button size="lg" onClick={startGame} className="font-bold text-lg">
+                        <Play className="mr-2"/>{gameState === 'start' ? '게임 시작' : '다시 시작'}
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -492,10 +476,23 @@ const TetrisPage: React.FC = () => {
                     <Button size="lg" className="w-20 h-20" onClick={() => playerDrop(true)}><ChevronsDown /></Button>
                     <Button size="lg" className="w-20 h-20" onClick={() => playerMove(1)}><ArrowRight /></Button>
                 </div>
-                 <Button size="lg" className="w-full h-16 mt-1" onClick={() => playerDrop()}><ArrowDown /></Button>
             </div>
-          <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키: 회전 | 스페이스: 하드 드롭 | Shift 또는 C: 홀드</p>
+          <p className="text-sm text-muted-foreground hidden md:block">방향키로 조종 | 위쪽키: 회전 | 스페이스: 하드 드롭 | Shift: 홀드</p>
         </div>
+        
+        <AlertDialog open={gameState === 'over' && !isSubmitting}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>게임 오버!</AlertDialogTitle>
+              <AlertDialogDescription>
+                최종 점수: <strong>{score}점</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={startGame}>다시하기</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     );
 };
