@@ -72,6 +72,7 @@ export default function UpgradeGamePage() {
             toast({
                 title: `강화 성공!`,
                 description: result.message,
+                variant: 'default',
             });
         } else {
             resetGame();
@@ -92,14 +93,11 @@ export default function UpgradeGamePage() {
 
       try {
         const result = await awardUpgradeWin(user.uid, currentLevel);
-        if (result.success) {
-            toast({
-                title: `수확 완료!`,
-                description: result.message,
-            });
-        } else {
-             toast({ title: '수확 실패', description: result.message, variant: 'destructive'});
-        }
+        toast({
+            title: result.success ? `수확 완료!` : '수확 실패',
+            description: result.message,
+            variant: result.success ? 'default' : 'destructive'
+        });
         resetGame(); // Reset after successful harvest
       } catch (e: any) {
         toast({ title: '오류', description: e.message, variant: 'destructive'});

@@ -939,37 +939,41 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
 };
 
 export const awardBreakoutScore = async (userId: string, score: number) => {
-    const pointsToAdd = Math.floor(score / 10);
-    
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+  const pointsToAdd = Math.floor(score / 10);
 
-        const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
-        
-        transaction.set(leaderboardRef, {
-            score: increment(score),
-            displayName: userDoc.data().displayName,
-            studentId: userDoc.data().studentId,
-            avatarGradient: userDoc.data().avatarGradient,
-            lastUpdated: Timestamp.now()
-        }, { merge: true });
-        
-        if (pointsToAdd > 0) {
-            await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
-        }
-        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : '포인트 보상은 없습니다.'}` };
-    }).catch(e => {
-        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
-    });
+  return runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+
+    const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
+
+    transaction.set(leaderboardRef, {
+      score: increment(score),
+      displayName: userDoc.data().displayName,
+      studentId: userDoc.data().studentId,
+      avatarGradient: userDoc.data().avatarGradient,
+      lastUpdated: Timestamp.now()
+    }, { merge: true });
+
+    if (pointsToAdd > 0) {
+      await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
+    }
+    return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+  }).catch((e: any) => {
+      console.error("Breakout score award error:", e);
+      return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
+  });
 };
+
 
 export const awardSnakeScore = async (userId: string, score: number) => {
     const pointsToAdd = score;
     if (pointsToAdd <= 0) return { success: true, message: "점수가 0점 이하는 기록되지 않습니다." };
 
-    return await runTransaction(db, async (transaction) => {
+    return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
@@ -987,47 +991,50 @@ export const awardSnakeScore = async (userId: string, score: number) => {
         await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
 
         return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? ` ${pointsToAdd}포인트를 획득했습니다.` : ''}` };
-    }).catch(e => {
+    }).catch((e: any) => {
+        console.error("Snake score award error:", e);
         return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
     });
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
-    const pointsToAdd = Math.floor(score / 1000);
+  const pointsToAdd = Math.floor(score / 1000);
 
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+  return runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
 
-        const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-        
-        transaction.set(leaderboardRef, {
-            score: increment(score),
-            displayName: userDoc.data().displayName,
-            studentId: userDoc.data().studentId,
-            avatarGradient: userDoc.data().avatarGradient,
-            lastUpdated: Timestamp.now(),
-        }, { merge: true });
-        
-        if (pointsToAdd > 0) {
-            await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
-        }
-        
-        return {
-            success: true,
-            message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : '포인트 보상은 없습니다.'}`,
-        };
-    }).catch(e => {
-        console.error("Tetris score award error:", e);
-        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
-    });
+    const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
+
+    transaction.set(leaderboardRef, {
+      score: increment(score),
+      displayName: userDoc.data().displayName,
+      studentId: userDoc.data().studentId,
+      avatarGradient: userDoc.data().avatarGradient,
+      lastUpdated: Timestamp.now()
+    }, { merge: true });
+
+    if (pointsToAdd > 0) {
+      await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
+    }
+
+    return {
+      success: true,
+      message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}`,
+    };
+  }).catch((e: any) => {
+    console.error("Tetris score award error:", e);
+    return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
+  });
 };
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 50);
     
-    return await runTransaction(db, async (transaction) => {
+    return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
@@ -1045,8 +1052,9 @@ export const awardBlockBlastScore = async (userId: string, score: number) => {
         if (pointsToAdd > 0) {
              await handleGameWin(transaction, userId, pointsToAdd, `블록 블라스트 플레이 보상 (${score}점)`);
         }
-        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : '포인트 보상은 없습니다.'}` };
-    }).catch(e => {
+        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+    }).catch((e: any) => {
+        console.error("Block Blast score award error:", e);
         return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
     });
 };
@@ -1390,7 +1398,7 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
     if (pointsToAdd <= 0) return { success: true, message: "포인트가 0보다 작아 지급되지 않았습니다." };
     
      try {
-        await runTransaction(db, async (transaction) => {
+        return await runTransaction(db, async (transaction) => {
             const userRef = doc(db, 'users', userId);
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
@@ -1426,8 +1434,8 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
                 pointsAwarded: pointsToAdd,
                 timestamp: Timestamp.now()
             });
+            return { success: true, message: `${pointsToAdd.toFixed(2)} 포인트를 획득했습니다!` };
         });
-        return { success: true, message: `${pointsToAdd.toFixed(2)} 포인트를 획득했습니다!` };
     } catch(e: any) {
         return { success: false, message: e.message || '수확 중 오류가 발생했습니다.' };
     }
