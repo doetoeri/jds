@@ -63,21 +63,19 @@ export default function UpgradeGamePage() {
     setLastAction('upgrade');
 
     try {
-        // The attemptUpgrade function will throw an error if points are insufficient, which will be caught.
         const result = await attemptUpgrade(user.uid, currentLevel);
         
-        // Add a delay to create suspense
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         if (result.success) {
             setCurrentLevel(result.newLevel!);
             toast({
                 title: `강화 성공!`,
-                description: `${result.newLevel!}단계 종달새가 되었습니다!`,
+                description: result.message,
             });
         } else {
             resetGame();
-            toast({ title: '강화 실패...', description: '종달새가 0단계로 초기화되었습니다.', variant: 'destructive'});
+            toast({ title: '강화 실패...', description: result.message, variant: 'destructive'});
         }
 
     } catch (error: any) {
@@ -96,9 +94,11 @@ export default function UpgradeGamePage() {
         const result = await awardUpgradeWin(user.uid, currentLevel);
         if (result.success) {
             toast({
-                title: `수확 완료! (+${levels[currentLevel - 1].reward.toFixed(2)}P)`,
-                description: `${currentLevel}단계 보상을 획득했습니다.`,
+                title: `수확 완료!`,
+                description: result.message,
             });
+        } else {
+             toast({ title: '수확 실패', description: result.message, variant: 'destructive'});
         }
         resetGame(); // Reset after successful harvest
       } catch (e: any) {
@@ -108,7 +108,7 @@ export default function UpgradeGamePage() {
       }
   };
   
-  const canUpgrade = currentLevel < levels.length - 1; // Corrected to prevent upgrading at max level
+  const canUpgrade = currentLevel < levels.length - 1; 
   const upgradeInfo = canUpgrade ? levels[currentLevel] : null;
   const upgradeCost = upgradeInfo ? Math.floor(upgradeInfo.reward / 2) : 0;
   const harvestReward = currentLevel > 0 ? levels[currentLevel - 1].reward : 0;
