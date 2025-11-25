@@ -212,10 +212,10 @@ const TetrisPage: React.FC = () => {
     }, []);
     
     const handleGameOver = useCallback(async () => {
-        if (gameState === 'over') return;
+        if (gameState === 'over') return; // Prevent multiple calls
         setGameState('over');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-
+        
         if (user && score > 0) {
             setIsSubmitting(true);
             try {
@@ -233,14 +233,14 @@ const TetrisPage: React.FC = () => {
         }
     }, [score, user, toast, gameState]);
 
-    const resetPiece = useCallback(() => {
+    const resetPiece = useCallback(async () => {
         currentPieceRef.current = nextPieceRef.current;
         const newShape = getFromBag();
         nextPieceRef.current = createPiece(newShape);
         hasHeldRef.current = false;
 
         if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y)) {
-            handleGameOver();
+            await handleGameOver();
         }
     }, [createPiece, getFromBag, handleGameOver]);
     

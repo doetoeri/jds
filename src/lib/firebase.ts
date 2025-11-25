@@ -1,33 +1,38 @@
+is safer not to delete the old user doc automatically.
+        // The admin can do it manually after confirming the migration.
+        // transaction.delete(oldUserRef);
 
-
-'use client';
-
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  updateProfile,
-  updatePassword,
-} from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit, arrayRemove } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-
-
-const firebaseConfig = {
-  projectId: 'jongdalsem-hub',
-  appId: '1:145118642611:web:3d29407e957e6ea4f18bc6',
-  storageBucket: 'jongdalsam-hub.appspot.com',
-  apiKey: 'AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc',
-  authDomain: 'jongdalsam-hub.firebaseapp.com',
-  measurementId: '',
-  messagingSenderId: '145118642611',
+        return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
+    });
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+export const revertUserDataMigration = async () => {
+    const migrationLogRef = doc(db, "system_settings", "last_migration");
+    return runTransaction(db, async (transaction) => {
+        const logDoc = await transaction.get(migrationLogRef);
+        if (!logDoc.exists() || logDoc.data().reverted) {
+            throw new Error("되돌릴 이전 기록이 없거나 이미 되돌려졌습니다.");
+        }
+        const { from, to, oldUserDataBackup, newUserOriginalDataBackup } = logDoc.data();
+        
+        const oldUserRef = doc(db, "users", from);
+        const newUserRef = doc(db, "users", to);
+        
+        // Restore old user's data
+        transaction.set(oldUserRef, oldUserDataBackup);
+        
+        // Restore new user's original state
+        transaction.set(newUserRef, newUserOriginalDataBackup);
+        
+        // Mark as reverted
+        transaction.update(migrationLogRef, { reverted: true });
+
+        return { success: true, message: "마지막 데이터 이전이 되돌려졌습니다." };
+    });
+};
+
+export { auth, db, storage };
+(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -939,40 +944,67 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
 };
 
 export const awardBreakoutScore = async (userId: string, score: number) => {
-  const pointsToAdd = Math.floor(score / 10);
+    const pointsToAdd = Math.floor(score / 10);
+    return runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) {
+          throw new Error('사용자를 찾을 수 없습니다.');
+        }
 
-  return runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await transaction.get(userRef);
-    if (!userDoc.exists()) {
-      throw new Error('사용자를 찾을 수 없습니다.');
-    }
+        const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
+        
+        transaction.set(leaderboardRef, {
+          score: increment(score),
+          displayName: userDoc.data().displayName,
+          studentId: userDoc.data().studentId,
+          avatarGradient: userDoc.data().avatarGradient,
+          lastUpdated: Timestamp.now()
+        }, { merge: true });
 
-    const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
-
-    transaction.set(leaderboardRef, {
-      score: increment(score),
-      displayName: userDoc.data().displayName,
-      studentId: userDoc.data().studentId,
-      avatarGradient: userDoc.data().avatarGradient,
-      lastUpdated: Timestamp.now()
-    }, { merge: true });
-
-    if (pointsToAdd > 0) {
-      await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
-    }
-    return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
-  }).catch((e: any) => {
-      console.error("Breakout score award error:", e);
-      return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
-  });
+        if (pointsToAdd > 0) {
+          await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
+        }
+        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+    }).catch((e: any) => {
+        console.error("Breakout score award error:", e);
+        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
+    });
 };
 
+export const awardTetrisScore = async (userId: string, score: number) => {
+    const pointsToAdd = Math.floor(score / 1000);
+    try {
+        return await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', userId);
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) {
+                throw new Error('사용자를 찾을 수 없습니다.');
+            }
+
+            const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
+            
+            transaction.set(leaderboardRef, {
+                score: increment(score),
+                displayName: userDoc.data().displayName,
+                studentId: userDoc.data().studentId,
+                avatarGradient: userDoc.data().avatarGradient,
+                lastUpdated: Timestamp.now()
+            }, { merge: true });
+
+            if (pointsToAdd > 0) {
+                await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
+            }
+            return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+        });
+    } catch(e: any) {
+        console.error("Tetris score award error:", e);
+        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
+    }
+};
 
 export const awardSnakeScore = async (userId: string, score: number) => {
     const pointsToAdd = score;
-    if (pointsToAdd <= 0) return { success: true, message: "점수가 0점 이하는 기록되지 않습니다." };
-
     return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
@@ -988,7 +1020,9 @@ export const awardSnakeScore = async (userId: string, score: number) => {
             lastUpdated: Timestamp.now(),
         }, { merge: true });
 
-        await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
+        if (pointsToAdd > 0) {
+            await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
+        }
 
         return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? ` ${pointsToAdd}포인트를 획득했습니다.` : ''}` };
     }).catch((e: any) => {
@@ -997,43 +1031,8 @@ export const awardSnakeScore = async (userId: string, score: number) => {
     });
 };
 
-export const awardTetrisScore = async (userId: string, score: number) => {
-  const pointsToAdd = Math.floor(score / 1000);
-
-  return runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await transaction.get(userRef);
-    if (!userDoc.exists()) {
-      throw new Error('사용자를 찾을 수 없습니다.');
-    }
-
-    const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-
-    transaction.set(leaderboardRef, {
-      score: increment(score),
-      displayName: userDoc.data().displayName,
-      studentId: userDoc.data().studentId,
-      avatarGradient: userDoc.data().avatarGradient,
-      lastUpdated: Timestamp.now()
-    }, { merge: true });
-
-    if (pointsToAdd > 0) {
-      await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
-    }
-
-    return {
-      success: true,
-      message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}`,
-    };
-  }).catch((e: any) => {
-    console.error("Tetris score award error:", e);
-    return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
-  });
-};
-
 export const awardBlockBlastScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 50);
-    
     return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
@@ -1645,37 +1644,4 @@ export const migrateUserData = async (oldUid: string, newUid: string) => {
             newUserOriginalDataBackup: newUserBackup,
         });
 
-        // It is safer not to delete the old user doc automatically.
-        // The admin can do it manually after confirming the migration.
-        // transaction.delete(oldUserRef);
-
-        return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
-    });
-};
-
-export const revertUserDataMigration = async () => {
-    const migrationLogRef = doc(db, "system_settings", "last_migration");
-    return runTransaction(db, async (transaction) => {
-        const logDoc = await transaction.get(migrationLogRef);
-        if (!logDoc.exists() || logDoc.data().reverted) {
-            throw new Error("되돌릴 이전 기록이 없거나 이미 되돌려졌습니다.");
-        }
-        const { from, to, oldUserDataBackup, newUserOriginalDataBackup } = logDoc.data();
-        
-        const oldUserRef = doc(db, "users", from);
-        const newUserRef = doc(db, "users", to);
-        
-        // Restore old user's data
-        transaction.set(oldUserRef, oldUserDataBackup);
-        
-        // Restore new user's original state
-        transaction.set(newUserRef, newUserOriginalDataBackup);
-        
-        // Mark as reverted
-        transaction.update(migrationLogRef, { reverted: true });
-
-        return { success: true, message: "마지막 데이터 이전이 되돌려졌습니다." };
-    });
-};
-
-export { auth, db, storage };
+        // It 
