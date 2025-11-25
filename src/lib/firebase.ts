@@ -1019,6 +1019,7 @@ export const awardTetrisScore = async (userId: string, score: number) => {
             message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : '포인트 보상은 없습니다.'}`,
         };
     }).catch(e => {
+        console.error("Tetris score award error:", e);
         return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
     });
 };
