@@ -39,11 +39,17 @@ const firebaseConfig: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase for SSR
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Function to initialize Firebase and get services
+const getFirebaseServices = () => {
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    return { app, auth, db, storage };
+};
+
+// Export services by calling the function
+const { app, auth, db, storage } = getFirebaseServices();
 
 
 // --- Utility Functions ---
