@@ -1,38 +1,45 @@
-is safer not to delete the old user doc automatically.
-        // The admin can do it manually after confirming the migration.
-        // transaction.delete(oldUserRef);
+import { initializeApp, getApp } from "firebase/app";
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut,
+    updateProfile,
+    sendPasswordResetEmail
+} from "firebase/auth";
+import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    collection, 
+    query, 
+    where, 
+    getDocs,
+    runTransaction,
+    writeBatch,
+    Timestamp,
+    increment,
+    arrayUnion,
+    deleteDoc,
+    updateDoc,
+    addDoc,
+    orderBy,
+    limit
+} from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
-        return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
-    });
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const revertUserDataMigration = async () => {
-    const migrationLogRef = doc(db, "system_settings", "last_migration");
-    return runTransaction(db, async (transaction) => {
-        const logDoc = await transaction.get(migrationLogRef);
-        if (!logDoc.exists() || logDoc.data().reverted) {
-            throw new Error("되돌릴 이전 기록이 없거나 이미 되돌려졌습니다.");
-        }
-        const { from, to, oldUserDataBackup, newUserOriginalDataBackup } = logDoc.data();
-        
-        const oldUserRef = doc(db, "users", from);
-        const newUserRef = doc(db, "users", to);
-        
-        // Restore old user's data
-        transaction.set(oldUserRef, oldUserDataBackup);
-        
-        // Restore new user's original state
-        transaction.set(newUserRef, newUserOriginalDataBackup);
-        
-        // Mark as reverted
-        transaction.update(migrationLogRef, { reverted: true });
-
-        return { success: true, message: "마지막 데이터 이전이 되돌려졌습니다." };
-    });
-};
-
-export { auth, db, storage };
-(firebaseConfig) : getApp();
+// Initialize Firebase
+const app = typeof window === 'undefined' ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -148,6 +155,7 @@ export const signUp = async (
         email: email, // Store the auth email, even if it's the constructed one.
         createdAt: Timestamp.now(),
         lak: 0,
+        totalEarned: 0,
         lastLogin: Timestamp.now(),
     };
 
@@ -158,6 +166,7 @@ export const signUp = async (
                 ...docData,
                 studentId: studentId,
                 lak: 7,
+                totalEarned: 7,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange',
@@ -357,14 +366,14 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
         // --- 3. POINT CALCULATION & WRITES ---
         // For User
-        transaction.update(userRef, { lak: increment(invitePoints) });
+        transaction.update(userRef, { lak: increment(invitePoints), totalEarned: increment(invitePoints) });
         transaction.set(doc(collection(userRef, 'transactions')), {
           date: Timestamp.now(), description: `친구 초대 보상 (초대한 친구: ${friendStudentId})`, amount: invitePoints, type: 'credit',
         });
         transaction.update(userRef, { usedFriendId: arrayUnion(friendStudentId) });
 
         // For Friend
-        transaction.update(friendRef, { lak: increment(invitePoints) });
+        transaction.update(friendRef, { lak: increment(invitePoints), totalEarned: increment(invitePoints) });
         transaction.set(doc(collection(friendRef, 'transactions')), {
           date: Timestamp.now(), description: `친구 초대 보상 (초대받은 친구: ${userStudentId})`, amount: invitePoints, type: 'credit',
         });
@@ -432,11 +441,11 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             const partnerRef = partnerSnapshot.docs[0].ref;
             
             // User points
-            transaction.update(userRef, { lak: increment(freshCodeData.value) });
+            transaction.update(userRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 사용 (파트너: ${partnerStudentId})`, amount: freshCodeData.value, type: 'credit'});
 
             // Partner points
-            transaction.update(partnerRef, { lak: increment(freshCodeData.value) });
+            transaction.update(partnerRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 파트너 보상 (사용자: ${userStudentId})`, amount: freshCodeData.value, type: 'credit'});
             
             transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
@@ -447,7 +456,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (usedBy.includes(userStudentId)) throw new Error("이미 이 코드를 사용했습니다.");
             if (usedBy.length >= freshCodeData.limit) throw new Error("코드가 모두 소진되었습니다. 다음 기회를 노려보세요!");
             
-            transaction.update(userRef, { lak: increment(freshCodeData.value) });
+            transaction.update(userRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: freshCodeData.value, type: 'credit'});
             transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             break;
@@ -458,7 +467,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
                 throw new Error("이 코드는 다른 학생을 위한 코드입니다.");
             }
 
-            transaction.update(userRef, { lak: increment(freshCodeData.value) });
+            transaction.update(userRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: freshCodeData.value, type: 'credit'});
             transaction.update(codeRef, { used: true, usedBy: userStudentId });
             break;
@@ -645,7 +654,7 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
     
     // Admin adjustments are exempt from limits
     if (amount > 0) {
-      transaction.update(userRef, { lak: increment(amount) });
+      transaction.update(userRef, { lak: increment(amount), totalEarned: increment(amount) });
       transaction.set(doc(collection(userRef, 'transactions')), {
           date: Timestamp.now(), description: `관리자 조정: ${reason}`, amount: amount, type: 'credit',
       });
@@ -675,6 +684,10 @@ export const setUserLak = async (userId: string, amount: number, reason: string)
     const difference = amount - currentLak;
 
     transaction.update(userRef, { lak: amount });
+    
+    if (difference > 0) {
+      transaction.update(userRef, { totalEarned: increment(difference) });
+    }
 
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
@@ -828,7 +841,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       // 3. Writes
       const pointsToAdd = 1;
       
-      transaction.update(senderRef, { lak: increment(pointsToAdd) });
+      transaction.update(senderRef, { lak: increment(pointsToAdd), totalEarned: increment(pointsToAdd) });
       transaction.set(doc(collection(senderRef, 'transactions')), {
           date: Timestamp.now(), description: '편지 쓰기 보상', amount: pointsToAdd, type: 'credit',
       });
@@ -908,7 +921,7 @@ const handleGameWin = async (
     if (pointsToAdd <= 0) return;
 
     const userRef = doc(db, 'users', userId);
-    transaction.update(userRef, { lak: increment(pointsToAdd) });
+    transaction.update(userRef, { lak: increment(pointsToAdd), totalEarned: increment(pointsToAdd) });
     transaction.set(doc(collection(userRef, 'transactions')), {
         date: Timestamp.now(),
         description: description,
@@ -1220,7 +1233,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
         }
         const studentRef = studentSnapshot.docs[0].ref;
         
-        transaction.update(studentRef, { lak: increment(value) });
+        transaction.update(studentRef, { lak: increment(value), totalEarned: increment(value) });
         transaction.set(doc(collection(studentRef, 'transactions')), {
           date: Timestamp.now(), description: `부스 참여: ${reason}`, amount: value, type: 'credit',
         });
@@ -1268,7 +1281,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
             await runTransaction(db, async (transaction) => {
                 const userRef = doc(db, 'users', rankerId);
                 
-                transaction.update(userRef, { lak: increment(rewardAmount) });
+                transaction.update(userRef, { lak: increment(rewardAmount), totalEarned: increment(rewardAmount) });
                 transaction.set(doc(collection(userRef, 'transactions')), {
                   date: Timestamp.now(), description: `리더보드 보상 (${leaderboardName} ${index + 1}등)`, amount: rewardAmount, type: 'credit',
                 });
@@ -1505,8 +1518,7 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     transaction.set(doc(collection(db, 'poems')), { studentId, content: poemContent, createdAt: Timestamp.now() });
     
     const pointsToAdd = 5;
-    transaction.update(userRef, { lak: increment(pointsToAdd) });
-    transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '삼행시 참여 보상', amount: pointsToAdd, type: 'credit' });
+    await handleGameWin(transaction, userRef.id, pointsToAdd, '삼행시 참여 보상');
   });
   return { success: true };
 };
@@ -1531,8 +1543,7 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         });
         
         const pointsToAdd = 5;
-        transaction.update(senderRef, { lak: increment(pointsToAdd) });
-        transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsToAdd, type: 'credit' });
+        await handleGameWin(transaction, senderRef.id, pointsToAdd, '비밀 편지 작성 보상');
     });
     return { success: true };
 };
@@ -1644,4 +1655,37 @@ export const migrateUserData = async (oldUid: string, newUid: string) => {
             newUserOriginalDataBackup: newUserBackup,
         });
 
-        // It 
+        // It is safer not to delete the old user doc automatically.
+        // The admin can do it manually after confirming the migration.
+        // transaction.delete(oldUserRef);
+
+        return { success: true, message: "데이터 이전이 성공적으로 완료되었습니다." };
+    });
+};
+
+export const revertUserDataMigration = async () => {
+    const migrationLogRef = doc(db, "system_settings", "last_migration");
+    return runTransaction(db, async (transaction) => {
+        const logDoc = await transaction.get(migrationLogRef);
+        if (!logDoc.exists() || logDoc.data().reverted) {
+            throw new Error("되돌릴 이전 기록이 없거나 이미 되돌려졌습니다.");
+        }
+        const { from, to, oldUserDataBackup, newUserOriginalDataBackup } = logDoc.data();
+        
+        const oldUserRef = doc(db, "users", from);
+        const newUserRef = doc(db, "users", to);
+        
+        // Restore old user's data
+        transaction.set(oldUserRef, oldUserDataBackup);
+        
+        // Restore new user's original state
+        transaction.set(newUserRef, newUserOriginalDataBackup);
+        
+        // Mark as reverted
+        transaction.update(migrationLogRef, { reverted: true });
+
+        return { success: true, message: "마지막 데이터 이전이 되돌려졌습니다." };
+    });
+};
+
+export { auth, db, storage };

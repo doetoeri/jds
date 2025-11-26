@@ -10,7 +10,7 @@ import { collection, query, orderBy, limit, getDocs, getDoc, where, doc,getCount
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Crown, Trophy, Users, Coins, User as UserIcon, Radio, TrendingUp, Blocks, Croissant } from 'lucide-react';
+import { Crown, Trophy, Users, Coins, User as UserIcon, Radio, TrendingUp, Blocks, Croissant, BarChart3, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -31,7 +31,7 @@ interface Winner {
     timestamp: Timestamp;
 }
 
-const MyRank = ({ leaderboardId, order, userId, unit }: { leaderboardId: string, order: 'desc' | 'asc', userId: string, unit: string }) => {
+const MyRank = ({ leaderboardId, order, userId, unit, scoreField = 'score' }: { leaderboardId: string, order: 'desc' | 'asc', userId: string, unit: string, scoreField?: string }) => {
     const [myRank, setMyRank] = useState<{ rank: number; score: number } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -47,9 +47,9 @@ const MyRank = ({ leaderboardId, order, userId, unit }: { leaderboardId: string,
                 const userScoreSnap = await getDoc(userScoreRef);
 
                 if (userScoreSnap.exists()) {
-                    const userScore = userScoreSnap.data().score;
+                    const userScore = userScoreSnap.data()[scoreField] || 0;
                     const comparison = order === 'desc' ? '>' : '<';
-                    const rankQuery = query(collection(db, leaderboardId), where('score', comparison, userScore));
+                    const rankQuery = query(collection(db, leaderboardId), where(scoreField, comparison, userScore));
                     const rankSnapshot = await getCountFromServer(rankQuery);
                     const rank = rankSnapshot.data().count + 1;
                     setMyRank({ rank, score: userScore });
@@ -63,7 +63,7 @@ const MyRank = ({ leaderboardId, order, userId, unit }: { leaderboardId: string,
             }
         };
         fetchMyRank();
-    }, [leaderboardId, userId, order]);
+    }, [leaderboardId, userId, order, scoreField]);
 
     if (isLoading) {
         return <Skeleton className="h-10 w-full" />
@@ -91,7 +91,7 @@ const MyRank = ({ leaderboardId, order, userId, unit }: { leaderboardId: string,
     );
 };
 
-const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string, order: 'desc' | 'asc', unit: string }) => {
+const LeaderboardTab = ({ leaderboardId, order, unit, scoreField = 'score' }: { leaderboardId: string, order: 'desc' | 'asc', unit: string, scoreField?: string }) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -102,12 +102,12 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
       setIsLoading(true);
       try {
         const usersRef = collection(db, leaderboardId);
-        const q = query(usersRef, orderBy('score', order), limit(20));
+        const q = query(usersRef, orderBy(scoreField, order), limit(20));
         const querySnapshot = await getDocs(q);
         
         const userList = querySnapshot.docs.map(doc => ({
           id: doc.id,
-          score: doc.data().score,
+          score: doc.data()[scoreField] || 0,
           displayName: doc.data().displayName,
           studentId: doc.data().studentId,
           avatarGradient: doc.data().avatarGradient || 'orange',
@@ -122,7 +122,7 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
       }
     };
     fetchLeaderboard();
-  }, [leaderboardId, order, toast]);
+  }, [leaderboardId, order, toast, scoreField]);
 
   const getRankColor = (rank: number) => {
     if (rank === 0) return 'text-amber-400';
@@ -193,7 +193,7 @@ const LeaderboardTab = ({ leaderboardId, order, unit }: { leaderboardId: string,
           )}
         </TableBody>
       </Table>
-       {user && <div className="p-4"><MyRank leaderboardId={leaderboardId} userId={user.uid} order={order} unit={unit} /></div>}
+       {user && <div className="p-4"><MyRank leaderboardId={leaderboardId} userId={user.uid} order={order} unit={unit} scoreField={scoreField} /></div>}
     </>
   );
 };
@@ -251,7 +251,7 @@ const TheButtonLeaderboard = () => {
     );
 };
 
-const PointLeaderboardTab = () => {
+const PointLeaderboardTab = ({scoreField}: {scoreField: 'lak' | 'totalEarned'}) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -264,12 +264,12 @@ const PointLeaderboardTab = () => {
       setIsLoading(true);
       try {
         const usersRef = collection(db, "users");
-        const q = query(usersRef, orderBy('lak', 'desc'), limit(20));
+        const q = query(usersRef, orderBy(scoreField, 'desc'), limit(20));
         const querySnapshot = await getDocs(q);
         
         const userList = querySnapshot.docs.map(doc => ({
           id: doc.id,
-          score: doc.data().lak,
+          score: doc.data()[scoreField] || 0,
           displayName: doc.data().displayName,
           studentId: doc.data().studentId,
           avatarGradient: doc.data().avatarGradient || 'orange',
@@ -278,7 +278,7 @@ const PointLeaderboardTab = () => {
 
       } catch (error) {
         console.error(`Error fetching point leaderboard: `, error);
-        toast({ title: "오류", description: "포인트 랭킹을 불러오는 데 실패했습니다.", variant: "destructive" });
+        toast({ title: "오류", description: "랭킹을 불러오는 데 실패했습니다.", variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
@@ -294,10 +294,10 @@ const PointLeaderboardTab = () => {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-            const userLak = userSnap.data().lak;
-            const rankQuery = query(collection(db, 'users'), where('lak', '>', userLak));
+            const userScore = userSnap.data()[scoreField] || 0;
+            const rankQuery = query(collection(db, 'users'), where(scoreField, '>', userScore));
             const rankSnapshot = await getCountFromServer(rankQuery);
-            setMyRank({ rank: rankSnapshot.data().count + 1, score: userLak });
+            setMyRank({ rank: rankSnapshot.data().count + 1, score: userScore });
         }
       } catch (error) {
         console.error("Failed to fetch user rank", error);
@@ -308,7 +308,7 @@ const PointLeaderboardTab = () => {
     
     fetchLeaderboard();
     fetchMyRank();
-  }, [toast, user]);
+  }, [toast, user, scoreField]);
 
   const getRankColor = (rank: number) => {
     if (rank === 0) return 'text-amber-400';
@@ -328,7 +328,7 @@ const PointLeaderboardTab = () => {
           <TableRow>
             <TableHead className="w-[80px] text-center">순위</TableHead>
             <TableHead>사용자</TableHead>
-            <TableHead className="text-right">보유 포인트</TableHead>
+            <TableHead className="text-right">포인트</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -425,6 +425,7 @@ export default function LeaderboardPageClient() {
           <Tabs defaultValue="point-ranking" className="w-full">
              <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto">
                <TabsTrigger value="point-ranking" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Coins className="mr-2 h-4 w-4" />포인트 랭킹</TabsTrigger>
+               <TabsTrigger value="beta-leaderboard" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><FlaskConical className="mr-2 h-4 w-4" />Beta 리더보드</TabsTrigger>
                <TabsTrigger value="minesweeper" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">지뢰찾기</TabsTrigger>
                <TabsTrigger value="breakout" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">벽돌깨기</TabsTrigger>
                <TabsTrigger value="tetris" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">테트리스</TabsTrigger>
@@ -434,7 +435,10 @@ export default function LeaderboardPageClient() {
                <TabsTrigger value="upgrade-game" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><TrendingUp className="mr-2 h-4 w-4" />종달새 강화</TabsTrigger>
             </TabsList>
              <TabsContent value="point-ranking" className="p-0">
-                <PointLeaderboardTab />
+                <PointLeaderboardTab scoreField="lak" />
+            </TabsContent>
+            <TabsContent value="beta-leaderboard" className="p-0">
+                <PointLeaderboardTab scoreField="totalEarned" />
             </TabsContent>
              <TabsContent value="minesweeper" className="p-0">
                 <LeaderboardTab leaderboardId="leaderboards/minesweeper-easy/users" order="asc" unit="초" />
