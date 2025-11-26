@@ -42,6 +42,7 @@ import {
   Croissant,
   Brain,
   Blocks,
+  FlaskConical,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -55,6 +56,7 @@ const studentLinks = [
   { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '미니게임', href: '/game', icon: Swords },
   { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
+  { name: 'BETA 리더보드', href: '/dashboard/leaderboard/beta', icon: FlaskConical },
   { name: '설문/투표', href: '/dashboard/polls', icon: CheckSquare },
   { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
   { name: '친구', href: '/dashboard/mates', icon: UserPlus },
