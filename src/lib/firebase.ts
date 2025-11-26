@@ -1,4 +1,5 @@
-import { initializeApp, getApp } from "firebase/app";
+
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { 
     getAuth, 
     createUserWithEmailAndPassword, 
@@ -39,7 +40,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = typeof window === 'undefined' ? initializeApp(firebaseConfig) : getApp();
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
