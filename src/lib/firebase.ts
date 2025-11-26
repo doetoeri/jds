@@ -945,6 +945,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         const leaderboardRef = doc(db, `leaderboards/minesweeper-${difficulty}/users`, userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
         
+        // 지뢰찾기는 점수가 낮을수록(시간이 짧을수록) 좋음
         if (!leaderboardDoc.exists() || time < leaderboardDoc.data().score) {
             transaction.set(leaderboardRef, {
                 score: time, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now(),
@@ -1436,16 +1437,15 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
                 consecutiveHarvestCount: consecutiveHarvestCount,
             });
 
-            const logRef = doc(collection(db, 'games/upgrade-game/logs'));
-            transaction.set(logRef, {
-                userId,
-                studentId: userData.studentId,
+            const leaderboardRef = doc(db, 'leaderboards/upgrade-game/users', userId);
+            transaction.set(leaderboardRef, {
+                score: level,
                 displayName: userData.displayName,
-                score: level, // Use score for consistency
-                level: level,
-                pointsAwarded: pointsToAdd,
-                timestamp: Timestamp.now()
-            });
+                studentId: userData.studentId,
+                avatarGradient: userData.avatarGradient,
+                lastUpdated: Timestamp.now()
+            }, { merge: true });
+
             return { success: true, message: `${pointsToAdd.toFixed(2)} 포인트를 획득했습니다!` };
         });
     } catch(e: any) {

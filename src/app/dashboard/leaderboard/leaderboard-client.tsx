@@ -425,7 +425,7 @@ export default function LeaderboardPageClient() {
           <Tabs defaultValue="point-ranking" className="w-full">
              <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto">
                <TabsTrigger value="point-ranking" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><Coins className="mr-2 h-4 w-4" />포인트 랭킹</TabsTrigger>
-               <TabsTrigger value="beta-leaderboard" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><FlaskConical className="mr-2 h-4 w-4" />Beta 리더보드</TabsTrigger>
+               <TabsTrigger value="total-earned" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"><BarChart3 className="mr-2 h-4 w-4" />누적 포인트</TabsTrigger>
                <TabsTrigger value="minesweeper" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">지뢰찾기</TabsTrigger>
                <TabsTrigger value="breakout" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">벽돌깨기</TabsTrigger>
                <TabsTrigger value="tetris" className="relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none">테트리스</TabsTrigger>
@@ -437,7 +437,7 @@ export default function LeaderboardPageClient() {
              <TabsContent value="point-ranking" className="p-0">
                 <PointLeaderboardTab scoreField="lak" />
             </TabsContent>
-            <TabsContent value="beta-leaderboard" className="p-0">
+            <TabsContent value="total-earned" className="p-0">
                 <PointLeaderboardTab scoreField="totalEarned" />
             </TabsContent>
              <TabsContent value="minesweeper" className="p-0">
@@ -459,7 +459,7 @@ export default function LeaderboardPageClient() {
                 <TheButtonLeaderboard />
             </TabsContent>
             <TabsContent value="upgrade-game" className="p-0">
-                <LeaderboardTab leaderboardId="games/upgrade-game/logs" order="desc" unit="레벨" />
+                <LeaderboardTab leaderboardId="leaderboards/upgrade-game/users" order="desc" unit="레벨" />
             </TabsContent>
           </Tabs>
         </CardContent>
