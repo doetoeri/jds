@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -119,9 +121,11 @@ const BlockBlastGame: React.FC = () => {
             setIsSubmitting(true);
             try {
                 const result = await awardBlockBlastScore(user.uid, finalScore);
-                if (result.success) {
-                    toast({ title: '점수 기록!', description: result.message });
-                }
+                toast({ 
+                    title: result.success ? '점수 기록 완료!' : '점수 기록 실패',
+                    description: result.message,
+                    variant: result.success ? 'default' : 'destructive',
+                });
             } catch (e: any) {
                 toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
             } finally {

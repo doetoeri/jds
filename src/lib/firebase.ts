@@ -1,36 +1,56 @@
 
+import { initializeApp, getApp, getApps, type FirebaseOptions } from "firebase/app";
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut,
+    updateProfile,
+    sendPasswordResetEmail
+} from "firebase/auth";
+import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    collection, 
+    query, 
+    where, 
+    getDocs,
+    runTransaction,
+    writeBatch,
+    Timestamp,
+    increment,
+    arrayUnion,
+    deleteDoc,
+    updateDoc,
+    addDoc,
+    orderBy,
+    limit
+} from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
-'use client';
-
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  updateProfile,
-  updatePassword,
-} from 'firebase/auth';
-import { getFirestore, doc, setDoc, runTransaction, collection, query, where, getDocs, writeBatch, documentId, getDoc, updateDoc, increment, deleteDoc, arrayUnion, Timestamp, addDoc, orderBy, limit, arrayRemove } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-
-
-const firebaseConfig = {
-  projectId: 'jongdalsem-hub',
-  appId: '1:145118642611:web:3d29407e957e6ea4f18bc6',
-  storageBucket: 'jongdalsam-hub.appspot.com',
-  apiKey: 'AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc',
-  authDomain: 'jongdalsam-hub.firebaseapp.com',
-  measurementId: '',
-  messagingSenderId: '145118642611',
+const firebaseConfig: FirebaseOptions = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Function to initialize Firebase and get services
+const getFirebaseServices = () => {
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    return { app, auth, db, storage };
+};
+
+// Export services by calling the function
+const { app, auth, db, storage } = getFirebaseServices();
+
 
 // --- Utility Functions ---
 
@@ -143,6 +163,7 @@ export const signUp = async (
         email: email, // Store the auth email, even if it's the constructed one.
         createdAt: Timestamp.now(),
         lak: 0,
+        totalEarned: 0,
         lastLogin: Timestamp.now(),
     };
 
@@ -153,6 +174,7 @@ export const signUp = async (
                 ...docData,
                 studentId: studentId,
                 lak: 7,
+                totalEarned: 7,
                 role: 'student',
                 displayName: `학생 (${studentId})`,
                 avatarGradient: 'orange',
@@ -352,14 +374,14 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
         // --- 3. POINT CALCULATION & WRITES ---
         // For User
-        transaction.update(userRef, { lak: increment(invitePoints) });
+        transaction.update(userRef, { lak: increment(invitePoints), totalEarned: increment(invitePoints) });
         transaction.set(doc(collection(userRef, 'transactions')), {
           date: Timestamp.now(), description: `친구 초대 보상 (초대한 친구: ${friendStudentId})`, amount: invitePoints, type: 'credit',
         });
         transaction.update(userRef, { usedFriendId: arrayUnion(friendStudentId) });
 
         // For Friend
-        transaction.update(friendRef, { lak: increment(invitePoints) });
+        transaction.update(friendRef, { lak: increment(invitePoints), totalEarned: increment(invitePoints) });
         transaction.set(doc(collection(friendRef, 'transactions')), {
           date: Timestamp.now(), description: `친구 초대 보상 (초대받은 친구: ${userStudentId})`, amount: invitePoints, type: 'credit',
         });
@@ -427,11 +449,11 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             const partnerRef = partnerSnapshot.docs[0].ref;
             
             // User points
-            transaction.update(userRef, { lak: increment(freshCodeData.value) });
+            transaction.update(userRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 사용 (파트너: ${partnerStudentId})`, amount: freshCodeData.value, type: 'credit'});
 
             // Partner points
-            transaction.update(partnerRef, { lak: increment(freshCodeData.value) });
+            transaction.update(partnerRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(partnerRef, 'transactions')), { date: Timestamp.now(), description: `히든코드 파트너 보상 (사용자: ${userStudentId})`, amount: freshCodeData.value, type: 'credit'});
             
             transaction.update(codeRef, { used: true, usedBy: [userStudentId, partnerStudentId] });
@@ -442,7 +464,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
             if (usedBy.includes(userStudentId)) throw new Error("이미 이 코드를 사용했습니다.");
             if (usedBy.length >= freshCodeData.limit) throw new Error("코드가 모두 소진되었습니다. 다음 기회를 노려보세요!");
             
-            transaction.update(userRef, { lak: increment(freshCodeData.value) });
+            transaction.update(userRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `선착순코드 "${freshCodeData.code}" 사용`, amount: freshCodeData.value, type: 'credit'});
             transaction.update(codeRef, { usedBy: arrayUnion(userStudentId) });
             break;
@@ -453,7 +475,7 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
                 throw new Error("이 코드는 다른 학생을 위한 코드입니다.");
             }
 
-            transaction.update(userRef, { lak: increment(freshCodeData.value) });
+            transaction.update(userRef, { lak: increment(freshCodeData.value), totalEarned: increment(freshCodeData.value) });
             transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: `${freshCodeData.type} "${freshCodeData.code}" 사용`, amount: freshCodeData.value, type: 'credit'});
             transaction.update(codeRef, { used: true, usedBy: userStudentId });
             break;
@@ -640,7 +662,7 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
     
     // Admin adjustments are exempt from limits
     if (amount > 0) {
-      transaction.update(userRef, { lak: increment(amount) });
+      transaction.update(userRef, { lak: increment(amount), totalEarned: increment(amount) });
       transaction.set(doc(collection(userRef, 'transactions')), {
           date: Timestamp.now(), description: `관리자 조정: ${reason}`, amount: amount, type: 'credit',
       });
@@ -670,6 +692,10 @@ export const setUserLak = async (userId: string, amount: number, reason: string)
     const difference = amount - currentLak;
 
     transaction.update(userRef, { lak: amount });
+    
+    if (difference > 0) {
+      transaction.update(userRef, { totalEarned: increment(difference) });
+    }
 
     const historyRef = doc(collection(userRef, 'transactions'));
     transaction.set(historyRef, {
@@ -823,7 +849,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
       // 3. Writes
       const pointsToAdd = 1;
       
-      transaction.update(senderRef, { lak: increment(pointsToAdd) });
+      transaction.update(senderRef, { lak: increment(pointsToAdd), totalEarned: increment(pointsToAdd) });
       transaction.set(doc(collection(senderRef, 'transactions')), {
           date: Timestamp.now(), description: '편지 쓰기 보상', amount: pointsToAdd, type: 'credit',
       });
@@ -903,7 +929,7 @@ const handleGameWin = async (
     if (pointsToAdd <= 0) return;
 
     const userRef = doc(db, 'users', userId);
-    transaction.update(userRef, { lak: increment(pointsToAdd) });
+    transaction.update(userRef, { lak: increment(pointsToAdd), totalEarned: increment(pointsToAdd) });
     transaction.set(doc(collection(userRef, 'transactions')), {
         date: Timestamp.now(),
         description: description,
@@ -927,6 +953,7 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         const leaderboardRef = doc(db, `leaderboards/minesweeper-${difficulty}/users`, userId);
         const leaderboardDoc = await transaction.get(leaderboardRef);
         
+        // 지뢰찾기는 점수가 낮을수록(시간이 짧을수록) 좋음
         if (!leaderboardDoc.exists() || time < leaderboardDoc.data().score) {
             transaction.set(leaderboardRef, {
                 score: time, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now(),
@@ -935,125 +962,122 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
         
         await handleGameWin(transaction, userId, pointsToAdd, `지뢰찾기 (${difficulty}) 승리 보상`);
     });
-    return { success: true, message: `기록이 저장되었습니다. 최종 시간: ${time}초` };
+    return { success: true, message: `기록이 저장되었습니다. 최종 시간: ${time}초, 획득 포인트: ${pointsToAdd}P` };
 };
 
 export const awardBreakoutScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 10);
-    
-    await runTransaction(db, async (transaction) => {
+    return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+        if (!userDoc.exists()) {
+          throw new Error('사용자를 찾을 수 없습니다.');
+        }
 
         const leaderboardRef = doc(db, 'leaderboards/breakout/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
         
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score, displayName: userDoc.data().displayName, studentId: userDoc.data().studentId, avatarGradient: userDoc.data().avatarGradient, lastUpdated: Timestamp.now()
-            }, { merge: true });
-        }
-        
-        if (pointsToAdd > 0) {
-            await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
-        }
-    });
+        transaction.set(leaderboardRef, {
+          score: increment(score),
+          displayName: userDoc.data().displayName,
+          studentId: userDoc.data().studentId,
+          avatarGradient: userDoc.data().avatarGradient,
+          lastUpdated: Timestamp.now()
+        }, { merge: true });
 
-    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다!` : ''}` };
+        if (pointsToAdd > 0) {
+          await handleGameWin(transaction, userId, pointsToAdd, `벽돌깨기 점수 보상 (${score}점)`);
+        }
+        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+    }).catch((e: any) => {
+        console.error("Breakout score award error:", e);
+        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
+    });
+};
+
+export const awardTetrisScore = async (userId: string, score: number) => {
+    const pointsToAdd = Math.floor(score / 1000);
+    try {
+        return await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', userId);
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) {
+                throw new Error('사용자를 찾을 수 없습니다.');
+            }
+
+            const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
+            
+            transaction.set(leaderboardRef, {
+                score: increment(score),
+                displayName: userDoc.data().displayName,
+                studentId: userDoc.data().studentId,
+                avatarGradient: userDoc.data().avatarGradient,
+                lastUpdated: Timestamp.now()
+            }, { merge: true });
+
+            if (pointsToAdd > 0) {
+                await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
+            }
+            return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+        });
+    } catch(e: any) {
+        console.error("Tetris score award error:", e);
+        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
+    }
 };
 
 export const awardSnakeScore = async (userId: string, score: number) => {
     const pointsToAdd = score;
-    if (pointsToAdd <= 0) return { success: true, message: "점수가 0점 이하는 기록되지 않습니다." };
-
-    await runTransaction(db, async (transaction) => {
+    return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
         
         const leaderboardRef = doc(db, 'leaderboards/snake/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
-
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
-            }, { merge: true });
-        }
-
-        await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
-    });
-    
-    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? ` ${pointsToAdd}포인트를 획득했습니다!` : ''}` };
-};
-
-export const awardTetrisScore = async (userId: string, score: number) => {
-    const pointsToAdd = Math.floor(score / 1000);
-
-    await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-
-        const leaderboardRef = doc(db, 'leaderboards/tetris/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
-
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
-            }, { merge: true });
-        }
         
+        transaction.set(leaderboardRef, {
+            score: increment(score),
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now(),
+        }, { merge: true });
+
         if (pointsToAdd > 0) {
-            await handleGameWin(transaction, userId, pointsToAdd, `테트리스 플레이 보상 (${score}점)`);
+            await handleGameWin(transaction, userId, pointsToAdd, `스네이크 플레이 보상 (${score}점)`);
         }
+
+        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? ` ${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+    }).catch((e: any) => {
+        console.error("Snake score award error:", e);
+        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
     });
-    
-    return {
-        success: true,
-        message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다!` : ''}`,
-    };
 };
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
     const pointsToAdd = Math.floor(score / 50);
-    
-    await runTransaction(db, async (transaction) => {
+    return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
         
         const leaderboardRef = doc(db, 'leaderboards/block-blast/users', userId);
-        const leaderboardDoc = await transaction.get(leaderboardRef);
         
-        const currentBest = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
-        if (score > currentBest) {
-            transaction.set(leaderboardRef, {
-                score,
-                displayName: userDoc.data().displayName,
-                studentId: userDoc.data().studentId,
-                avatarGradient: userDoc.data().avatarGradient,
-                lastUpdated: Timestamp.now(),
-            }, { merge: true });
-        }
+        transaction.set(leaderboardRef, {
+            score: increment(score),
+            displayName: userDoc.data().displayName,
+            studentId: userDoc.data().studentId,
+            avatarGradient: userDoc.data().avatarGradient,
+            lastUpdated: Timestamp.now(),
+        }, { merge: true });
 
         if (pointsToAdd > 0) {
              await handleGameWin(transaction, userId, pointsToAdd, `블록 블라스트 플레이 보상 (${score}점)`);
         }
+        return { success: true, message: `점수 ${score}점이 누적되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다.` : ''}` };
+    }).catch((e: any) => {
+        console.error("Block Blast score award error:", e);
+        return { success: false, message: e.message || "점수 기록 중 오류가 발생했습니다." };
     });
-
-    return { success: true, message: `점수 ${score}점이 기록되었습니다! ${pointsToAdd > 0 ? `${pointsToAdd}포인트를 획득했습니다!` : ''}` };
 };
 
 
@@ -1218,7 +1242,7 @@ export const givePointsToMultipleStudentsAtBooth = async (
         }
         const studentRef = studentSnapshot.docs[0].ref;
         
-        transaction.update(studentRef, { lak: increment(value) });
+        transaction.update(studentRef, { lak: increment(value), totalEarned: increment(value) });
         transaction.set(doc(collection(studentRef, 'transactions')), {
           date: Timestamp.now(), description: `부스 참여: ${reason}`, amount: value, type: 'credit',
         });
@@ -1266,7 +1290,7 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
             await runTransaction(db, async (transaction) => {
                 const userRef = doc(db, 'users', rankerId);
                 
-                transaction.update(userRef, { lak: increment(rewardAmount) });
+                transaction.update(userRef, { lak: increment(rewardAmount), totalEarned: increment(rewardAmount) });
                 transaction.set(doc(collection(userRef, 'transactions')), {
                   date: Timestamp.now(), description: `리더보드 보상 (${leaderboardName} ${index + 1}등)`, amount: rewardAmount, type: 'credit',
                 });
@@ -1314,7 +1338,7 @@ export const pressTheButton = async (userId: string) => {
     });
 };
 
-export const attemptUpgrade = async (userId: string, currentLevel: number): Promise<{ success: boolean; newLevel?: number }> => {
+export const attemptUpgrade = async (userId: string, currentLevel: number): Promise<{ success: boolean; newLevel?: number, message: string }> => {
     const levels = [
         { level: 0, chance: 90, reward: 0.4 }, { level: 1, chance: 80, reward: 1.13 },
         { level: 2, chance: 70, reward: 2.08 }, { level: 3, chance: 60, reward: 3.2 },
@@ -1326,52 +1350,54 @@ export const attemptUpgrade = async (userId: string, currentLevel: number): Prom
     
     const upgradeInfo = levels[currentLevel];
     if (!upgradeInfo) {
-        throw new Error("최고 레벨입니다.");
+        return { success: false, message: "최고 레벨입니다." };
     }
     const cost = Math.floor(upgradeInfo.reward / 2);
 
-    return await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const today = new Date().toISOString().split('T')[0];
-        const dailyActivityRef = doc(db, `users/${userId}/daily_activity/${today}`);
+    try {
+      return await runTransaction(db, async (transaction) => {
+          const userRef = doc(db, 'users', userId);
+          const today = new Date().toISOString().split('T')[0];
+          const dailyActivityRef = doc(db, `users/${userId}/daily_activity/${today}`);
 
-        const [userDoc, dailyActivityDoc] = await Promise.all([
-            transaction.get(userRef),
-            transaction.get(dailyActivityRef)
-        ]);
+          const [userDoc, dailyActivityDoc] = await Promise.all([
+              transaction.get(userRef),
+              transaction.get(dailyActivityRef)
+          ]);
 
-        if (!userDoc.exists()) {
-            throw new Error("사용자를 찾을 수 없습니다.");
-        }
-        
-        const dailyAttempts = dailyActivityDoc.exists() ? dailyActivityDoc.data().upgradeAttempts || 0 : 0;
-        if (dailyAttempts >= 200) {
-            throw new Error("하루 강화 횟수(200회)를 모두 사용했습니다. 내일 다시 시도해주세요.");
-        }
+          if (!userDoc.exists()) {
+              throw new Error("사용자를 찾을 수 없습니다.");
+          }
+          
+          const dailyAttempts = dailyActivityDoc.exists() ? dailyActivityDoc.data().upgradeAttempts || 0 : 0;
+          if (dailyAttempts >= 200) {
+              throw new Error("하루 강화 횟수(200회)를 모두 사용했습니다.");
+          }
 
-        const userData = userDoc.data();
-        if (userData.lak < cost) {
-            throw new Error(`포인트가 부족합니다. (필요: ${cost}P, 보유: ${userData.lak}P)`);
-        }
+          const userData = userDoc.data();
+          if (userData.lak < cost) {
+              throw new Error(`포인트가 부족합니다. (필요: ${cost}P, 보유: ${userData.lak}P)`);
+          }
 
-        // Deduct cost and increment attempt count
-        transaction.update(userRef, { lak: increment(-cost) });
-        transaction.set(dailyActivityRef, { upgradeAttempts: increment(1) }, { merge: true });
-        transaction.set(doc(collection(userRef, 'transactions')), {
-            date: Timestamp.now(),
-            description: `${currentLevel + 1}단계 강화 시도`,
-            amount: -cost,
-            type: 'debit',
-        });
+          transaction.update(userRef, { lak: increment(-cost) });
+          transaction.set(dailyActivityRef, { upgradeAttempts: increment(1) }, { merge: true });
+          transaction.set(doc(collection(userRef, 'transactions')), {
+              date: Timestamp.now(),
+              description: `${currentLevel + 1}단계 강화 시도`,
+              amount: -cost,
+              type: 'debit',
+          });
 
-        // Determine success
-        const isSuccess = Math.random() * 100 < upgradeInfo.chance;
-        if (isSuccess) {
-            return { success: true, newLevel: currentLevel + 1 };
-        } else {
-            return { success: false };
-        }
-    });
+          const isSuccess = Math.random() * 100 < upgradeInfo.chance;
+          if (isSuccess) {
+              return { success: true, newLevel: currentLevel + 1, message: `${currentLevel + 1}단계 강화에 성공했습니다!` };
+          } else {
+              return { success: false, message: '강화에 실패하여 0단계로 초기화되었습니다.' };
+          }
+      });
+    } catch(error: any) {
+        return { success: false, message: error.message };
+    }
 };
 
 
@@ -1392,46 +1418,47 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
     
     if (pointsToAdd <= 0) return { success: true, message: "포인트가 0보다 작아 지급되지 않았습니다." };
     
-     await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
-        
-        const userData = userDoc.data();
-        
-        // Consecutive harvest check logic
-        const lastHarvestedLevel = userData.lastHarvestedLevel || 0;
-        let consecutiveHarvestCount = userData.consecutiveHarvestCount || 0;
+     try {
+        return await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', userId);
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) throw new Error('사용자를 찾을 수 없습니다.');
+            
+            const userData = userDoc.data();
+            
+            const lastHarvestedLevel = userData.lastHarvestedLevel || 0;
+            let consecutiveHarvestCount = userData.consecutiveHarvestCount || 0;
 
-        if (level === lastHarvestedLevel) {
-            consecutiveHarvestCount++;
-            if (consecutiveHarvestCount > 5) {
-              throw new Error(`이 레벨에서는 연속으로 5번만 수확할 수 있습니다. 다른 레벨을 먼저 수확해주세요.`);
+            if (level === lastHarvestedLevel) {
+                consecutiveHarvestCount++;
+                if (consecutiveHarvestCount > 5) {
+                throw new Error(`이 레벨에서는 연속으로 5번만 수확할 수 있습니다. 다른 레벨을 먼저 수확해주세요.`);
+                }
+            } else {
+                consecutiveHarvestCount = 1; // Reset count for new level
             }
-        } else {
-            consecutiveHarvestCount = 1; // Reset count for new level
-        }
 
-        await handleGameWin(transaction, userId, pointsToAdd, `종달새 강화 ${level}단계 수확!`);
-        
-        // Update consecutive harvest tracking
-        transaction.update(userRef, { 
-            lastHarvestedLevel: level,
-            consecutiveHarvestCount: consecutiveHarvestCount,
+            await handleGameWin(transaction, userId, pointsToAdd, `종달새 강화 ${level}단계 수확!`);
+            
+            transaction.update(userRef, { 
+                lastHarvestedLevel: level,
+                consecutiveHarvestCount: consecutiveHarvestCount,
+            });
+
+            const leaderboardRef = doc(db, 'leaderboards/upgrade-game/users', userId);
+            transaction.set(leaderboardRef, {
+                score: level,
+                displayName: userData.displayName,
+                studentId: userData.studentId,
+                avatarGradient: userData.avatarGradient,
+                lastUpdated: Timestamp.now()
+            }, { merge: true });
+
+            return { success: true, message: `${pointsToAdd.toFixed(2)} 포인트를 획득했습니다!` };
         });
-
-        const logRef = doc(collection(db, 'games/upgrade-game/logs'));
-        transaction.set(logRef, {
-            userId,
-            studentId: userData.studentId,
-            displayName: userData.displayName,
-            score: level, // Use score for consistency
-            pointsAwarded: pointsToAdd,
-            timestamp: Timestamp.now()
-        });
-    });
-
-    return { success: true, message: `${pointsToAdd.toFixed(2)} 포인트를 획득했습니다!` };
+    } catch(e: any) {
+        return { success: false, message: e.message || '수확 중 오류가 발생했습니다.' };
+    }
 };
 
 export const voteOnPoll = async (userId: string, pollId: string, option: string) => {
@@ -1499,8 +1526,7 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
     transaction.set(doc(collection(db, 'poems')), { studentId, content: poemContent, createdAt: Timestamp.now() });
     
     const pointsToAdd = 5;
-    transaction.update(userRef, { lak: increment(pointsToAdd) });
-    transaction.set(doc(collection(userRef, 'transactions')), { date: Timestamp.now(), description: '삼행시 참여 보상', amount: pointsToAdd, type: 'credit' });
+    await handleGameWin(transaction, userRef.id, pointsToAdd, '삼행시 참여 보상');
   });
   return { success: true };
 };
@@ -1525,8 +1551,7 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
         });
         
         const pointsToAdd = 5;
-        transaction.update(senderRef, { lak: increment(pointsToAdd) });
-        transaction.set(doc(collection(senderRef, 'transactions')), { date: Timestamp.now(), description: '비밀 편지 작성 보상', amount: pointsToAdd, type: 'credit' });
+        await handleGameWin(transaction, senderRef.id, pointsToAdd, '비밀 편지 작성 보상');
     });
     return { success: true };
 };

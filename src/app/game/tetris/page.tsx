@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -211,15 +212,19 @@ const TetrisPage: React.FC = () => {
     }, []);
     
     const handleGameOver = useCallback(async () => {
-        if (gameState === 'over') return;
+        if (gameState === 'over') return; // Prevent multiple calls
         setGameState('over');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-
+        
         if (user && score > 0) {
             setIsSubmitting(true);
             try {
-                await awardTetrisScore(user.uid, score);
-                toast({ title: '점수 기록!', description: `최종 점수 ${score}점이 리더보드에 기록되었습니다.` });
+                const result = await awardTetrisScore(user.uid, score);
+                toast({ 
+                    title: result.success ? '점수 기록 완료!' : '점수 기록 실패',
+                    description: result.message,
+                    variant: result.success ? 'default' : 'destructive',
+                });
             } catch (e: any) {
                 toast({ title: '기록 실패', description: e.message, variant: 'destructive' });
             } finally {
@@ -228,14 +233,14 @@ const TetrisPage: React.FC = () => {
         }
     }, [score, user, toast, gameState]);
 
-    const resetPiece = useCallback(() => {
+    const resetPiece = useCallback(async () => {
         currentPieceRef.current = nextPieceRef.current;
         const newShape = getFromBag();
         nextPieceRef.current = createPiece(newShape);
         hasHeldRef.current = false;
 
         if (currentPieceRef.current && !isValidMove(currentPieceRef.current.matrix, currentPieceRef.current.x, currentPieceRef.current.y)) {
-            handleGameOver();
+            await handleGameOver();
         }
     }, [createPiece, getFromBag, handleGameOver]);
     

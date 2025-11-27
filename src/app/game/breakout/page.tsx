@@ -153,11 +153,13 @@ export default function BreakoutPage() {
       setIsSubmitting(true);
       try {
         const result = await awardBreakoutScore(user.uid, finalScore);
-        if (result.success) {
-          toast({ title: '점수 기록!', description: result.message });
-        }
-      } catch (e) {
-        toast({ title: '오류', description: '점수 기록에 실패했습니다.', variant: 'destructive' });
+        toast({ 
+            title: result.success ? '점수 기록 완료!' : '점수 기록 실패',
+            description: result.message,
+            variant: result.success ? 'default' : 'destructive',
+        });
+      } catch (e: any) {
+        toast({ title: '오류', description: e.message, variant: 'destructive' });
       } finally {
         setIsSubmitting(false);
       }
