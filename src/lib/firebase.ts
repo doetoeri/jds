@@ -40,21 +40,23 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 // --- Firebase services initialization ---
-let app: ReturnType<typeof initializeApp>;
+function getFirebaseServices() {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+  return { app, auth, db, storage };
+}
+
 let auth: ReturnType<typeof getAuth>;
 let db: ReturnType<typeof getFirestore>;
 let storage: ReturnType<typeof getStorage>;
 
-if (typeof window !== 'undefined' && !getApps().length) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-} else if (getApps().length > 0) {
-    app = getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
+if (typeof window !== 'undefined') {
+    const services = getFirebaseServices();
+    auth = services.auth;
+    db = services.db;
+    storage = services.storage;
 }
 
 
