@@ -1,9 +1,9 @@
-
 'use client';
+export const dynamic = 'force-dynamic';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio, TrendingUp, Croissant, Blocks } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Swords, ArrowRight, Gamepad2, Bomb, Puzzle, Radio, TrendingUp, Croissant, Blocks, Brain } from 'lucide-react';
 import Link from 'next/link';
 
 const games = [
@@ -40,6 +40,13 @@ const games = [
     description: "블록을 터뜨려 점수를 얻는 짜릿한 퍼즐 게임입니다.",
     href: "/game/block-blast",
     icon: Blocks,
+    status: "active"
+  },
+  {
+    title: "스도쿠",
+    description: "논리적으로 숫자를 채워넣는 클래식 퍼즐 게임입니다.",
+    href: "/game/sudoku",
+    icon: Brain,
     status: "active"
   },
    {

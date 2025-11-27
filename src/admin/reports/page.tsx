@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -117,14 +116,18 @@ export default function AdminReportsPage() {
     try {
       const reportsToUpdateQuery = query(collection(db, 'reports'), where('userId', '==', userId), where('status', '==', 'pending'));
       const snapshot = await getDocs(reportsToUpdateQuery);
-      const batch = writeBatch(db);
-      snapshot.forEach(docToUpdate => {
-          batch.update(docToUpdate.ref, { status: 'resolved' });
-      });
-      await batch.commit();
+      
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.forEach(docToUpdate => {
+            batch.update(docToUpdate.ref, { status: 'resolved' });
+        });
+        await batch.commit();
+      }
 
       toast({ title: '성공', description: '해당 학생의 모든 의심 활동을 해결됨으로 처리했습니다.' });
     } catch (error) {
+      console.error("Error marking reports as resolved: ", error);
       toast({ title: '오류', description: '상태 변경 중 오류가 발생했습니다.', variant: 'destructive' });
     } finally {
       setIsProcessing(null);
@@ -333,4 +336,3 @@ export default function AdminReportsPage() {
     </>
   );
 }
-

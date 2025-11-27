@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -56,6 +55,7 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!db) return;
     const fetchAllStats = async () => {
         setIsLoading(true);
         try {

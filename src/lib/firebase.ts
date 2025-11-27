@@ -1,4 +1,3 @@
-
 import { initializeApp, getApp, getApps, type FirebaseOptions } from "firebase/app";
 import { 
     getAuth, 
@@ -39,24 +38,13 @@ const firebaseConfig: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// --- Firebase services initialization ---
-function getFirebaseServices() {
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const storage = getStorage(app);
-  return { app, auth, db, storage };
-}
-
-let auth: ReturnType<typeof getAuth>;
-let db: ReturnType<typeof getFirestore>;
-let storage: ReturnType<typeof getStorage>;
+let app, auth, db, storage;
 
 if (typeof window !== 'undefined') {
-    const services = getFirebaseServices();
-    auth = services.auth;
-    db = services.db;
-    storage = services.storage;
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 }
 
 
@@ -550,7 +538,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = cart[i];
+      const item = items[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
