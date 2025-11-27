@@ -1,9 +1,9 @@
-'use client';
 
+'use client';
+export const dynamic = 'force-dynamic';
 import { Suspense } from 'react';
 import LettersView from '@/app/dashboard/letters/letters-view';
 
-export const dynamic = 'force-dynamic';
 
 // This is a new wrapper component that uses Suspense
 // to handle the `useSearchParams` hook correctly.

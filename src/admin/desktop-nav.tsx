@@ -39,7 +39,7 @@ import {
   Blocks,
   FlaskConical,
 } from 'lucide-react';
-import { Separator } from './ui/separator';
+import { Separator } from '@/components/ui/separator';
 
 const studentLinks = [
   { name: '대시보드', href: '/dashboard', icon: Home },
