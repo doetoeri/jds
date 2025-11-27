@@ -1,4 +1,3 @@
-
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -14,6 +13,8 @@ import { Loader2 } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
+
+export const dynamic = 'force-dynamic';
 
 export default function GameLayout({ children }: { children: ReactNode }) {
   const [user, loading] = useAuthState(auth);

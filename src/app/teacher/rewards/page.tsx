@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -30,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+export const dynamic = 'force-dynamic';
 
 interface GeneratedCodeInfo {
     code: string;

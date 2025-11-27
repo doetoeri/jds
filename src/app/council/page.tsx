@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -30,6 +29,8 @@ interface SearchedUser {
     displayName: string;
     lak: number;
 }
+
+export const dynamic = 'force-dynamic';
 
 export default function CouncilDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);

@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -37,6 +35,8 @@ interface WarningInfo {
     hasSeenWarning: boolean;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
@@ -55,8 +55,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
         if (doc.exists()) {
             setMaintenanceMode(doc.data().isMaintenanceMode);
-        } else {
-            setMaintenanceMode(false);
         }
     });
     return () => unsubscribe();

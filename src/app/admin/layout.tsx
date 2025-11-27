@@ -13,6 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 
+export const dynamic = 'force-dynamic';
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();

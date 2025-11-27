@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -44,6 +43,8 @@ interface Product {
   imageUrl: string;
   imagePath: string;
 }
+
+export const dynamic = 'force-dynamic';
 
 export default function CouncilShopPage() {
   const [products, setProducts] = useState<Product[]>([]);

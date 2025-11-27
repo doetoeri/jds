@@ -1,4 +1,3 @@
-
 'use client';
 
 import { type ReactNode, useEffect, useState } from 'react';
@@ -16,6 +15,8 @@ import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
 
 const teacherOnlyPaths = ['/teacher/rewards', '/teacher/letters'];
+
+export const dynamic = 'force-dynamic';
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const router = useRouter();

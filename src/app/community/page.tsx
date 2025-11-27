@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -35,6 +34,8 @@ interface Post {
   title: string;
   createdAt: Timestamp;
 }
+
+export const dynamic = 'force-dynamic';
 
 export default function CommunityPage() {
   const [posts, setPosts] = useState<Post[]>([]);

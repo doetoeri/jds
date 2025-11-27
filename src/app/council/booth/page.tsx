@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -33,6 +32,8 @@ interface BoothReason {
     id: string;
     reason: string;
 }
+
+export const dynamic = 'force-dynamic';
 
 export default function CouncilBoothPage() {
   const [studentIds, setStudentIds] = useState('');

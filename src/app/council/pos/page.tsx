@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -38,6 +37,8 @@ interface SearchedStudent {
     displayName: string;
     lak: number;
 }
+
+export const dynamic = 'force-dynamic';
 
 export default function CouncilPosPage() {
   const [products, setProducts] = useState<Product[]>([]);
