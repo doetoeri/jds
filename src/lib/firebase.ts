@@ -39,17 +39,23 @@ const firebaseConfig: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Function to initialize Firebase and get services
-const getFirebaseServices = () => {
-    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
-    return { app, auth, db, storage };
-};
+// --- Firebase services initialization ---
+let app: ReturnType<typeof initializeApp>;
+let auth: ReturnType<typeof getAuth>;
+let db: ReturnType<typeof getFirestore>;
+let storage: ReturnType<typeof getStorage>;
 
-// Export services by calling the function
-const { app, auth, db, storage } = getFirebaseServices();
+if (typeof window !== 'undefined' && !getApps().length) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+} else if (getApps().length > 0) {
+    app = getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+}
 
 
 // --- Utility Functions ---
@@ -1696,4 +1702,5 @@ export const revertUserDataMigration = async () => {
     });
 };
 
+// Export services
 export { auth, db, storage };
