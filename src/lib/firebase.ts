@@ -1,3 +1,4 @@
+
 import { initializeApp, getApp, getApps, type FirebaseOptions } from "firebase/app";
 import { 
     getAuth, 
@@ -39,6 +40,7 @@ const firebaseConfig: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -60,7 +62,6 @@ const createReport = async (
     reason: string, 
     details: Record<string, any>
 ) => {
-    if (!db) return;
     try {
         const userSnap = await getDoc(doc(db, 'users', userId));
         if (!userSnap.exists()) return;
@@ -98,7 +99,6 @@ export const signUp = async (
     password: string,
     email: string
 ) => {
-  if (!auth || !db) throw new Error('Firebase not initialized');
   if (userType === 'student' && userData.studentId) {
     if (!/^\d{5}$/.test(userData.studentId)) {
         throw new Error('학번은 5자리 숫자여야 합니다.');
@@ -243,7 +243,6 @@ export const signUp = async (
 
 // Sign in function
 export const signIn = async (studentIdOrEmail: string, password: string) => {
-  if (!auth || !db) throw new Error('Firebase not initialized');
   try {
     let finalEmail = studentIdOrEmail;
     
@@ -289,7 +288,6 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
 
 // Sign out function
 export const handleSignOut = async () => {
-  if (!auth) throw new Error('Firebase not initialized');
   try {
     await signOut(auth);
   } catch (error) {
@@ -299,7 +297,6 @@ export const handleSignOut = async () => {
 };
 
 export const resetUserPassword = async (userId: string) => {
-    if (!auth || !db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
 
@@ -318,7 +315,6 @@ export const resetUserPassword = async (userId: string) => {
 
 // Use Code function
 export const useCode = async (userId: string, inputCode: string, partnerStudentId?: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   const upperCaseCode = inputCode.toUpperCase();
   
   // Friend Invite Logic
@@ -345,18 +341,18 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         const userRef = doc(db, 'users', userId);
         const friendRef = doc(db, 'users', friendUid);
         
-        const [userDoc, friendDoc] = await Promise.all([
+        const [userDoc, friendDocFromTx] = await Promise.all([
           transaction.get(userRef),
           transaction.get(friendRef),
         ]);
         
         // --- 2. VALIDATION & LOGIC ---
-        if (!userDoc.exists() || !friendDoc.exists()) {
+        if (!userDoc.exists() || !friendDocFromTx.exists()) {
           throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
         const userData = userDoc.data();
-        const friendData = friendDoc.data();
+        const friendData = friendDocFromTx.data();
         const userStudentId = userData.studentId;
         
         if (friendStudentId === userStudentId) {
@@ -509,7 +505,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
 
 
 export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number, id: string }[], totalCost: number) => {
-  if (!db) throw new Error('Firebase not initialized');
   return await runTransaction(db, async (transaction) => {
     // 1. Read all necessary documents
     const userRef = doc(db, 'users', userId);
@@ -543,7 +538,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = cart[i];
+      const item = items[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
 
@@ -575,7 +570,6 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 };
 
 export const restrictUser = async (userId: string, restrictUntil: Date, reason: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   const userRef = doc(db, 'users', userId);
   await updateDoc(userRef, {
     restrictedUntil: Timestamp.fromDate(restrictUntil),
@@ -584,7 +578,6 @@ export const restrictUser = async (userId: string, restrictUntil: Date, reason: 
 };
 
 export const unrestrictUser = async (userId: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
         restrictedUntil: null,
@@ -594,7 +587,6 @@ export const unrestrictUser = async (userId: string) => {
 
 
 const deleteCollection = async (collectionPath: string, subcollectionPaths: string[] = []) => {
-  if (!db) throw new Error('Firebase not initialized');
   const collectionRef = collection(db, collectionPath);
   const q = query(collectionRef);
   const snapshot = await getDocs(q);
@@ -611,7 +603,6 @@ const deleteCollection = async (collectionPath: string, subcollectionPaths: stri
 };
 
 export const resetAllData = async () => {
-    if (!db) throw new Error('Firebase not initialized');
     try {
         await deleteCollection('codes');
         await deleteCollection('letters');
@@ -644,7 +635,6 @@ export const updateUserProfile = async (
   userId: string,
   data: { displayName?: string; avatarGradient?: string }
 ) => {
-  if (!auth || !db) throw new Error('Firebase not initialized');
   const userRef = doc(db, 'users', userId);
   const updateData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
@@ -661,7 +651,6 @@ export const updateUserProfile = async (
 
 
 export const adjustUserLak = async (userId: string, amount: number, reason: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   return await runTransaction(db, async (transaction) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
@@ -687,7 +676,6 @@ export const adjustUserLak = async (userId: string, amount: number, reason: stri
 };
 
 export const setUserLak = async (userId: string, amount: number, reason: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   return await runTransaction(db, async (transaction) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await transaction.get(userRef);
@@ -734,7 +722,6 @@ export const bulkSetUserLak = async (userIds: string[], amount: number, reason: 
 
 
 export const updateUserRole = async (userId: string, newRole: 'student' | 'council' | 'kiosk') => {
-  if (!db) throw new Error('Firebase not initialized');
   const userRef = doc(db, 'users', userId);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) {
@@ -749,13 +736,11 @@ export const updateUserRole = async (userId: string, newRole: 'student' | 'counc
 };
 
 export const updateUserMemo = async (userId: string, memo: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, { memo: memo });
 };
 
 export const deleteUser = async (userId: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, "users", userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
@@ -768,7 +753,6 @@ export const deleteUser = async (userId: string) => {
 };
 
 export const submitInquiry = async (userId: string, content: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
@@ -796,7 +780,6 @@ export const postAnnouncement = async (
     imagePath: string,
     targetStudentId?: string
 ) => {
-  if (!db) throw new Error('Firebase not initialized');
   const authorRef = doc(db, 'users', authorId);
   const authorDoc = await getDoc(authorRef);
 
@@ -827,7 +810,6 @@ export const postAnnouncement = async (
 };
 
 export const sendLetter = async (senderUid: string, receiverIdentifier: string, content: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   let receiverQuery;
   if (/^\d{5}$/.test(receiverIdentifier)) {
       receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
@@ -884,7 +866,6 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
 
 
 export const createCommunityPost = async (userId: string, title: string, content: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
@@ -905,7 +886,6 @@ export const createCommunityPost = async (userId: string, title: string, content
 };
 
 export const deleteCommunityPost = async (postId: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const postRef = doc(db, 'community_posts', postId);
     const commentsQuery = query(collection(db, `community_posts/${postId}/comments`));
     const commentsSnapshot = await getDocs(commentsQuery);
@@ -916,7 +896,6 @@ export const deleteCommunityPost = async (postId: string) => {
 };
 
 export const addCommentToPost = async (userId: string, postId: string, text: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
@@ -944,7 +923,6 @@ const handleGameWin = async (
     description: string
 ) => {
     if (pointsToAdd <= 0) return;
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     transaction.update(userRef, { lak: increment(pointsToAdd), totalEarned: increment(pointsToAdd) });
     transaction.set(doc(collection(userRef, 'transactions')), {
@@ -956,7 +934,6 @@ const handleGameWin = async (
 };
 
 export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard', time: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     const difficulties = {
         easy: { points: 3 },
         medium: { points: 5 },
@@ -984,7 +961,6 @@ export const awardMinesweeperWin = async (userId: string, difficulty: 'easy' | '
 };
 
 export const awardBreakoutScore = async (userId: string, score: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     const pointsToAdd = Math.floor(score / 10);
     return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -1014,7 +990,6 @@ export const awardBreakoutScore = async (userId: string, score: number) => {
 };
 
 export const awardTetrisScore = async (userId: string, score: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     const pointsToAdd = Math.floor(score / 1000);
     try {
         return await runTransaction(db, async (transaction) => {
@@ -1046,7 +1021,6 @@ export const awardTetrisScore = async (userId: string, score: number) => {
 };
 
 export const awardSnakeScore = async (userId: string, score: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     const pointsToAdd = score;
     return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -1075,7 +1049,6 @@ export const awardSnakeScore = async (userId: string, score: number) => {
 };
 
 export const awardBlockBlastScore = async (userId: string, score: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     const pointsToAdd = Math.floor(score / 50);
     return runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', userId);
@@ -1104,7 +1077,6 @@ export const awardBlockBlastScore = async (userId: string, score: number) => {
 
 
 export const awardSudokuWin = async (userId: string, difficulty: 'easy' | 'medium' | 'hard') => {
-    if (!db) throw new Error('Firebase not initialized');
     const difficulties = {
         easy: { points: 1 },
         medium: { points: 2 },
@@ -1119,26 +1091,22 @@ export const awardSudokuWin = async (userId: string, difficulty: 'easy' | 'mediu
 
 
 export const setMaintenanceMode = async (isMaintenance: boolean, reason: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const settingsRef = doc(db, 'system_settings', 'main');
     await setDoc(settingsRef, { isMaintenanceMode: isMaintenance, maintenanceReason: reason }, { merge: true });
 };
 
 export const setShopStatus = async (isEnabled: boolean) => {
-    if (!db) throw new Error('Firebase not initialized');
     const settingsRef = doc(db, 'system_settings', 'main');
     await setDoc(settingsRef, { isShopEnabled: isEnabled }, { merge: true });
 };
 
 export const setPointLimitStatus = async (isEnabled: boolean) => {
-    if (!db) throw new Error('Firebase not initialized');
     const settingsRef = doc(db, 'system_settings', 'main');
     await setDoc(settingsRef, { isPointLimitEnabled: isEnabled }, { merge: true });
 }
 
 
 export const resetLeaderboard = async (leaderboardName: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const pathMap: Record<string, string> = {
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
@@ -1177,7 +1145,6 @@ export const processPosPayment = async (
     items: { name: string, quantity: number, price: number, id: string }[],
     totalCost: number
 ) => {
-    if (!db) throw new Error('Firebase not initialized');
     const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
     
     return await runTransaction(db, async (transaction) => {
@@ -1257,7 +1224,6 @@ export const givePointsToMultipleStudentsAtBooth = async (
   value: number,
   reason: string
 ) => {
-  if (!db) throw new Error('Firebase not initialized');
   const result = { successCount: 0, failCount: 0, errors: [] as string[] };
   
   for (const studentId of studentIds) {
@@ -1289,7 +1255,6 @@ export const givePointsToMultipleStudentsAtBooth = async (
 
 
 export const awardLeaderboardRewards = async (leaderboardName: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   const leaderboardIdMap: Record<string, { path: string, order: 'desc' | 'asc' }> = {
     'minesweeper-easy': { path: 'leaderboards/minesweeper-easy/users', order: 'asc' },
     'breakout': { path: 'leaderboards/breakout/users', order: 'desc' },
@@ -1338,7 +1303,6 @@ export const awardLeaderboardRewards = async (leaderboardName: string) => {
 };
 
 export const pressTheButton = async (userId: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const gameRef = doc(db, 'games', 'the-button');
     
     return await runTransaction(db, async (transaction) => {
@@ -1370,7 +1334,6 @@ export const pressTheButton = async (userId: string) => {
 };
 
 export const attemptUpgrade = async (userId: string, currentLevel: number): Promise<{ success: boolean; newLevel?: number, message: string }> => {
-    if (!db) throw new Error('Firebase not initialized');
     const levels = [
         { level: 0, chance: 90, reward: 0.4 }, { level: 1, chance: 80, reward: 1.13 },
         { level: 2, chance: 70, reward: 2.08 }, { level: 3, chance: 60, reward: 3.2 },
@@ -1434,7 +1397,6 @@ export const attemptUpgrade = async (userId: string, currentLevel: number): Prom
 
 
 export const awardUpgradeWin = async (userId: string, level: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     if (level <= 0) return { success: true, message: "0단계에서는 보상을 수확할 수 없습니다." };
     
     const levels = [
@@ -1495,7 +1457,6 @@ export const awardUpgradeWin = async (userId: string, level: number) => {
 };
 
 export const voteOnPoll = async (userId: string, pollId: string, option: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   return await runTransaction(db, async (transaction) => {
     const pollRef = doc(db, 'polls', pollId);
     const pollDoc = await transaction.get(pollRef);
@@ -1525,13 +1486,11 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
 };
 
 export const updateBoothReasons = async (reasons: string[]) => {
-    if (!db) throw new Error('Firebase not initialized');
     const settingsRef = doc(db, 'system_settings', 'booth_reasons');
     await setDoc(settingsRef, { reasons }, { merge: true });
 };
 
 export const sendNotification = async (roleCode: string, message: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     if (!roleCode || !message) {
         throw new Error('호출 코드와 메시지는 필수입니다.');
     }
@@ -1543,7 +1502,6 @@ export const sendNotification = async (roleCode: string, message: string) => {
 };
 
 export const submitPoem = async (studentId: string, poemContent: string) => {
-  if (!db) throw new Error('Firebase not initialized');
   const userQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
   
   await runTransaction(db, async (transaction) => {
@@ -1569,7 +1527,6 @@ export const submitPoem = async (studentId: string, poemContent: string) => {
 };
 
 export const sendSecretLetter = async (senderStudentId: string, receiverIdentifier: string, content: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const senderQuery = query(collection(db, 'users'), where('studentId', '==', senderStudentId));
     
     await runTransaction(db, async (transaction) => {
@@ -1595,13 +1552,11 @@ export const sendSecretLetter = async (senderStudentId: string, receiverIdentifi
 };
 
 export const setGlobalDiscount = async (discount: number) => {
-    if (!db) throw new Error('Firebase not initialized');
     const settingsRef = doc(db, 'system_settings', 'main');
     await setDoc(settingsRef, { globalDiscount: discount }, { merge: true });
 };
 
 export const bulkUpdateProductPrices = async (multiplier: number) => {
-  if (!db) throw new Error('Firebase not initialized');
   if (isNaN(multiplier) || multiplier < 0) {
     throw new Error("유효한 배율(0 또는 양수)을 입력해야 합니다.");
   }
@@ -1620,7 +1575,6 @@ export const bulkUpdateProductPrices = async (multiplier: number) => {
 };
 
 export const submitPurchaseDispute = async (userId: string, purchaseId: string, reason: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) throw new Error("User data not found.");
@@ -1645,7 +1599,6 @@ export const submitPurchaseDispute = async (userId: string, purchaseId: string, 
 };
 
 export const resolvePurchaseDispute = async (disputeId: string, purchaseId: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const disputeRef = doc(db, 'disputes', disputeId);
     const purchaseRef = doc(db, 'purchases', purchaseId);
     
@@ -1657,7 +1610,6 @@ export const resolvePurchaseDispute = async (disputeId: string, purchaseId: stri
 };
 
 export const sendWarningMessage = async (userId: string, message: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
         oneTimeWarning: message,
@@ -1666,7 +1618,6 @@ export const sendWarningMessage = async (userId: string, message: string) => {
 };
 
 export const markWarningAsSeen = async (userId: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
         hasSeenWarning: true
@@ -1674,7 +1625,6 @@ export const markWarningAsSeen = async (userId: string) => {
 };
 
 export const migrateUserData = async (oldUid: string, newUid: string) => {
-    if (!db) throw new Error('Firebase not initialized');
     if (!oldUid || !newUid || oldUid === newUid) {
         throw new Error("유효한 기존 UID와 새로운 UID를 모두 입력해야 합니다.");
     }
@@ -1717,7 +1667,6 @@ export const migrateUserData = async (oldUid: string, newUid: string) => {
 };
 
 export const revertUserDataMigration = async () => {
-    if (!db) throw new Error('Firebase not initialized');
     const migrationLogRef = doc(db, "system_settings", "last_migration");
     return runTransaction(db, async (transaction) => {
         const logDoc = await transaction.get(migrationLogRef);
