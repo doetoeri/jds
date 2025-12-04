@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,7 +21,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { useLogout } from '@/hooks/use-logout';
-import { Loader2, Repeat } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
@@ -31,7 +30,7 @@ interface UserData {
   name?: string; 
   displayName?: string; 
   email?: string;
-  role?: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council';
+  role?: 'student' | 'admin';
   photoURL?: string; 
   avatarGradient?: string;
 }
@@ -40,7 +39,6 @@ export function UserNav() {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const { handleLogout, isLoggingOut } = useLogout();
-  const [councilMode, setCouncilMode] = useState<'council' | 'student'>('student');
   const router = useRouter();
   
   useEffect(() => {
@@ -53,7 +51,7 @@ export function UserNav() {
             const data = userDoc.data() as UserData;
             setUserData(data);
           } else {
-            setUserData({email: user.email}); // Fallback for special accounts not yet in firestore
+            setUserData({email: user.email}); 
           }
         }, (error) => {
           console.error("Error fetching user document:", error);
@@ -68,24 +66,9 @@ export function UserNav() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (userData?.role === 'council') {
-        const savedMode = localStorage.getItem('councilMode');
-        setCouncilMode(savedMode === 'student' ? 'student' : 'council');
-    }
-  }, [userData?.role]);
-
-  const handleModeSwitch = () => {
-    const newMode = councilMode === 'council' ? 'student' : 'council';
-    setCouncilMode(newMode);
-    localStorage.setItem('councilMode', newMode);
-    router.push(newMode === 'council' ? '/council' : '/dashboard');
-  };
-
   const getInitials = () => {
     if (userData?.role === 'admin') return '관리';
     if (userData?.displayName) return userData.displayName.substring(0, 1).toUpperCase();
-    if (userData?.role === 'teacher') return userData.name?.substring(0, 1) || '교';
     if (userData?.studentId) return userData.studentId.substring(userData.studentId.length - 2);
     return user?.email?.substring(0,1).toUpperCase() || '??';
   }
@@ -93,19 +76,13 @@ export function UserNav() {
   const getDisplayName = () => {
      if (userData?.role === 'admin') return '관리자';
      if (userData?.displayName) return userData.displayName;
-     if (userData?.role === 'teacher') return `${userData.name} 선생님`;
-     if (userData?.role === 'student' || userData?.role === 'council') return `학생 (${userData.studentId})`;
-     if (userData?.role === 'council') return userData.name;
+     if (userData?.role === 'student') return `학생 (${userData.studentId})`;
      return '사용자';
   }
   
   const getDashboardLink = () => {
       if (userData?.role === 'admin') return '/admin';
-      if (userData?.role === 'council') {
-        return councilMode === 'council' ? '/council' : '/dashboard';
-      }
-      if (userData?.role === 'teacher') return '/teacher/rewards';
-      return '/dashboard';
+      return '/game';
   }
 
   if (!user || !userData) {
@@ -141,15 +118,6 @@ export function UserNav() {
            <DropdownMenuItem asChild>
               <Link href={getDashboardLink()}>대시보드</Link>
             </DropdownMenuItem>
-             <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings">프로필 설정</Link>
-            </DropdownMenuItem>
-            {userData.role === 'council' && (
-              <DropdownMenuItem onClick={handleModeSwitch} className="cursor-pointer">
-                <Repeat className="mr-2 h-4 w-4" />
-                <span>{councilMode === 'council' ? '학생 모드로 전환' : '학생회 모드로 전환'}</span>
-              </DropdownMenuItem>
-            )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" disabled={isLoggingOut}>

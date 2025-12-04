@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -11,7 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { HelpCircle, QrCode, Mail, ShoppingCart, Coins, Gift, UserPlus, UserCog, ArrowLeft, Link as LinkIcon, Download } from 'lucide-react';
+import { HelpCircle, QrCode, Coins, UserPlus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -44,7 +43,7 @@ export default function GuidePage() {
                 <AccordionContent className="text-base pl-8 space-y-2">
                     <p>
                     <strong>포인트</strong>은 종달샘 허브에서 사용하는 공식 포인트 단위입니다.
-                    학교 행사 참여, 코드 등록, 편지 쓰기, 친구 초대 등 다양한 활동을 통해 포인트를 적립할 수 있으며, 적립한 포인트는 '종달 상점'에서 원하는 상품으로 교환할 수 있습니다.
+                    학교 행사 참여, 코드 등록, 친구 초대 등 다양한 활동을 통해 포인트를 적립할 수 있습니다.
                     </p>
                 </AccordionContent>
                 </AccordionItem>
@@ -64,71 +63,12 @@ export default function GuidePage() {
                         <p className="text-sm text-muted-foreground">가장 기본적인 코드로, 주로 오프라인 행사에서 배부됩니다. 등록 시 지정된 포인트를 즉시 받습니다.</p>
                       </li>
                        <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">메이트코드</h4>
-                        <p className="text-sm text-muted-foreground">친구의 메이트코드를 입력하고 자신의 학번을 입력하면, 나와 친구 모두 포인트를 받습니다! 사용 횟수 제한이 없습니다.</p>
-                      </li>
-                       <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">히든코드 (파트너 코드)</h4>
-                        <p className="text-sm text-muted-foreground">학교 곳곳에 숨겨진 보물 같은 코드입니다! 이 코드를 찾아서 등록할 때 <strong className="text-primary">다른 친구의 학번을 함께 입력하면, 두 사람 모두에게 지정된 포인트가 지급됩니다.</strong></p>
-                      </li>
-                       <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">선착순코드 (다회용)</h4>
-                        <p className="text-sm text-muted-foreground">관리자가 지정한 횟수만큼 여러명이 사용할 수 있는 코드입니다. 선착순으로 사용되며, 횟수가 모두 소진되면 더 이상 사용할 수 없습니다.</p>
-                      </li>
-                       <li className="pl-4 border-l-2 border-primary">
-                        <h4 className="font-semibold text-md">온라인 특수코드</h4>
-                        <p className="text-sm text-muted-foreground">선생님이나 관리자가 특정 학생에게 보상을 지급하기 위해 생성하는 일회용 코드입니다. 해당 학생에게 코드를 전달받아 사용하면 됩니다.</p>
+                        <h4 className="font-semibold text-md">친구 초대 (학번)</h4>
+                        <p className="text-sm text-muted-foreground">친구의 5자리 학번을 코드처럼 입력하면, 나와 친구 모두 포인트를 받습니다!</p>
                       </li>
                     </ul>
                 </AccordionContent>
                 </AccordionItem>
-
-                <AccordionItem value="item-3">
-                <AccordionTrigger className="text-lg font-semibold">
-                    <Mail className="mr-2 text-primary" />
-                    편지 쓰기는 어떤 기능인가요?
-                </AccordionTrigger>
-                <AccordionContent className="text-base pl-8 space-y-2">
-                    <p>
-                    '종달 우체국' 기능을 통해 다른 학생에게 따뜻한 마음을 담은 편지를 보낼 수 있습니다. ('편지 쓰기' 메뉴)
-                    </p>
-                    <ul className="list-disc pl-6 mt-2 space-y-2">
-                    <li>
-                        받는 사람의 5자리 학번과 내용을 입력하여 편지를 보낼 수 있습니다. 자기 자신에게는 보낼 수 없습니다.
-                    </li>
-                    <li>
-                        보낸 편지는 관리자의 승인 후 상대방의 '받은 편지함'으로 전달됩니다.
-                    </li>
-                    <li>
-                        편지가 성공적으로 승인되면, <strong className="text-primary">편지를 보낸 사람과 받은 사람 모두에게 각각 2 포인트가 지급됩니다.</strong>
-                    </li>
-                     <li>
-                        '오프라인으로 전달하기'를 체크하면, 학생회에서 편지 내용을 확인 후 직접 편지를 전달해드립니다. 이 경우 포인트 지급도 오프라인으로 이루어집니다.
-                    </li>
-                    </ul>
-                </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="item-6">
-                  <AccordionTrigger className="text-lg font-semibold">
-                      <UserCog className="mr-2 text-primary" />
-                      프로필은 어떻게 설정하나요?
-                  </AccordionTrigger>
-                  <AccordionContent className="text-base pl-8 space-y-2">
-                      <p>
-                      '프로필 설정' 메뉴에서 나만의 프로필을 꾸밀 수 있습니다.
-                      </p>
-                       <ul className="list-disc pl-6 mt-2 space-y-2">
-                        <li>
-                          **프로필 스타일:** 제공되는 여러 그라데이션 색상 중 하나를 선택하여 프로필 아이콘의 배경을 바꿀 수 있습니다.
-                        </li>
-                        <li>
-                          **닉네임:** 원하는 닉네임을 설정할 수 있습니다. 설정한 닉네임은 친구 목록 등에서 표시됩니다.
-                        </li>
-                      </ul>
-                  </AccordionContent>
-                </AccordionItem>
-
             </Accordion>
             </CardContent>
         </Card>

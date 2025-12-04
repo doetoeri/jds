@@ -1,7 +1,6 @@
-
 'use client';
 
-import { ChevronRight, MessageCircleQuestion, User, Briefcase, ShoppingCart } from 'lucide-react';
+import { ChevronRight, MessageCircleQuestion, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -83,16 +82,6 @@ export default function HomeClient() {
               로그인하여 시작하기 <ChevronRight className="ml-2" />
             </Link>
           </Button>
-           <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="w-full"
-          >
-            <Link href="/dashboard/shop">
-              <ShoppingCart className="mr-2" /> 매점 둘러보기
-            </Link>
-          </Button>
           <Button
             asChild
             size="lg"
@@ -104,16 +93,6 @@ export default function HomeClient() {
             </Link>
           </Button>
         </motion.div>
-        
-        <motion.div variants={itemVariants} className="mt-4">
-            <Button asChild variant="link">
-                <Link href="/teacher">
-                    <Briefcase className="mr-2"/>
-                    교직원용 페이지로 이동
-                </Link>
-            </Button>
-        </motion.div>
-
       </motion.div>
     </div>
   );

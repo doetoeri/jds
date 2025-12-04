@@ -4,11 +4,11 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { UserNav } from '@/components/user-nav';
 import { Logo } from '@/components/logo';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db, handleSignOut, markWarningAsSeen } from '@/lib/firebase';
+import { auth, db, handleSignOut } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc, onSnapshot, query, collection, where, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { Loader2, MessageCircleQuestion, AlertTriangle } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
@@ -61,18 +61,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (pathname === '/dashboard/shop') {
-      setIsAuthorized(true);
-      setCheckingAuth(false);
-      return;
-    }
-
     setCheckingAuth(true);
     if (loading) return; 
     if (!user) {
       toast({
         title: '로그인 필요',
-        description: '대시보드에 접근하려면 로그인이 필요합니다.',
+        description: '로그인이 필요한 페이지입니다.',
         variant: 'destructive',
       });
       setTimeout(() => router.push('/login'), 50);
@@ -86,18 +80,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             const userData = userDoc.data();
             const role = userData.role;
             
-            // Check for one-time warning first
             if (userData.oneTimeWarning && !userData.hasSeenWarning) {
                 setWarningInfo({
                     oneTimeWarning: userData.oneTimeWarning,
                     hasSeenWarning: userData.hasSeenWarning,
                 });
-                setIsAuthorized(false); // Block access until warning is acknowledged
+                setIsAuthorized(false); 
                 setCheckingAuth(false);
                 return;
             }
 
-            // Check for restriction
             if (userData.restrictedUntil && userData.restrictedUntil.toMillis() > Date.now()) {
                 setRestrictionInfo({
                     restrictedUntil: userData.restrictedUntil,
@@ -108,21 +100,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return;
             }
             
-            // Role-based redirects
-            if (role === 'council') {
-                router.push('/council');
-                return;
-            }
-
-            if (role === 'admin' || role === 'teacher') {
+            if (role === 'admin' || role === 'council' || role === 'teacher') {
                 setIsAuthorized(false);
-                let redirectPath = '/dashboard';
-                if (role === 'admin') redirectPath = '/admin';
-                if (role === 'teacher') redirectPath = '/teacher/rewards';
-                
+                let redirectPath = role === 'admin' ? '/admin' : '/';
                 toast({
                   title: "잘못된 접근",
-                  description: "현재 모드에서는 접근할 수 없는 페이지입니다.",
+                  description: "학생용 페이지입니다.",
                   variant: "destructive"
                 })
                 setTimeout(() => router.push(redirectPath), 50);
@@ -138,9 +121,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const handleWarningConfirm = async () => {
     if (!user) return;
     try {
-      await markWarningAsSeen(user.uid);
+      await updateDoc(doc(db, 'users', user.uid), { hasSeenWarning: true });
       setWarningInfo(null);
-      setIsAuthorized(true); // Grant access after confirmation
+      setIsAuthorized(true);
     } catch (error) {
       toast({
         title: "오류",
@@ -203,7 +186,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <Button variant="outline" onClick={() => router.push('/dashboard/inquiry')}><MessageCircleQuestion className="mr-2 h-4 w-4" /> 문의하기</Button>
                     <AlertDialogAction onClick={() => handleSignOut().then(() => router.push('/login'))}>확인 및 로그아웃</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -223,14 +205,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         );
   }
   
-  if (pathname === '/dashboard/shop' && !user) {
-    return (
-      <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent">
-        {children}
-      </main>
-    );
-  }
-
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
         <div className="hidden border-r bg-muted/40 md:flex flex-col">

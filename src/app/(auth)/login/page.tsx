@@ -1,4 +1,3 @@
-
 'use client';
 export const dynamic = 'force-dynamic';
 
@@ -8,24 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, KeyRound, User, Briefcase, UserCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { signIn, db, auth } from '@/lib/firebase';
-import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { signIn, db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const FADE_IN_VARIANTS = {
   hidden: { opacity: 0, filter: 'blur(16px)', scale: 1.1 },
@@ -51,23 +37,8 @@ export default function LoginPage() {
   const handleRedirect = (role: string) => {
       if (role === 'admin') {
         router.push('/admin');
-      } else if (role === 'council') {
-        router.push('/council');
-      }
-      else if (role === 'teacher') {
-        router.push('/teacher/rewards');
-      } else if (role === 'kiosk') {
-        router.push('/kiosk');
-      } else if (role === 'pending_teacher') {
-          toast({
-              title: '승인 대기중',
-              description: '관리자 승인 후 로그인할 수 있습니다.',
-              variant: 'default',
-          });
-          setIsLoading(false);
-      }
-      else {
-        router.push('/dashboard');
+      } else {
+        router.push('/game');
       }
   }
 
@@ -88,17 +59,6 @@ export default function LoginPage() {
       let userRole = '';
       if (userDoc.exists()) {
         userRole = userDoc.data().role;
-         if (userRole === 'teacher') {
-            await auth.signOut();
-            toast({
-                title: '로그인 오류',
-                description: '교직원께서는 교직원 전용 로그인 페이지를 이용해주세요.',
-                variant: 'destructive',
-            });
-            setIsLoading(false);
-            router.push('/teacher/login');
-            return;
-        }
       }
 
       handleRedirect(userRole);
@@ -129,25 +89,15 @@ export default function LoginPage() {
       }}
     >
       <div className="text-center mb-8">
-        <motion.div variants={FADE_IN_VARIANTS} className="flex items-center justify-center text-primary">
-            <User className="h-10 w-10 mr-2"/>
-            <h1 className="text-4xl font-headline font-bold tracking-tighter">학생 로그인</h1>
-        </motion.div>
+        <motion.h1 variants={FADE_IN_VARIANTS} className="text-4xl font-headline font-bold tracking-tighter">
+            로그인
+        </motion.h1>
         <motion.div variants={FADE_IN_VARIANTS}>
           <p className="text-lg text-muted-foreground mt-2">
             종달샘 허브 계정으로 로그인하세요.
           </p>
         </motion.div>
       </div>
-      
-       <Alert variant="default" className="mb-6">
-        <Briefcase className="h-4 w-4" />
-        <AlertTitle className="font-bold">교직원이신가요?</AlertTitle>
-        <AlertDescription>
-          교직원께서는 전용 로그인 페이지를 이용해주세요.
-          <Button variant="link" asChild className="p-0 h-auto ml-2"><Link href="/teacher/login">교직원 로그인 페이지로 이동</Link></Button>
-        </AlertDescription>
-      </Alert>
 
       <form onSubmit={handleLogin}>
         <div className="space-y-4">
@@ -170,7 +120,7 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <Label htmlFor="password">비밀번호</Label>
-                    <p className="text-xs text-muted-foreground">비밀번호를 잊으셨나요? 학생회에 문의하여 초기화하세요.</p>
+                    <p className="text-xs text-muted-foreground">비밀번호를 잊으셨나요? 관리자에게 문의하여 초기화하세요.</p>
                 </div>
                 <Input
                   id="password"

@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -11,39 +10,11 @@ import {
 import { Button } from './ui/button';
 import {
   Menu,
-  Home,
-  Users,
-  QrCode,
-  History,
-  Mail,
-  Cog,
-  Award,
-  UserCheck,
   Power,
   Bird,
-  MessageCircleQuestion,
-  Megaphone,
-  ShoppingCart,
-  ListOrdered,
-  HelpCircle,
-  MessageSquareText,
-  Swords,
-  Trophy,
-  User as UserIcon,
-  CheckSquare,
-  BarChart3,
-  ShieldQuestion,
   LayoutDashboard,
-  UserPlus,
-  Server,
-  AlertTriangle,
-  Wrench,
-  Radio,
-  TrendingUp,
-  Croissant,
-  Brain,
-  Blocks,
-  FlaskConical,
+  Users,
+  Swords
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -52,68 +23,21 @@ import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 
 const studentLinks = [
-  { name: '대시보드', href: '/dashboard', icon: Home },
-  { name: '업데이트 소식', href: '/dashboard/releases', icon: Megaphone },
-  { name: '커뮤니티', href: '/community', icon: MessageSquareText },
   { name: '미니게임', href: '/game', icon: Swords },
-  { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
-  { name: 'BETA 리더보드', href: '/dashboard/leaderboard/beta', icon: FlaskConical },
-  { name: '설문/투표', href: '/dashboard/polls', icon: CheckSquare },
-  { name: '코드 사용', href: '/dashboard/codes', icon: QrCode },
-  { name: '친구', href: '/dashboard/mates', icon: UserPlus },
-  { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
-  { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
 ];
-
-const studentSettingsLinks = [
-  { name: '프로필 설정', href: '/dashboard/settings', icon: Cog },
-  { name: '문의하기', href: '/dashboard/inquiry', icon: MessageCircleQuestion },
-];
-
 
 const adminLinks = [
   { name: '대시보드', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
-  { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
-  { name: '학생회 관리', href: '/admin/council', icon: ShieldQuestion },
-  { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
-  { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
-  { name: '설문조사 관리', href: '/admin/polls', icon: BarChart3 },
-  { name: '더 버튼 관리', href: '/admin/the-button', icon: Radio },
-  { name: '종달새 강화 관리', href: '/admin/upgrade-game', icon: TrendingUp },
-  { name: '스네이크 관리', href: '/admin/snake', icon: Croissant },
-  { name: '스도쿠 관리', href: '/admin/sudoku', icon: Brain },
-  { name: '블록 블라스트 관리', href: '/admin/block-blast', icon: Blocks },
-  { name: '코드 관리', href: '/admin/codes', icon: QrCode },
-  { name: '키오스크 기록', href: '/admin/kiosk-logs', icon: Server },
-  { name: '편지 관리', href: '/admin/letters', icon: Mail },
-  { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
-  { name: '의심 활동 보고', href: '/admin/reports', icon: AlertTriangle },
-  { name: '시스템 설정', href: '/admin/settings', icon: Cog },
-  { name: '개발자 도구', href: '/admin/tools', icon: Wrench },
 ];
 
-const councilLinks = [
-  { name: '학생회 홈', href: '/council', icon: Home },
-  { name: '학생 사용자 관리', href: '/council/users', icon: Users },
-  { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
-  { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
-];
-
-const teacherLinks = [
-    { name: '학생 보상', href: '/teacher/rewards', icon: Award },
-    { name: '종달 우체국', href: '/teacher/letters', icon: Mail },
-    { name: '사용 가이드', href: '/guide/teachers', icon: HelpCircle },
-];
 
 const navConfig = {
   student: studentLinks,
   admin: adminLinks,
-  council: councilLinks,
-  teacher: teacherLinks,
 };
 
-type Role = 'student' | 'admin' | 'council' | 'teacher';
+type Role = 'student' | 'admin';
 
 export function SideNav({ role }: { role: Role }) {
   const pathname = usePathname();
@@ -154,14 +78,6 @@ export function SideNav({ role }: { role: Role }) {
           {links.map((link) => {
             return <NavLink key={link.href} {...link} />
           })}
-          {role === 'student' && (
-              <>
-                <Separator className="my-2" />
-                {studentSettingsLinks.map((link) => (
-                    <NavLink key={link.href} {...link} />
-                ))}
-              </>
-          )}
         </nav>
         <div className="mt-auto">
             <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut} className="w-full justify-start gap-3 px-3 py-2 text-muted-foreground">

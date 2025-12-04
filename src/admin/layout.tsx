@@ -1,0 +1,111 @@
+
+'use client';
+
+import { type ReactNode, useEffect, useState } from 'react';
+import { UserNav } from '@/components/user-nav';
+import { Logo } from '@/components/logo';
+import { useToast } from '@/hooks/use-toast';
+import { usePathname, useRouter } from 'next/navigation';
+import { auth, db } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { Loader2 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SideNav } from '@/components/side-nav';
+import { DesktopNav } from '@/admin/desktop-nav';
+
+export const dynamic = 'force-dynamic';
+
+export default function AdminLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { toast } = useToast();
+  const [user, loading] = useAuthState(auth);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const checkAuthorization = async () => {
+      if (loading) {
+        return;
+      }
+      
+      if (!user) {
+        toast({
+          title: '로그인 필요',
+          description: '로그인이 필요한 페이지입니다.',
+          variant: 'destructive',
+        });
+        router.push('/login');
+        return;
+      }
+      
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+            setIsAuthorized(true);
+        } else {
+          toast({
+            title: '접근 권한 없음',
+            description: '관리자만 접근할 수 있는 페이지입니다.',
+            variant: 'destructive',
+          });
+          setIsAuthorized(false);
+          router.push('/game');
+        }
+      } catch (error) {
+        toast({
+          title: '인증 오류',
+          description: '사용자 정보를 확인하는 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        });
+        setIsAuthorized(false);
+        router.push('/login');
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    checkAuthorization();
+  }, [user, loading, router, toast]);
+
+  if (loading || !authChecked || !isAuthorized) {
+    return (
+       <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+       <div className="hidden border-r bg-muted/40 md:flex flex-col">
+            <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+                <Logo isAdmin />
+            </div>
+            <DesktopNav role="admin" />
+        </div>
+        <div className="flex flex-col">
+         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+            <SideNav role="admin" />
+            <div className="w-full flex-1" />
+            <UserNav />
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-transparent">
+          <AnimatePresence mode="wait">
+             <motion.div
+                key={pathname}
+                initial={{ opacity: 0, filter: 'blur(16px)', y: 30, scale: 0.95 }}
+                animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+                exit={{ opacity: 0, filter: 'blur(16px)', y: -30, scale: 1.05 }}
+                transition={{ duration: 0.9, ease: [0.25, 1, 0.5, 1] }}
+              >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+    </div>
+  );
+}

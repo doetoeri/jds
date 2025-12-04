@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import {
@@ -14,13 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, awardLeaderboardRewards, updateUserMemo, restrictUser, unrestrictUser, sendWarningMessage, resetUserPassword } from '@/lib/firebase';
-import { collection, onSnapshot, query, Timestamp, collectionGroup, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db, adjustUserLak, updateUserRole, deleteUser, bulkAdjustUserLak, setUserLak, bulkSetUserLak, restrictUser, unrestrictUser, sendWarningMessage, resetUserPassword } from '@/lib/firebase';
+import { collection, onSnapshot, query, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Trophy, Pencil, Ban, CircleOff, AlertTriangle, KeyRound } from 'lucide-react';
+import { Coins, Loader2, UserCog, Trash2, Filter, ArrowUpDown, Ban, CircleOff, AlertTriangle, KeyRound } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -28,7 +26,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
   AlertDialogAction,
   AlertDialogCancel
 } from '@/components/ui/alert-dialog';
@@ -61,7 +58,7 @@ interface User {
   displayName?: string;
   email: string;
   lak: number;
-  role: 'student' | 'teacher' | 'admin' | 'pending_teacher' | 'council' | 'kiosk';
+  role: 'student' | 'admin';
   memo?: string;
   createdAt?: Timestamp;
   restrictedUntil?: Timestamp;
@@ -70,11 +67,6 @@ interface User {
 
 type SortKey = 'lak' | 'createdAt' | 'studentId';
 type SortDirection = 'asc' | 'desc';
-
-interface DailyEarning {
-    id: string; // YYYY-MM-DD
-    totalEarned: number;
-}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -89,9 +81,7 @@ export default function AdminUsersPage() {
   const [isMemoDialogOpen, setIsMemoDialogOpen] = useState(false);
   const [isRestrictDialogOpen, setIsRestrictDialogOpen] = useState(false);
   const [isWarningDialogOpen, setIsWarningDialogOpen] = useState(false);
-  const [isDailyEarningsDialogOpen, setIsDailyEarningsDialogOpen] = useState(false);
   const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
-  const [dailyEarnings, setDailyEarnings] = useState<DailyEarning[]>([]);
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
@@ -111,11 +101,6 @@ export default function AdminUsersPage() {
   const [filter, setFilter] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  
-  const [isRewardDialogOpen, setIsRewardDialogOpen] = useState(false);
-  const [selectedLeaderboard, setSelectedLeaderboard] = useState('');
-  const [isRewarding, setIsRewarding] = useState(false);
-
 
   useEffect(() => {
     const usersCollection = collection(db, 'users');
@@ -123,8 +108,7 @@ export default function AdminUsersPage() {
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const userList = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as User))
-        .filter(user => user.role && user.role !== 'pending_teacher');
+        .map(doc => ({ id: doc.id, ...doc.data() } as User));
       
       setUsers(userList);
       setIsLoading(false);
@@ -222,17 +206,6 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setIsPasswordResetDialogOpen(true);
   };
-
-
-  const openDailyEarningsDialog = async (user: User) => {
-    setSelectedUser(user);
-    setIsDailyEarningsDialogOpen(true);
-    const earningsCollectionRef = collection(db, `users/${user.id}/daily_earnings`);
-    const q = query(earningsCollectionRef, orderBy('id', 'desc'), limit(30));
-    const snapshot = await getDocs(q);
-    const earningsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyEarning));
-    setDailyEarnings(earningsData);
-  }
   
   const openDeleteDialog = (user: User) => {
     setSelectedUser(user);
@@ -436,26 +409,6 @@ export default function AdminUsersPage() {
       setIsProcessing(false);
     }
   };
-  
-  const handleRewardLeaderboard = async () => {
-    if (!selectedLeaderboard) {
-      toast({ title: '오류', description: '보상을 지급할 리더보드를 선택해주세요.', variant: 'destructive' });
-      return;
-    }
-    setIsRewarding(true);
-    try {
-      const result = await awardLeaderboardRewards(selectedLeaderboard);
-      toast({
-        title: `보상 지급 완료`,
-        description: `${result.successCount}명의 랭커에게 보상이 지급되었습니다. (실패: ${result.failCount})`
-      });
-      setIsRewardDialogOpen(false);
-    } catch (error: any) {
-      toast({ title: '오류', description: error.message || '리더보드 보상 지급 중 오류가 발생했습니다.', variant: 'destructive' });
-    } finally {
-      setIsRewarding(false);
-    }
-  };
 
   const handleSendWarning = async () => {
     if (!selectedUser || !warningMessage) {
@@ -499,19 +452,13 @@ export default function AdminUsersPage() {
 
   const renderIdentifier = (user: User) => {
     if (user.role === 'admin') return '관리자';
-    if (user.role === 'council' || user.role === 'kiosk') return user.name || user.email;
     if (user.role === 'student') return user.studentId || user.displayName;
-    if (user.role === 'teacher') return user.name;
     return 'N/A';
   }
 
   const roleDisplayNames: Record<User['role'], string> = {
     admin: '관리자',
-    council: '학생회',
-    teacher: '교직원',
     student: '학생',
-    pending_teacher: '승인 대기',
-    kiosk: '키오스크'
   };
   
   const handleSelectUser = (userId: string, isSelected: boolean) => {
@@ -539,10 +486,6 @@ export default function AdminUsersPage() {
             <p className="text-muted-foreground">시스템에 등록된 모든 사용자 목록입니다. (실시간 동기화)</p>
         </div>
         <div className="flex gap-2">
-            <Button onClick={() => setIsRewardDialogOpen(true)}>
-                <Trophy className="mr-2 h-4 w-4"/>
-                리더보드 보상 지급
-            </Button>
             <Button onClick={openBulkAdjustDialog} disabled={selectedUsers.length === 0}>
                 <Coins className="mr-2 h-4 w-4"/>
                 선택 사용자 포인트 관리 ({selectedUsers.length})
@@ -586,7 +529,6 @@ export default function AdminUsersPage() {
                     </Button>
                 </TableHead>
                 <TableHead>UID</TableHead>
-                <TableHead>비고</TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
                 <TableHead>
@@ -614,7 +556,6 @@ export default function AdminUsersPage() {
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                   </TableRow>
@@ -630,10 +571,7 @@ export default function AdminUsersPage() {
                       />
                     </TableCell>
                     <TableCell className="font-medium">
-                        <span 
-                            className="cursor-pointer hover:underline"
-                            onClick={() => openDailyEarningsDialog(user)}
-                        >
+                        <span>
                             {renderIdentifier(user)}
                         </span>
                         {user.restrictedUntil && user.restrictedUntil.toMillis() > Date.now() && (
@@ -641,7 +579,6 @@ export default function AdminUsersPage() {
                         )}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{user.id}</TableCell>
-                    <TableCell className="text-muted-foreground">{user.memo || '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell><Badge variant="secondary">{roleDisplayNames[user.role] || user.role}</Badge></TableCell>
                     <TableCell>{user.createdAt ? user.createdAt.toDate().toLocaleDateString() : 'N/A'}</TableCell>
@@ -654,10 +591,6 @@ export default function AdminUsersPage() {
                        <Button variant="outline" size="sm" onClick={() => openRoleDialog(user)} disabled={user.role === 'admin'}>
                          <UserCog className="mr-1 h-3.5 w-3.5"/>
                          역할
-                       </Button>
-                       <Button variant="outline" size="sm" onClick={() => openMemoDialog(user)}>
-                         <Pencil className="mr-1 h-3.5 w-3.5"/>
-                         비고
                        </Button>
                       {user.restrictedUntil && user.restrictedUntil.toMillis() > Date.now() ? (
                         <Button variant="secondary" size="sm" onClick={() => handleUnrestrictUser(user.id)} disabled={isProcessing}>
@@ -686,33 +619,6 @@ export default function AdminUsersPage() {
           </Table>
         </CardContent>
       </Card>
-
-      <Dialog open={isDailyEarningsDialogOpen} onOpenChange={setIsDailyEarningsDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>{selectedUser?.displayName || selectedUser?.studentId} 님의 일일 획득량</DialogTitle>
-                <DialogDescription>최근 30일간의 포인트 획득 기록입니다.</DialogDescription>
-            </DialogHeader>
-            <div className="max-h-96 overflow-y-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>날짜</TableHead>
-                            <TableHead className="text-right">획득량</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {dailyEarnings.length > 0 ? dailyEarnings.map(e => (
-                            <TableRow key={e.id}>
-                                <TableCell>{e.id}</TableCell>
-                                <TableCell className="text-right">{e.totalEarned.toLocaleString()} P</TableCell>
-                            </TableRow>
-                        )) : <TableRow><TableCell colSpan={2} className="text-center">기록이 없습니다.</TableCell></TableRow>}
-                    </TableBody>
-                </Table>
-            </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Lak Adjust Dialog */}
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
@@ -930,8 +836,7 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="student">학생</SelectItem>
-                  <SelectItem value="council">학생회</SelectItem>
-                  <SelectItem value="kiosk">키오스크</SelectItem>
+                  <SelectItem value="admin">관리자</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -943,37 +848,6 @@ export default function AdminUsersPage() {
             <Button type="button" onClick={handleUpdateRole} disabled={isProcessing || !newRole}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               변경하기
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Memo Dialog */}
-      <Dialog open={isMemoDialogOpen} onOpenChange={setIsMemoDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>비고 편집: {selectedUser && renderIdentifier(selectedUser)}</DialogTitle>
-            <DialogDescription>
-                이 사용자에게만 보이는 비고(별명)를 추가하거나 수정합니다.
-            </DialogDescription>
-          </DialogHeader>
-           <div className="grid gap-4 py-4">
-                <Label htmlFor="memo">비고 내용</Label>
-                <Input
-                    id="memo"
-                    value={memo}
-                    onChange={(e) => setMemo(e.target.value)}
-                    placeholder="예: 1학년 1반 반장"
-                    disabled={isProcessing}
-                />
-            </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isProcessing}>취소</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleUpdateMemo} disabled={isProcessing}>
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              저장하기
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1064,51 +938,6 @@ export default function AdminUsersPage() {
             </DialogClose>
             <Button variant="destructive" onClick={handleSendWarning} disabled={isProcessing || !warningMessage}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 경고 보내기
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Leaderboard Reward Dialog */}
-      <Dialog open={isRewardDialogOpen} onOpenChange={setIsRewardDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>리더보드 랭커 보상 지급</DialogTitle>
-            <DialogDescription>
-              선택한 게임의 리더보드 상위 5명에게 차등으로 포인트를 지급합니다. 이 작업은 되돌릴 수 없습니다.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="leaderboard-select" className="text-right">
-                대상 게임
-              </Label>
-              <Select onValueChange={setSelectedLeaderboard} value={selectedLeaderboard} disabled={isRewarding}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="게임 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="minesweeper-easy">지뢰찾기 (초급)</SelectItem>
-                  <SelectItem value="breakout">벽돌깨기</SelectItem>
-                  <SelectItem value="tetris">테트리스</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-             <ul className="text-sm text-muted-foreground list-disc pl-5 ml-auto mr-auto">
-                <li>1등: 10 포인트</li>
-                <li>2등: 7 포인트</li>
-                <li>3등: 5 포인트</li>
-                <li>4등: 3 포인트</li>
-                <li>5등: 1 포인트</li>
-            </ul>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isRewarding}>취소</Button>
-            </DialogClose>
-            <Button onClick={handleRewardLeaderboard} disabled={isRewarding || !selectedLeaderboard}>
-              {isRewarding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              보상 지급
             </Button>
           </DialogFooter>
         </DialogContent>

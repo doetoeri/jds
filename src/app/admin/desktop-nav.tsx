@@ -6,27 +6,39 @@ import { Button } from '@/components/ui/button';
 import { useLogout } from '@/hooks/use-logout';
 import { cn } from '@/lib/utils';
 import {
-  Home,
   Users,
   Power,
   LayoutDashboard,
-  Swords,
-  Trophy,
+  Radio,
+  TrendingUp,
+  Croissant,
+  Brain,
+  Blocks,
+  FlaskConical,
 } from 'lucide-react';
-import { Separator } from './ui/separator';
+import { Separator } from '@/components/ui/separator';
 
-const studentLinks = [
-  { name: '미니게임', href: '/game', icon: Swords },
-];
+const studentLinks: any[] = [];
 
 const adminLinks = [
   { name: '대시보드', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
+  { name: '더 버튼 관리', href: '/admin/the-button', icon: Radio },
+  { name: '종달새 강화 관리', href: '/admin/upgrade-game', icon: TrendingUp },
+  { name: '스네이크 관리', href: '/admin/snake', icon: Croissant },
+  { name: '스도쿠 관리', href: '/admin/sudoku', icon: Brain },
+  { name: '블록 블라스트 관리', href: '/admin/block-blast', icon: Blocks },
 ];
+
+const councilLinks: any[] = [];
+
+const teacherLinks: any[] = [];
 
 const navConfig = {
   student: studentLinks,
   admin: adminLinks,
+  council: councilLinks,
+  teacher: teacherLinks,
 };
 
 type Role = keyof typeof navConfig;
