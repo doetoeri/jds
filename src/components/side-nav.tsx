@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -62,7 +63,6 @@ const studentLinks = [
   { name: '친구', href: '/dashboard/mates', icon: UserPlus },
   { name: '종달 우체국', href: '/dashboard/letters', icon: Mail },
   { name: '종달 상점', href: '/dashboard/shop', icon: ShoppingCart },
-  { name: '사용 내역', href: '/dashboard/history', icon: History },
 ];
 
 const studentSettingsLinks = [
@@ -75,7 +75,6 @@ const adminLinks = [
   { name: '대시보드', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: '사용자 관리', href: '/admin/users', icon: Users },
   { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
-  { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
   { name: '학생회 관리', href: '/admin/council', icon: ShieldQuestion },
   { name: '교직원 관리', href: '/admin/teachers', icon: UserCheck },
   { name: '커뮤니티 관리', href: '/admin/community', icon: MessageSquareText },
@@ -89,10 +88,7 @@ const adminLinks = [
   { name: '키오스크 기록', href: '/admin/kiosk-logs', icon: Server },
   { name: '편지 관리', href: '/admin/letters', icon: Mail },
   { name: '사용자 문의', href: '/admin/inquiries', icon: MessageCircleQuestion },
-  { name: '구매 문의 관리', href: '/admin/disputes', icon: ShieldQuestion },
   { name: '의심 활동 보고', href: '/admin/reports', icon: AlertTriangle },
-  { name: '전체 내역', href: '/admin/history', icon: History },
-  { name: '전체 주문 내역', href: '/admin/purchases', icon: ListOrdered },
   { name: '시스템 설정', href: '/admin/settings', icon: Cog },
   { name: '개발자 도구', href: '/admin/tools', icon: Wrench },
 ];
@@ -101,9 +97,7 @@ const councilLinks = [
   { name: '학생회 홈', href: '/council', icon: Home },
   { name: '학생 사용자 관리', href: '/council/users', icon: Users },
   { name: '상점 관리', href: '/council/shop', icon: ShoppingCart },
-  { name: '주문 관리', href: '/council/orders', icon: ListOrdered },
   { name: '부스 포인트 지급', href: '/council/booth', icon: Award },
-  { name: '계산원 매점', href: '/council/pos', icon: ShoppingCart },
 ];
 
 const teacherLinks = [

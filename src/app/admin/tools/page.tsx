@@ -74,7 +74,7 @@ export default function AdminToolsPage() {
         <CardHeader>
           <CardTitle>사용자 데이터 이전</CardTitle>
           <CardDescription>
-            한 사용자의 모든 데이터(프로필, 포인트, 활동 기록 등)를 다른 사용자에게 이전합니다. 이메일 주소 변경 등으로 계정을 새로 만들어야 할 때 사용합니다.
+            한 사용자의 모든 데이터(프로필, 포인트 등)를 다른 사용자에게 이전합니다. 이메일 주소 변경 등으로 계정을 새로 만들어야 할 때 사용합니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
