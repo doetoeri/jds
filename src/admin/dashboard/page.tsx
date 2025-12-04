@@ -1,6 +1,5 @@
 
 'use client';
-export const dynamic = 'force-dynamic';
 
 import {
   Card,
@@ -9,7 +8,7 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card';
-import { Users, Coins, ShoppingCart, MessageCircleQuestion, Loader2, BarChart2 } from 'lucide-react';
+import { Users, Coins, ShoppingCart, MessageCircleQuestion, Minus, Plus, UserCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, where, getDocs, collectionGroup } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -22,6 +21,10 @@ interface Stats {
     totalLak: number;
     openInquiries: number;
     totalProducts: number;
+    totalCredits: number;
+    totalDebits: number;
+    totalItemsSold: number;
+    uniqueCustomers: number;
 }
 
 interface GradeActivity {
@@ -47,72 +50,115 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<Partial<Stats>>({});
   const [gradeData, setGradeData] = useState<GradeActivity[]>([]);
   const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!db) return;
     const fetchAllStats = async () => {
         setIsLoading(true);
         try {
-            // Basic Stats
+            // Fetch all necessary data in parallel
             const usersQuery = query(collection(db, 'users'), where('role', 'in', ['student', 'teacher', 'council', 'kiosk']));
-            const usersSnapshot = await getDocs(usersQuery);
-            const totalUsers = usersSnapshot.size;
-            let totalLak = 0;
-            usersSnapshot.forEach(doc => {
-                totalLak += doc.data().lak || 0;
-            });
             const inquiriesQuery = query(collection(db, 'inquiries'), where('status', '==', 'open'));
-            const inquiriesSnapshot = await getDocs(inquiriesQuery);
-            const openInquiries = inquiriesSnapshot.size;
             const productsQuery = query(collection(db, 'products'));
-            const productsSnapshot = await getDocs(productsQuery);
-            const totalProducts = productsSnapshot.size;
-            setStats({ totalUsers, totalLak, openInquiries, totalProducts });
+            const transactionsGroupQuery = collectionGroup(db, 'transactions');
+            const purchasesQuery = collection(db, 'purchases');
 
-            // Grade Activity Stats
+            const [
+                usersSnapshot,
+                inquiriesSnapshot,
+                productsSnapshot,
+                transactionsSnapshot,
+                purchasesSnapshot
+            ] = await Promise.all([
+                getDocs(usersQuery),
+                getDocs(inquiriesQuery),
+                getDocs(productsQuery),
+                getDocs(transactionsGroupQuery),
+                getDocs(purchasesQuery)
+            ]);
+
+            // Process Users
+            let totalLak = 0;
+            const studentGradeMap: { [userId: string]: string } = {};
+            usersSnapshot.forEach(doc => {
+              const userData = doc.data();
+              totalLak += userData.lak || 0;
+              if (userData.role === 'student' && userData.studentId) {
+                  const grade = userData.studentId.substring(0, 1);
+                  if (['1', '2', '3'].includes(grade)) {
+                      studentGradeMap[doc.id] = `${grade}학년`;
+                  }
+              }
+            });
+            
+            // Process Transactions
+            let totalCredits = 0;
+            let totalDebits = 0;
             const gradeMap: {[key: string]: GradeActivity} = {
                 '1학년': { grade: '1학년', credit: 0, debit: 0 },
                 '2학년': { grade: '2학년', credit: 0, debit: 0 },
                 '3학년': { grade: '3학년', credit: 0, debit: 0 },
             };
-            const studentUsers = usersSnapshot.docs.filter(doc => doc.data().role === 'student' && doc.data().studentId);
-            for (const userDoc of studentUsers) {
-                const studentId = userDoc.data().studentId;
-                const grade = studentId.substring(0, 1);
-                if (grade === '1' || grade === '2' || grade === '3') {
-                    const gradeKey = `${grade}학년`;
-                    const transactionsSnapshot = await getDocs(collection(userDoc.ref, 'transactions'));
-                    transactionsSnapshot.forEach(transDoc => {
-                        const t = transDoc.data();
-                        if (t.type === 'credit') {
-                            gradeMap[gradeKey].credit += t.amount;
-                        } else if (t.type === 'debit') {
-                            gradeMap[gradeKey].debit += Math.abs(t.amount);
-                        }
-                    });
+
+            transactionsSnapshot.forEach(doc => {
+                const t = doc.data();
+                const userId = doc.ref.parent.parent?.id;
+                const userGrade = userId ? studentGradeMap[userId] : undefined;
+
+                if (t.type === 'credit') {
+                    totalCredits += t.amount;
+                    if (userGrade && gradeMap[userGrade]) {
+                        gradeMap[userGrade].credit += t.amount;
+                    }
+                } else if (t.type === 'debit') {
+                    totalDebits += Math.abs(t.amount);
+                    if (userGrade && gradeMap[userGrade]) {
+                        gradeMap[userGrade].debit += Math.abs(t.amount);
+                    }
                 }
-            }
+            });
             setGradeData(Object.values(gradeMap));
 
-            // Top Products Stats
+            // Process Purchases
+            let totalItemsSold = 0;
+            const customerSet = new Set<string>();
             const productSales: { [name: string]: number } = {};
-            const purchasesSnapshot = await getDocs(collection(db, 'purchases'));
+            
             purchasesSnapshot.forEach(purchaseDoc => {
-                const items = purchaseDoc.data().items as { name: string, quantity: number }[];
+                const data = purchaseDoc.data();
+                if (data.studentId) {
+                  customerSet.add(data.studentId);
+                }
+                const items = data.items as { name: string, quantity: number }[];
                 if (items) {
                     items.forEach(item => {
+                        totalItemsSold += item.quantity;
                         productSales[item.name] = (productSales[item.name] || 0) + item.quantity;
                     });
                 }
             });
+
             const sortedProducts = Object.entries(productSales)
                 .map(([name, totalSold]) => ({ name, totalSold }))
                 .sort((a, b) => b.totalSold - a.totalSold)
                 .slice(0, 5);
             setTopProducts(sortedProducts);
+            
+            // Set all stats at once
+            setStats({
+                totalUsers: usersSnapshot.size,
+                openInquiries: inquiriesSnapshot.size,
+                totalProducts: productsSnapshot.size,
+                totalLak,
+                totalCredits,
+                totalDebits,
+                totalItemsSold,
+                uniqueCustomers: customerSet.size,
+            });
 
         } catch (error) {
             console.error("Failed to fetch dashboard stats:", error);
@@ -122,6 +168,30 @@ export default function AdminDashboardPage() {
     };
 
     fetchAllStats();
+
+    // Setup listeners for real-time simple stats
+    const usersUnsub = onSnapshot(query(collection(db, 'users'), where('role', 'in', ['student', 'teacher', 'council', 'kiosk'])), (snapshot) => {
+        let currentLak = 0;
+        snapshot.forEach(doc => {
+            currentLak += doc.data().lak || 0;
+        });
+        setStats(prev => ({ ...prev, totalUsers: snapshot.size, totalLak: currentLak }));
+    }, (error) => console.error("Users listener error:", error));
+
+    const inquiriesUnsub = onSnapshot(query(collection(db, 'inquiries'), where('status', '==', 'open')), (snapshot) => {
+        setStats(prev => ({ ...prev, openInquiries: snapshot.size }));
+    }, (error) => console.error("Inquiries listener error:", error));
+    
+    const productsUnsub = onSnapshot(collection(db, 'products'), (snapshot) => {
+        setStats(prev => ({ ...prev, totalProducts: snapshot.size }));
+    }, (error) => console.error("Products listener error:", error));
+
+    return () => {
+        usersUnsub();
+        inquiriesUnsub();
+        productsUnsub();
+    };
+
   }, []);
 
   return (
@@ -136,46 +206,85 @@ export default function AdminDashboardPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers.toLocaleString() ?? 0} 명</div>}
-                <p className="text-xs text-muted-foreground">
-                현재 시스템에 등록된 모든 사용자
-                </p>
+                {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalUsers?.toLocaleString() ?? 0} 명</div>}
+                <p className="text-xs text-muted-foreground">현재 시스템에 등록된 모든 사용자</p>
             </CardContent>
             </Card>
+
             <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">유통중인 포인트</CardTitle>
                 <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLak.toLocaleString() ?? 0} 포인트</div>}
-                <p className="text-xs text-muted-foreground">
-                모든 사용자들의 포인트 총합 (저금통 제외)
-                </p>
+                {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalLak?.toLocaleString() ?? 0} P</div>}
+                <p className="text-xs text-muted-foreground">모든 사용자들의 현재 포인트 총합</p>
             </CardContent>
             </Card>
+            
             <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">미확인 문의</CardTitle>
-                <MessageCircleQuestion className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">총 발행 포인트</CardTitle>
+                <Plus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                 {isLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats?.openInquiries.toLocaleString() ?? 0} 건</div>}
-                <p className="text-xs text-muted-foreground">
-                사용자들이 보낸 처리되지 않은 문의 개수
-                </p>
+                {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalCredits?.toLocaleString() ?? 0} P</div>}
+                 <p className="text-xs text-muted-foreground">지금까지 지급된 모든 포인트 합계</p>
             </CardContent>
             </Card>
+
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">총 사용 포인트</CardTitle>
+                <Minus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                {isLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{stats?.totalDebits?.toLocaleString() ?? 0} P</div>}
+                <p className="text-xs text-muted-foreground">지금까지 사용된 모든 포인트 합계</p>
+            </CardContent>
+            </Card>
+            
             <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">판매중인 상품</CardTitle>
                 <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {isLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats?.totalProducts.toLocaleString() ?? 0} 개</div>}
-                <p className="text-xs text-muted-foreground">
-                현재 상점에서 판매중인 상품 종류
-                </p>
+                {isLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats?.totalProducts?.toLocaleString() ?? 0} 개</div>}
+                <p className="text-xs text-muted-foreground">현재 상점에서 판매중인 상품 종류</p>
+            </CardContent>
+            </Card>
+
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">총 판매 상품 수</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.totalItemsSold?.toLocaleString() ?? 0} 개</div>}
+                 <p className="text-xs text-muted-foreground">지금까지 판매된 모든 상품 개수 합계</p>
+            </CardContent>
+            </Card>
+
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">상점 이용 고객</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                {isLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{stats?.uniqueCustomers?.toLocaleString() ?? 0} 명</div>}
+                 <p className="text-xs text-muted-foreground">한 번이라도 상점을 이용한 학생 수</p>
+            </CardContent>
+            </Card>
+
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">미확인 문의</CardTitle>
+                <MessageCircleQuestion className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                 {isLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats?.openInquiries?.toLocaleString() ?? 0} 건</div>}
+                <p className="text-xs text-muted-foreground">사용자들이 보낸 처리되지 않은 문의</p>
             </CardContent>
             </Card>
         </div>
@@ -183,7 +292,7 @@ export default function AdminDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BarChart2 />학년별 포인트 활동</CardTitle>
+                    <CardTitle>학년별 포인트 활동</CardTitle>
                     <CardDescription>학년별 총 포인트 적립 및 사용량입니다.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -230,4 +339,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
