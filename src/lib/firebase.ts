@@ -40,7 +40,8 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 // Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -94,8 +95,8 @@ const checkSuspiciousContent = (content: string): boolean => {
 
 // Sign up function
 export const signUp = async (
-    userType: 'student' | 'teacher' | 'pending_teacher' | 'council' | 'kiosk',
-    userData: { studentId?: string; name?: string; officeFloor?: string; nickname?: string, memo?: string },
+    userType: 'student' | 'council' | 'kiosk',
+    userData: { studentId?: string; name?: string; memo?: string },
     password: string,
     email: string
 ) => {
@@ -139,12 +140,6 @@ export const signUp = async (
         if (!studentSnapshot.empty) {
             throw new Error("이미 등록된 학번입니다.");
         }
-    } else if (userType === 'teacher' && userData.nickname) {
-        const nicknameQuery = query(collection(db, 'users'), where('nickname', '==', userData.nickname), where('role', '==', 'teacher'));
-        const nicknameSnapshot = await getDocs(nicknameQuery);
-        if (!nicknameSnapshot.empty) {
-            throw new Error("이미 사용 중인 닉네임입니다.");
-        }
     }
 
     const currentAuthUser = auth.currentUser;
@@ -177,18 +172,6 @@ export const signUp = async (
                 usedFriendId: [],
             };
              await setDoc(userDocRef, docData);
-            break;
-        case 'teacher':
-             docData = {
-                ...docData,
-                name: userData.name,
-                nickname: userData.nickname,
-                displayName: `${userData.name} 선생님`,
-                officeFloor: userData.officeFloor,
-                role: 'pending_teacher',
-                avatarGradient: 'blue',
-            };
-            await setDoc(userDocRef, docData);
             break;
         case 'council':
         case 'kiosk':
@@ -256,7 +239,7 @@ export const signIn = async (studentIdOrEmail: string, password: string) => {
           finalEmail = specialAccountSnapshot.docs[0].data().email;
         } else {
           // If still not found, we pass the original string to signIn to let Firebase handle it
-          // This allows teacher login with email.
+          // This allows login with email.
         }
     }
 
@@ -518,7 +501,7 @@ export const purchaseItems = async (userId: string, cart: { name: string; price:
 
     for (let i = 0; i < productDocs.length; i++) {
       const productRef = productRefs[i];
-      const item = cart[i];
+      const item = items[i];
       transaction.update(productRef, { stock: increment(-item.quantity) });
     }
     
@@ -758,13 +741,14 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
   if (/^\d{5}$/.test(receiverIdentifier)) {
       receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
   } else {
-      receiverQuery = query(collection(db, 'users'), where('nickname', '==', receiverIdentifier), where('role', '==', 'teacher'));
+      // Teachers are removed, so this part is not needed
+      throw new Error("교직원 기능이 제거되었습니다.");
   }
   const receiverSnapshot = await getDocs(receiverQuery);
   if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
   const receiverDoc = receiverSnapshot.docs[0];
   const receiverData = receiverDoc.data();
-  const receiverIdentifierDisplay = receiverData.role === 'student' ? receiverData.studentId : receiverData.nickname;
+  const receiverIdentifierDisplay = receiverData.studentId;
 
   await runTransaction(db, async (transaction) => {
       // 1. Reads
