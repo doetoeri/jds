@@ -8,8 +8,8 @@ import { auth, db, handleSignOut } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { Loader2, MessageCircleQuestion, AlertTriangle } from 'lucide-react';
+import { doc, getDoc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { SideNav } from '@/components/side-nav';
 import { DesktopNav } from '@/components/desktop-nav';
 import MaintenancePage from '../maintenance/page';
@@ -22,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface RestrictionInfo {
@@ -61,62 +60,62 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setCheckingAuth(true);
-    if (loading) return; 
-    if (!user) {
-      toast({
-        title: '로그인 필요',
-        description: '로그인이 필요한 페이지입니다.',
-        variant: 'destructive',
-      });
-      setTimeout(() => router.push('/login'), 50);
-      return;
-    }
-    
     const checkUserStatusAndSetup = async () => {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const role = userData.role;
-            
-            if (userData.oneTimeWarning && !userData.hasSeenWarning) {
-                setWarningInfo({
-                    oneTimeWarning: userData.oneTimeWarning,
-                    hasSeenWarning: userData.hasSeenWarning,
-                });
-                setIsAuthorized(false); 
-                setCheckingAuth(false);
-                return;
-            }
+      setCheckingAuth(true);
+      if (loading) return;
+      if (!user) {
+        toast({
+          title: '로그인 필요',
+          description: '로그인이 필요한 페이지입니다.',
+          variant: 'destructive',
+        });
+        router.push('/login');
+        return;
+      }
+      
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const role = userData.role;
 
-            if (userData.restrictedUntil && userData.restrictedUntil.toMillis() > Date.now()) {
-                setRestrictionInfo({
-                    restrictedUntil: userData.restrictedUntil,
-                    restrictionReason: userData.restrictionReason,
-                });
-                setIsAuthorized(false);
-                setCheckingAuth(false);
-                return;
-            }
-            
-            if (role === 'admin' || role === 'council' || role === 'teacher') {
-                setIsAuthorized(false);
-                let redirectPath = role === 'admin' ? '/admin' : '/';
-                toast({
-                  title: "잘못된 접근",
-                  description: "학생용 페이지입니다.",
-                  variant: "destructive"
-                })
-                setTimeout(() => router.push(redirectPath), 50);
-                return; 
-            }
+        if (userData.oneTimeWarning && !userData.hasSeenWarning) {
+          setWarningInfo({
+            oneTimeWarning: userData.oneTimeWarning,
+            hasSeenWarning: userData.hasSeenWarning,
+          });
+          setIsAuthorized(false);
+          setCheckingAuth(false);
+          return;
         }
-        setIsAuthorized(true);
-        setCheckingAuth(false);
+
+        if (userData.restrictedUntil && userData.restrictedUntil.toMillis() > Date.now()) {
+          setRestrictionInfo({
+            restrictedUntil: userData.restrictedUntil,
+            restrictionReason: userData.restrictionReason,
+          });
+          setIsAuthorized(false);
+          setCheckingAuth(false);
+          return;
+        }
+
+        if (role === 'admin' || role === 'council' || role === 'teacher') {
+          setIsAuthorized(false);
+          let redirectPath = role === 'admin' ? '/admin' : '/';
+          toast({
+            title: "잘못된 접근",
+            description: "학생용 페이지입니다.",
+            variant: "destructive"
+          });
+          router.push(redirectPath);
+          return;
+        }
+      }
+      setIsAuthorized(true);
+      setCheckingAuth(false);
     };
     checkUserStatusAndSetup();
-  }, [user, loading, router, toast, pathname]);
+  }, [user, loading, router, toast]);
 
   const handleWarningConfirm = async () => {
     if (!user) return;
@@ -132,7 +131,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       });
     }
   };
-
 
   if (loading || checkingAuth) {
     return (
@@ -193,7 +191,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     )
   }
 
-  if (isMaintenanceMode && user) {
+  if (isMaintenanceMode) {
       return <MaintenancePage />;
   }
 

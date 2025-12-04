@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuthorization = async () => {
       if (loading) {
-        return;
+        return; // Wait until loading is false
       }
       
       if (!user) {
@@ -56,6 +56,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           router.push('/game');
         }
       } catch (error) {
+        console.error("Authorization check failed:", error);
         toast({
           title: '인증 오류',
           description: '사용자 정보를 확인하는 중 오류가 발생했습니다.',
@@ -70,12 +71,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     checkAuthorization();
   }, [user, loading, router, toast]);
 
-  if (loading || !authChecked || !isAuthorized) {
+  if (loading || !authChecked) {
     return (
        <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     )
+  }
+  
+  if (!isAuthorized) {
+    // Prevent rendering children if not authorized
+    return (
+       <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (

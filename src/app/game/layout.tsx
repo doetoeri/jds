@@ -39,7 +39,7 @@ export default function GameLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setCheckingAuth(true);
-    if (loading) return; 
+    if (loading) return;
     if (!user) {
       toast({
         title: '로그인 필요',

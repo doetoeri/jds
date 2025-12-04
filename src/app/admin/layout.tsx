@@ -11,7 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SideNav } from '@/components/side-nav';
-import { DesktopNav } from '@/components/desktop-nav';
+import { DesktopNav } from '@/admin/desktop-nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +21,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [user, loading] = useAuthState(auth);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     const checkAuthorization = async () => {
@@ -34,30 +35,41 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           description: '로그인이 필요한 페이지입니다.',
           variant: 'destructive',
         });
-        setTimeout(() => router.push('/login'), 50);
+        router.push('/login');
         return;
       }
       
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-          setIsAuthorized(true);
-      } else {
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+            setIsAuthorized(true);
+        } else {
+          toast({
+            title: '접근 권한 없음',
+            description: '관리자만 접근할 수 있는 페이지입니다.',
+            variant: 'destructive',
+          });
+          setIsAuthorized(false);
+          router.push('/game');
+        }
+      } catch (error) {
         toast({
-          title: '접근 권한 없음',
-          description: '관리자만 접근할 수 있는 페이지입니다.',
+          title: '인증 오류',
+          description: '사용자 정보를 확인하는 중 오류가 발생했습니다.',
           variant: 'destructive',
         });
         setIsAuthorized(false);
-        setTimeout(() => router.push('/dashboard'), 50);
-        return;
+        router.push('/login');
+      } finally {
+        setAuthChecked(true);
       }
     };
     checkAuthorization();
   }, [user, loading, router, toast]);
 
-  if (loading || !isAuthorized) {
+  if (loading || !authChecked || !isAuthorized) {
     return (
        <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
