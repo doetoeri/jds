@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,6 +12,8 @@ import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, getDocs, collectionGroup } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+
+export const dynamic = 'force-dynamic';
 
 interface Stats {
     totalUsers: number;
