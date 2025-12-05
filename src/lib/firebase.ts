@@ -29,15 +29,16 @@ import {
     orderBy,
     limit
 } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyCKRYChw1X_FYRhcGxk13B_s2gOgZoZiyc",
+  authDomain: "jongdalsem-hub.firebaseapp.com",
+  projectId: "jongdalsem-hub",
+  storageBucket: "jongdalsem-hub.appspot.com",
+  messagingSenderId: "145118642611",
+  appId: "1:145118642611:web:3d29407e957e6ea4f18bc6",
+  measurementId: "G-0B6DFH42ML"
 };
 
 // Initialize Firebase
@@ -1220,3 +1221,5 @@ export const revertUserDataMigration = async () => {
 
 // Export services
 export { auth, db, storage };
+
+    
