@@ -108,8 +108,8 @@ export default function TheButtonGamePage() {
                      <motion.button
                         onClick={handlePress}
                         disabled={isPressing || gameState?.isFinished}
-                        className="relative w-40 h-40 rounded-full bg-red-600 shadow-lg disabled:bg-gray-500"
-                        whileTap={{ scale: 0.9 }}
+                        className="relative w-40 h-40 rounded-full bg-red-600 shadow-lg disabled:bg-gray-500 active:shadow-inner active:shadow-black/20"
+                        whileTap={{ scale: 0.95, y: 2 }}
                       >
                         {isPressing && <Loader2 className="absolute inset-0 m-auto h-12 w-12 text-white animate-spin" />}
                       </motion.button>
