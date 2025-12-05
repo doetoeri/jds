@@ -1,3 +1,4 @@
+
 import { initializeApp, getApp, getApps, type FirebaseOptions } from "firebase/app";
 import { 
     getAuth, 
@@ -41,7 +42,6 @@ const firebaseConfig: FirebaseOptions = {
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -315,18 +315,18 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
         const userRef = doc(db, 'users', userId);
         const friendRef = doc(db, 'users', friendUid);
         
-        const [userDoc, friendDoc] = await Promise.all([
+        const [userDoc, friendDocFromTx] = await Promise.all([
           transaction.get(userRef),
           transaction.get(friendRef),
         ]);
         
         // --- 2. VALIDATION & LOGIC ---
-        if (!userDoc.exists() || !friendDoc.exists()) {
+        if (!userDoc.exists() || !friendDocFromTx.exists()) {
           throw new Error("사용자 정보를 트랜잭션 내에서 찾을 수 없습니다.");
         }
         
         const userData = userDoc.data();
-        const friendData = friendDoc.data();
+        const friendData = friendDocFromTx.data();
         const userStudentId = userData.studentId;
         
         if (friendStudentId === userStudentId) {
@@ -467,51 +467,6 @@ export const useCode = async (userId: string, inputCode: string, partnerStudentI
   return { success: true, message: `${codeData.type}을(를) 사용하여 ${codeData.value} 포인트를 적립했습니다!` };
 };
 
-
-export const purchaseItems = async (userId: string, cart: { name: string; price: number; quantity: number, id: string }[], totalCost: number) => {
-  return await runTransaction(db, async (transaction) => {
-    // 1. Read all necessary documents
-    const userRef = doc(db, 'users', userId);
-    const productRefs = cart.map(item => doc(db, 'products', item.id));
-    
-    const [userDoc, ...productDocs] = await Promise.all([
-      transaction.get(userRef),
-      ...productRefs.map(ref => transaction.get(ref))
-    ]);
-
-    // 2. Validate data
-    if (!userDoc.exists()) {
-      throw new Error("존재하지 않는 사용자입니다.");
-    }
-    const userData = userDoc.data();
-    if ((userData.lak || 0) < totalCost) {
-      throw new Error(`포인트가 부족합니다. 현재 보유 포인트: ${userData.lak || 0}, 필요 포인트: ${totalCost}`);
-    }
-
-    for (let i = 0; i < cart.length; i++) {
-      const productDoc = productDocs[i];
-      const item = cart[i];
-      if (!productDoc.exists() || productDoc.data().stock < item.quantity) {
-        throw new Error(`'${item.name}' 상품의 재고가 부족합니다.`);
-      }
-    }
-
-    // 3. Writes
-    transaction.update(userRef, { lak: increment(-totalCost) });
-
-    for (let i = 0; i < productDocs.length; i++) {
-      const productRef = productRefs[i];
-      const item = items[i];
-      transaction.update(productRef, { stock: increment(-item.quantity) });
-    }
-    
-    return { success: true, message: `총 ${totalCost} 포인트으로 상품을 구매했습니다! 학생회에 알려 상품을 받아가세요.` };
-  }).catch((error: any) => {
-    console.error("Purchase error: ", error);
-    return { success: false, message: error.message || "구매 중 오류가 발생했습니다." };
-  });
-};
-
 export const restrictUser = async (userId: string, restrictUntil: Date, reason: string) => {
   const userRef = doc(db, 'users', userId);
   await updateDoc(userRef, {
@@ -526,50 +481,6 @@ export const unrestrictUser = async (userId: string) => {
         restrictedUntil: null,
         restrictionReason: null,
     });
-};
-
-
-const deleteCollection = async (collectionPath: string, subcollectionPaths: string[] = []) => {
-  const collectionRef = collection(db, collectionPath);
-  const q = query(collectionRef);
-  const snapshot = await getDocs(q);
-
-  const batch = writeBatch(db);
-  for (const docSnapshot of snapshot.docs) {
-    for (const sub of subcollectionPaths) {
-        await deleteCollection(`${collectionPath}/${docSnapshot.id}/${sub}`);
-    }
-    batch.delete(docSnapshot.ref);
-  }
-  await batch.commit();
-  console.log(`Deleted collection: ${collectionPath}`);
-};
-
-export const resetAllData = async () => {
-    try {
-        await deleteCollection('codes');
-        await deleteCollection('letters');
-        await deleteCollection('purchases');
-        await deleteCollection('announcements');
-        await deleteCollection('communication_channel');
-        await deleteCollection('community_posts', ['comments']);
-        await deleteCollection('team_links');
-        await deleteCollection('team_chats', ['messages']);
-
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const batch = writeBatch(db);
-        for (const userDoc of usersSnapshot.docs) {
-            if (userDoc.data().role !== 'admin') {
-                batch.update(userDoc.ref, { lak: 0, activeTeamId: null });
-            }
-        }
-        await batch.commit();
-        
-        console.log("All data has been successfully reset.");
-    } catch (error) {
-        console.error("Error resetting data: ", error);
-        throw new Error("데이터 초기화 중 오류가 발생했습니다.");
-    }
 };
 
 export const updateUserProfile = async (
@@ -741,8 +652,7 @@ export const sendLetter = async (senderUid: string, receiverIdentifier: string, 
   if (/^\d{5}$/.test(receiverIdentifier)) {
       receiverQuery = query(collection(db, 'users'), where('studentId', '==', receiverIdentifier), where('role', '==', 'student'));
   } else {
-      // Teachers are removed, so this part is not needed
-      throw new Error("교직원 기능이 제거되었습니다.");
+    throw new Error("현재 학생에게만 편지를 보낼 수 있습니다.");
   }
   const receiverSnapshot = await getDocs(receiverQuery);
   if (receiverSnapshot.empty) throw new Error(`'${receiverIdentifier}'에 해당하는 사용자를 찾을 수 없습니다.`);
@@ -1014,24 +924,16 @@ export const setMaintenanceMode = async (isMaintenance: boolean, reason: string)
     await setDoc(settingsRef, { isMaintenanceMode: isMaintenance, maintenanceReason: reason }, { merge: true });
 };
 
-export const setShopStatus = async (isEnabled: boolean) => {
-    const settingsRef = doc(db, 'system_settings', 'main');
-    await setDoc(settingsRef, { isShopEnabled: isEnabled }, { merge: true });
-};
-
-export const setPointLimitStatus = async (isEnabled: boolean) => {
-    const settingsRef = doc(db, 'system_settings', 'main');
-    await setDoc(settingsRef, { isPointLimitEnabled: isEnabled }, { merge: true });
-}
-
-
 export const resetLeaderboard = async (leaderboardName: string) => {
     const pathMap: Record<string, string> = {
         'minesweeper-easy': 'leaderboards/minesweeper-easy/users',
         'breakout': 'leaderboards/breakout/users',
         'tetris': 'leaderboards/tetris/users',
         'the-button': 'games/the-button/winners',
-        'snake': 'leaderboards/snake/users'
+        'snake': 'leaderboards/snake/users',
+        'sudoku': 'leaderboards/sudoku/users',
+        'block-blast': 'leaderboards/block-blast/users',
+        'upgrade-game': 'leaderboards/upgrade-game/users',
     };
     const collectionPath = pathMap[leaderboardName];
     if (!collectionPath) throw new Error("유효하지 않은 리더보드입니다.");
@@ -1055,140 +957,6 @@ export const resetLeaderboard = async (leaderboardName: string) => {
     }
     
     await batch.commit();
-};
-
-
-export const processPosPayment = async (
-    operatorId: string, 
-    studentId: string, 
-    items: { name: string, quantity: number, price: number, id: string }[],
-    totalCost: number
-) => {
-    const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId), where('role', '==', 'student'));
-    
-    return await runTransaction(db, async (transaction) => {
-        // 1. Reads
-        const studentSnapshot = await getDocs(studentQuery);
-        if (studentSnapshot.empty) {
-            throw new Error(`학번 ${studentId}에 해당하는 학생을 찾을 수 없습니다.`);
-        }
-        const studentRef = studentSnapshot.docs[0].ref;
-
-        const productRefs = items.map(item => doc(db, 'products', item.id));
-        const [studentDoc, ...productDocs] = await Promise.all([
-            transaction.get(studentRef),
-            ...productRefs.map(ref => transaction.get(ref))
-        ]);
-
-        // 2. Validation
-        if (!studentDoc.exists()) {
-            throw new Error("결제 중 학생 정보를 다시 확인하는 데 실패했습니다.");
-        }
-        
-        const studentData = studentDoc.data();
-        if ((studentData.lak || 0) < totalCost) {
-            throw new Error(`포인트가 부족합니다. (보유: ${studentData.lak || 0}, 필요: ${totalCost})`);
-        }
-
-        for (let i = 0; i < items.length; i++) {
-            const productDoc = productDocs[i];
-            const item = items[i];
-            if (!productDoc.exists() || productDoc.data().stock < item.quantity) {
-                throw new Error(`'${item.name}' 상품의 재고가 부족합니다.`);
-            }
-        }
-
-        // 3. Writes
-        const paymentCode = generatePaymentCode('POS');
-        transaction.update(studentRef, { lak: increment(-totalCost) });
-
-        for (let i = 0; i < productDocs.length; i++) {
-            const productRef = productRefs[i];
-            const item = items[i];
-            transaction.update(productRef, { stock: increment(-item.quantity) });
-        }
-        
-        return { success: true, message: `${studentId} 학생에게서 ${totalCost} 포인트를 성공적으로 차감했습니다.` };
-    }).catch((error: any) => {
-        console.error("POS Payment error:", error);
-        return { success: false, message: error.message || "결제 중 오류가 발생했습니다." };
-    });
-};
-
-export const givePointsToMultipleStudentsAtBooth = async (
-  operatorId: string,
-  studentIds: string[],
-  value: number,
-  reason: string
-) => {
-  const result = { successCount: 0, failCount: 0, errors: [] as string[] };
-  
-  for (const studentId of studentIds) {
-    try {
-       const studentQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
-       
-       await runTransaction(db, async (transaction) => {
-        const studentSnapshot = await getDocs(studentQuery);
-        if (studentSnapshot.empty) {
-          throw new Error(`학번 ${studentId} 학생 없음`);
-        }
-        const studentRef = studentSnapshot.docs[0].ref;
-        
-        transaction.update(studentRef, { lak: increment(value), totalEarned: increment(value) });
-      });
-      result.successCount++;
-    } catch (error: any) {
-      result.failCount++;
-      result.errors.push(error.message);
-      console.error(`Failed to process student ${studentId}:`, error);
-    }
-  }
-
-  return result;
-};
-
-
-export const awardLeaderboardRewards = async (leaderboardName: string) => {
-  const leaderboardIdMap: Record<string, { path: string, order: 'desc' | 'asc' }> = {
-    'minesweeper-easy': { path: 'leaderboards/minesweeper-easy/users', order: 'asc' },
-    'breakout': { path: 'leaderboards/breakout/users', order: 'desc' },
-    'tetris': { path: 'leaderboards/tetris/users', order: 'desc' },
-  };
-
-  const gameInfo = leaderboardIdMap[leaderboardName];
-  if (!gameInfo) {
-    throw new Error('유효하지 않은 리더보드 이름입니다.');
-  }
-  
-  const { path, order } = gameInfo;
-  const rewards = [10, 7, 5, 3, 1]; // Points for 1st to 5th
-  let successCount = 0;
-  let failCount = 0;
-
-  const usersRef = collection(db, path);
-  const q = query(usersRef, orderBy('score', order), limit(5));
-  
-  const snapshot = await getDocs(q);
-
-  for (const [index, docSnapshot] of snapshot.docs.entries()) {
-    const rankerId = docSnapshot.id;
-    const rewardAmount = rewards[index];
-    
-    if (rankerId && rewardAmount) {
-       try {
-            await runTransaction(db, async (transaction) => {
-                const userRef = doc(db, 'users', rankerId);
-                transaction.update(userRef, { lak: increment(rewardAmount), totalEarned: increment(rewardAmount) });
-                successCount++;
-            });
-       } catch (error) {
-           console.error(`Failed to reward ${rankerId}:`, error);
-           failCount++;
-       }
-    }
-  }
-  
-  return { successCount, failCount };
 };
 
 export const pressTheButton = async (userId: string) => {
@@ -1366,118 +1134,6 @@ export const voteOnPoll = async (userId: string, pollId: string, option: string)
     
     transaction.update(pollRef, { votes: newVotes });
   });
-};
-
-export const updateBoothReasons = async (reasons: string[]) => {
-    const settingsRef = doc(db, 'system_settings', 'booth_reasons');
-    await setDoc(settingsRef, { reasons }, { merge: true });
-};
-
-export const sendNotification = async (roleCode: string, message: string) => {
-    if (!roleCode || !message) {
-        throw new Error('호출 코드와 메시지는 필수입니다.');
-    }
-    await addDoc(collection(db, 'notifications'), {
-        roleCode,
-        message,
-        createdAt: Timestamp.now()
-    });
-};
-
-export const submitPoem = async (studentId: string, poemContent: string) => {
-  const userQuery = query(collection(db, 'users'), where('studentId', '==', studentId));
-  
-  await runTransaction(db, async (transaction) => {
-    const userSnapshot = await getDocs(userQuery);
-    if (userSnapshot.empty) {
-      throw new Error('학생 정보를 찾을 수 없습니다.');
-    }
-    const userRef = userSnapshot.docs[0].ref;
-    
-    if (checkSuspiciousContent(poemContent)) {
-        createReport(userRef.id, "성의 없는 삼행시 작성", { content: poemContent, timestamp: Timestamp.now() });
-    }
-    
-    const today = new Date().toISOString().split('T')[0];
-    const usageRef = doc(collection(db, 'kiosk_usage'));
-    transaction.set(usageRef, { studentId, activity: 'poem', date: today, timestamp: Timestamp.now() });
-    
-    const pointsToAdd = 5;
-    await handleGameWin(transaction, userRef.id, pointsToAdd, '삼행시 참여 보상');
-  });
-  return { success: true };
-};
-
-export const sendSecretLetter = async (senderStudentId: string, receiverIdentifier: string, content: string) => {
-    const senderQuery = query(collection(db, 'users'), where('studentId', '==', senderStudentId));
-    
-    await runTransaction(db, async (transaction) => {
-        const senderSnapshot = await getDocs(senderQuery);
-        if (senderSnapshot.empty) throw new Error('보내는 학생 정보를 찾을 수 없습니다.');
-        const senderRef = senderSnapshot.docs[0].ref;
-
-        if (checkSuspiciousContent(content)) {
-            createReport(senderRef.id, "성의 없는 비밀 편지 작성", { content: content, receiver: receiverIdentifier, timestamp: Timestamp.now() });
-        }
-
-        const today = new Date().toISOString().split('T')[0];
-        const usageRef = doc(collection(db, 'kiosk_usage'));
-        transaction.set(usageRef, { studentId: senderStudentId, activity: 'letter', date: today, timestamp: Timestamp.now() });
-        
-        const pointsToAdd = 5;
-        await handleGameWin(transaction, senderRef.id, pointsToAdd, '비밀 편지 작성 보상');
-    });
-    return { success: true };
-};
-
-export const setGlobalDiscount = async (discount: number) => {
-    const settingsRef = doc(db, 'system_settings', 'main');
-    await setDoc(settingsRef, { globalDiscount: discount }, { merge: true });
-};
-
-export const bulkUpdateProductPrices = async (multiplier: number) => {
-  if (isNaN(multiplier) || multiplier < 0) {
-    throw new Error("유효한 배율(0 또는 양수)을 입력해야 합니다.");
-  }
-  const productsRef = collection(db, "products");
-  const snapshot = await getDocs(productsRef);
-  const batch = writeBatch(db);
-
-  snapshot.forEach(doc => {
-    const product = doc.data();
-    const currentPrice = product.price || 0;
-    const newPrice = Math.round(currentPrice * multiplier);
-    batch.update(doc.ref, { price: newPrice });
-  });
-
-  await batch.commit();
-};
-
-export const submitPurchaseDispute = async (userId: string, purchaseId: string, reason: string) => {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) throw new Error("User data not found.");
-    
-
-    const disputeData = {
-        userId,
-        purchaseId,
-        reason,
-        studentId: userDoc.data().studentId,
-        status: 'open',
-        createdAt: Timestamp.now(),
-    };
-
-    await addDoc(collection(db, 'disputes'), disputeData);
-};
-
-export const resolvePurchaseDispute = async (disputeId: string, purchaseId: string) => {
-    const disputeRef = doc(db, 'disputes', disputeId);
-    
-    const batch = writeBatch(db);
-    batch.update(disputeRef, { status: 'resolved' });
-    
-    await batch.commit();
 };
 
 export const sendWarningMessage = async (userId: string, message: string) => {
