@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, MessageCircleQuestion, User } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -10,18 +10,18 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.3,
+      staggerChildren: 0.3,
+      delayChildren: 0.2,
     },
   },
 };
 
 const itemVariants = {
-    hidden: { opacity: 0, filter: 'blur(16px)', scale: 1.1 },
+    hidden: { opacity: 0, filter: 'blur(16px)', y: 30 },
     visible: { 
         opacity: 1, 
         filter: 'blur(0px)',
-        scale: 1,
+        y: 0,
         transition: { 
             duration: 0.9,
             ease: [0.25, 1, 0.5, 1] 
@@ -35,7 +35,7 @@ export default function HomeClient() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center overflow-hidden">
       <motion.div
-        className="flex flex-col items-center justify-center gap-6"
+        className="flex flex-col items-center justify-center gap-8"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -61,35 +61,19 @@ export default function HomeClient() {
                 JongDalSam
               </text>
             </svg>
-           <div 
-                className="flex items-center justify-center -mt-2"
-            >
-                <User className="h-8 w-8 text-primary"/>
-                <p className="text-2xl font-bold text-primary font-headline ml-2">학생용</p>
-            </div>
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md"
+          className="w-full max-w-xs"
           variants={itemVariants}
         >
           <Button
             asChild
             size="lg"
-            className="font-bold sm:col-span-2"
+            className="font-bold w-full"
           >
             <Link href="/login">
               로그인하여 시작하기 <ChevronRight className="ml-2" />
-            </Link>
-          </Button>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="w-full"
-          >
-            <Link href="/guide">
-              <MessageCircleQuestion className="mr-2" /> 사용 가이드
             </Link>
           </Button>
         </motion.div>
