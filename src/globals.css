@@ -5,13 +5,13 @@
 
 @layer base {
   :root.theme-student {
-    --background: 18 100% 96%; /* fff2e6 */
+    --background: 24 20% 95%; /* A slightly off-white for a more physical feel */
     --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
+    --card: 24 20% 98%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 18 100% 50%; /* ff5500 */
+    --primary: 18 100% 50%; /* ff5500 - Kept the original orange */
     --primary-foreground: 0 0% 100%;
     --secondary: 30 10% 96%;
     --secondary-foreground: 30 10% 10%;
@@ -21,20 +21,21 @@
     --accent-foreground: 30 10% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 30 10% 90%;
-    --input: 30 10% 90%;
+    --border: 30 10% 85%; /* Slightly darker border for more depth */
+    --input: 30 10% 94%;
+    --input-inset-shadow: 0 2px 4px hsl(30 10% 50% / 0.1);
     --ring: 18 100% 50%;
-    --radius: 1rem;
+    --radius: 0.75rem; /* Slightly reduced radius for a classic feel */
   }
  
   :root.theme-teacher {
-    --background: 124 23% 85%; /* aed3b1 */
+    --background: 124 23% 85%;
     --foreground: 130 60% 10%;
     --card: 128 28% 98%;
     --card-foreground: 128 77% 10%;
     --popover: 128 28% 98%;
     --popover-foreground: 128 77% 10%;
-    --primary: 130 70% 28%; /* 117a1d */
+    --primary: 130 70% 28%;
     --primary-foreground: 0 0% 100%;
     --secondary: 128 20% 96%;
     --secondary-foreground: 128 20% 20%;
@@ -47,167 +48,62 @@
     --border: 128 20% 90%;
     --input: 128 20% 90%;
     --ring: 130 70% 28%;
-    --radius: 1rem;
+    --radius: 0.75rem;
   }
 
-  .dark {
-    /* Define dark theme variables if needed */
-  }
-
-  /* Liquid Glass Theme for landing page */
-  :root.liquid-glass-theme-enabled {
-    --background: 18 100% 97%;
-    --foreground: 24 10% 10%;
-    --card: 24 20% 100% / 0.5;
-    --card-foreground: 24 10% 10%;
-    --popover: 24 20% 100% / 0.7;
-    --popover-foreground: 24 10% 10%;
-    --primary: 18 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 30 10% 96% / 0.5;
-    --secondary-foreground: 30 10% 20%;
-    --muted: 30 10% 96% / 0.5;
-    --muted-foreground: 30 10% 45%;
-    --accent: 18 100% 50% / 0.1;
-    --accent-foreground: 18 100% 40%;
-    --destructive: 0 80% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 20% 90% / 0.8;
-    --input: 30 20% 98% / 0.6;
-    --ring: 18 100% 55%;
-  }
-
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
   body {
     @apply bg-background text-foreground;
-    transition: background-color 0.5s ease, color 0.5s ease;
-  }
-
-  body.theme-student:not(.liquid-glass-theme-enabled) {
-      background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
-  }
-  body.theme-teacher {
-      background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(0, 0%, 100%));
-  }
-  
-  body.liquid-glass-theme-enabled {
-    background-color: hsl(var(--background));
-  }
-
-  body.liquid-glass-theme-enabled::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 150vw;
-    height: 150vh;
-    transform: translate(-25%, -25%);
-    background: radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.15), transparent 30%),
-                radial-gradient(circle at 80% 70%, hsl(var(--ring) / 0.1), transparent 40%);
-    animation: gradient-move 25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-    z-index: -1;
-  }
-  
-  .liquid-glass-theme-enabled .card,
-  .liquid-glass-theme-enabled .popover,
-  .liquid-glass-theme-enabled [role="dialog"],
-  .liquid-glass-theme-enabled [role="alert-dialog"],
-  .liquid-glass-theme-enabled .sheet,
-  .liquid-glass-theme-enabled [cmdk-root] {
-      @apply bg-card border shadow-soft-xl;
-      backdrop-filter: url(#frosted);
-      -webkit-backdrop-filter: url(#frosted);
-      box-shadow: 0 0 0 1px hsl(0 0% 100% / .15) inset,
-                  0 8px 32px 0 hsl(var(--primary) / .1);
-  }
-  
-  .liquid-glass-theme-enabled [cmdk-item][aria-selected=true] {
-      @apply bg-primary/10;
-  }
-
-  .liquid-glass-theme-enabled .table > :not([hidden]) ~ :not([hidden]) {
-    @apply border-white/50;
-  }
-
-  .liquid-glass-theme-enabled .card-content, 
-  .liquid-glass-theme-enabled .popover-content,
-  .liquid-glass-theme-enabled .dialog-content,
-  .liquid-glass-theme-enabled .alert-dialog-content {
-    background-color: transparent;
-  }
-
-  .liquid-glass-theme-enabled .button[data-variant="outline"],
-  .liquid-glass-theme-enabled input,
-  .liquid-glass-theme-enabled textarea,
-  .liquid-glass-theme-enabled .select-trigger
-   {
-      @apply bg-input border-white/60 shadow-inner;
-  }
-  
-  .liquid-glass-theme-enabled .button {
-    @apply hover:bg-primary/10;
-  }
-  
-   .liquid-glass-theme-enabled .button[data-variant="default"] {
-      background-image: linear-gradient(to top right, hsl(var(--primary) / 0.9), hsl(var(--primary) / 1));
-      box-shadow: 0 0 0 1px hsl(var(--primary) / 0.8) inset, 0 4px 15px hsl(var(--primary) / 0.3);
-      text-shadow: 0 1px 2px hsl(var(--primary) / 0.3);
-   }
-   
-   .liquid-glass-theme-enabled .button[data-variant="destructive"] {
-      background-image: linear-gradient(to top right, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9));
-      box-shadow: 0 0 0 1px hsl(var(--destructive) / 0.8) inset, 0 2px 10px hsl(var(--destructive) / 0.4);
-   }
-
-  .card {
-     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }
 }
 
 @layer components {
-  .gradient-blue {
-    background-image: linear-gradient(to bottom right, #3b82f6, #60a5fa);
+  /* Applying Skeuomorphic styles */
+  .skeu-button {
+    background: linear-gradient(to bottom, hsl(var(--primary) / 0.95), hsl(var(--primary) / 0.85));
+    border-top: 1px solid hsl(var(--primary) / 0.9);
+    border-bottom: 1px solid hsl(var(--primary) / 0.7);
+    box-shadow: 
+      inset 0 1px 0 hsl(var(--primary-foreground) / 0.2), 
+      0 1px 2px hsl(0 0% 0% / 0.1),
+      0 4px 6px hsl(0 0% 0% / 0.05);
+    text-shadow: 0 -1px 1px hsl(0 0% 0% / 0.1);
   }
-  .gradient-orange {
-    background-image: linear-gradient(to bottom right, #f97316, #fb923c);
+  .skeu-button:hover {
+    background: linear-gradient(to bottom, hsl(var(--primary)), hsl(var(--primary) / 0.9));
   }
-  .gradient-purple {
-    background-image: linear-gradient(to bottom right, #8b5cf6, #a78bfa);
-  }
-  .gradient-red {
-    background-image: linear-gradient(to bottom right, #ef4444, #f87171);
-  }
-  .gradient-amber {
-    background-image: linear-gradient(to bottom right, #f59e0b, #fbbf24);
-  }
-  .gradient-lime {
-      background-image: linear-gradient(to bottom right, #84cc16, #a3e635);
-  }
-  .gradient-emerald {
-      background-image: linear-gradient(to bottom right, #10b981, #34d399);
-  }
-  .gradient-sky {
-      background-image: linear-gradient(to bottom right, #0ea5e9, #38bdf8);
-  }
-  .gradient-violet {
-      background-image: linear-gradient(to bottom right, #7c3aed, #a78bfa);
+  .skeu-button:active {
+    background: linear-gradient(to top, hsl(var(--primary) / 0.8), hsl(var(--primary) / 0.9));
+    box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.2), 0 1px 1px hsl(0 0% 0% / 0.05);
+    transform: translateY(2px);
   }
 
-  .animate-highlight-pulse {
-    animation: highlight-pulse 2s ease-out infinite;
+  .skeu-destructive-button {
+    background: linear-gradient(to bottom, hsl(var(--destructive) / 0.95), hsl(var(--destructive) / 0.85));
+    border-top: 1px solid hsl(var(--destructive) / 0.9);
+    border-bottom: 1px solid hsl(var(--destructive) / 0.7);
+    box-shadow: 
+      inset 0 1px 0 hsl(var(--destructive-foreground) / 0.2), 
+      0 1px 2px hsl(0 0% 0% / 0.1),
+      0 4px 6px hsl(0 0% 0% / 0.05);
+    text-shadow: 0 -1px 1px hsl(0 0% 0% / 0.1);
   }
-}
+  .skeu-destructive-button:hover {
+      background: linear-gradient(to bottom, hsl(var(--destructive)), hsl(var(--destructive) / 0.9));
+  }
+  .skeu-destructive-button:active {
+    background: linear-gradient(to top, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9));
+    box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.2), 0 1px 1px hsl(0 0% 0% / 0.05);
+    transform: translateY(2px);
+  }
 
-@layer utilities {
-    .shadow-soft-lg {
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
-    }
-     .shadow-soft-xl {
-        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
-    }
+  .skeu-input {
+    background-color: hsl(var(--input));
+    box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.06);
+  }
+
+  .skeu-card {
+    background-color: hsl(var(--card));
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+    border-color: hsl(var(--border));
+  }
 }
